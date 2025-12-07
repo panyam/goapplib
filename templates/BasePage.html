@@ -11,7 +11,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ .Title }}</title>
+    {{ block "TitleSection" . }}<title>{{ .Title }}</title>{{ end }}
 
     <!-- Theme initialization (before CSS to prevent flash) -->
     <script>
@@ -23,11 +23,15 @@
     }
     </script>
 
-    <!-- Tailwind CSS -->
+    <!-- CSS -->
+    {{ block "CSSSection" . }}
     <link href="/static/css/tailwind.css" rel="stylesheet">
+    {{ end }}
 
     <!-- HTMX -->
+    {{ block "HTMXSection" . }}
     <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
+    {{ end }}
 
     {{ block "ExtraHeadSection" . }}{{ end }}
 </head>
@@ -73,6 +77,12 @@
 
     <!-- Footer -->
     {{ block "FooterSection" . }}{{ end }}
+
+    <!-- App container for JS frameworks -->
+    {{ block "AppContainerSection" . }}{{ end }}
+
+    <!-- Main app script -->
+    {{ block "AppScriptSection" . }}{{ end }}
 
     <!-- Pre-body scripts -->
     {{ block "PreScriptsSection" . }}{{ end }}
