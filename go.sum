@@ -1,0 +1,4 @@
+github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
+github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
+github.com/panyam/templar v0.0.10 h1:iR7fVIP0JyKOfqhwK3pwqwWYnrF642iavdyzCgblIfw=
+github.com/panyam/templar v0.0.10/go.mod h1:tZj+kJyPnpjDafq2fIuVp4swMiLJjb46ZdGX+scRngo=

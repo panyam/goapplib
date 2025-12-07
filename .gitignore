@@ -1,0 +1,13 @@
+dist
+tmp
+talks
+data/
+*.log
+bin
+web/diagnose-dashboard.*
+playwright-report
+test-results
+.DS_Store
+y.output
+__debug*
+web/tests/screenshots

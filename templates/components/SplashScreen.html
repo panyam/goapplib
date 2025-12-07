@@ -1,0 +1,35 @@
+<!-- goapplib/templates/components/SplashScreen.html -->
+<!-- Loading splash screen -->
+
+{{ define "DefaultSplashScreen" }}
+<div id="splash-screen" class="fixed inset-0 z-[9999] bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300">
+    <div class="text-center">
+        <!-- Spinner -->
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mb-4"></div>
+
+        <!-- Title -->
+        {{ if .SplashTitle }}
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">{{ .SplashTitle }}</h2>
+        {{ end }}
+
+        <!-- Message -->
+        {{ if .SplashMessage }}
+        <p class="text-gray-600 dark:text-gray-400">{{ .SplashMessage }}</p>
+        {{ else }}
+        <p class="text-gray-600 dark:text-gray-400">Loading...</p>
+        {{ end }}
+    </div>
+</div>
+{{ end }}
+
+{{ define "CustomSplashScreen" }}
+<!-- Override this template for custom splash screens -->
+<div id="splash-screen" class="fixed inset-0 z-[9999] bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300">
+    {{ block "SplashContent" . }}
+    <div class="text-center">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mb-4"></div>
+        <p class="text-gray-600 dark:text-gray-400">Loading...</p>
+    </div>
+    {{ end }}
+</div>
+{{ end }}
