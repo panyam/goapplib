@@ -1,6 +1,6 @@
 {
   "name": "@panyam/tsappkit",
-  "version": "0.1.0",
+  "version": "0.0.3",
   "description": "TypeScript application toolkit with component lifecycle management, event system, and UI utilities",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
