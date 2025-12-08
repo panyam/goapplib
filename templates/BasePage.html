@@ -118,16 +118,6 @@ CUSTOMIZABLE BLOCKS:
     <!-- Theme toggle script -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const toggleBtn = document.getElementById('theme-toggle-button');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', function() {
-                document.documentElement.classList.toggle('dark');
-                localStorage.setItem('theme',
-                    document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-                );
-            });
-        }
-
         // Hide splash screen
         const splash = document.getElementById('splash-screen');
         if (splash) {
