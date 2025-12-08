@@ -1,0 +1,44 @@
+{
+  "name": "@panyam/tsappkit",
+  "version": "0.1.0",
+  "description": "TypeScript application toolkit with component lifecycle management, event system, and UI utilities",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "typescript",
+    "component",
+    "lifecycle",
+    "event-bus",
+    "ui-toolkit"
+  ],
+  "author": "panyam",
+  "license": "MIT",
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": ""
+  }
+}
