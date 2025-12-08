@@ -1,9 +1,35 @@
 <!-- goapplib/templates/BasePage.html -->
-<!-- Base page template - extend this for your pages -->
-{{# include "Header.html" #}}
-{{# include "components/Modal.html" #}}
-{{# include "components/Toast.html" #}}
-{{# include "components/SplashScreen.html" #}}
+<!--
+USAGE WITH NAMESPACES:
+{{#/*
+  {{# namespace "Base" "goapplib/BasePage.html" #}}
+  {{# extend "Base:BasePage" "MyBasePage" "Base:HeaderSection" "MyHeader" #}}
+
+  {{ define "MyHeader" }}
+    <!-- Custom header -->
+  {{ end }}
+*/#}}
+
+CUSTOMIZABLE BLOCKS:
+- TitleSection: Page title
+- CSSSection: CSS includes
+- HTMXSection: HTMX script
+- ExtraHeadSection: Additional head content
+- SplashScreenSection: Splash screen
+- HeaderSection: Header and navigation drawer
+- BodySection: Main page content
+- ModalSection: Modal container
+- ToastSection: Toast container
+- FooterSection: Footer content
+- AppContainerSection: Container for JS frameworks
+- AppScriptSection: Main app script
+- PreScriptsSection: Scripts before theme toggle
+- PostScriptsSection: Scripts at end of body
+-->
+{{# include "./Header.html" #}}
+{{# include "./components/Modal.html" #}}
+{{# include "./components/Toast.html" #}}
+{{# include "./components/SplashScreen.html" #}}
 
 {{ define "BasePage" }}
 <!DOCTYPE html>
@@ -41,7 +67,7 @@
     <!-- Splash Screen -->
     {{ if not .DisableSplashScreen }}
     {{ block "SplashScreenSection" . }}
-        {{ template "DefaultSplashScreen" . }}
+        {{ template "SimpleSplashScreen" . }}
     {{ end }}
     {{ end }}
 
@@ -51,6 +77,8 @@
         <div class="print:hidden sticky left-0 top-0 z-20 border-b border-gray-200 dark:border-gray-700">
             {{ template "Header" .Header }}
         </div>
+        <!-- Header Actions Drawer (sibling of header, not child) -->
+        {{ template "HeaderActionsDrawer" . }}
         {{ end }}
     {{ end }}
 
