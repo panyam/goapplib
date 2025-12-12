@@ -18,7 +18,7 @@
 
         {{ block "GridItemImage" . }}
         {{ if .PreviewUrl }}
-        <a href="{{ $.ViewUrl }}/{{ .Id }}" class="block">
+        <a href="{{ $.ViewUrl .Id }}" class="block">
             <div class="aspect-video w-full bg-gray-100 dark:bg-gray-900 overflow-hidden">
                 <img src="{{ .PreviewUrl }}"
                      alt="{{ .Name }}"
@@ -33,7 +33,7 @@
         <div class="p-4">
             {{ block "GridItemTitle" . }}
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate mb-2">
-                <a href="{{ $.ViewUrl }}/{{ .Id }}" class="hover:text-blue-600 dark:hover:text-blue-400">
+                <a href="{{ $.ViewUrl .Id }}" class="hover:text-blue-600 dark:hover:text-blue-400">
                     {{ .Name }}
                 </a>
             </h3>
@@ -68,20 +68,20 @@
             {{ if $.ShowActions }}
             <div class="entity-action-menu hidden absolute right-2 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
                 <div class="py-1" role="menu">
-                    {{ if $.ViewUrl }}
-                    <a href="{{ $.ViewUrl }}/{{ .Id }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
+                    {{ if $.ViewUrl .Id }}
+                    <a href="{{ $.ViewUrl .Id }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
                         View
                     </a>
                     {{ end }}
-                    {{ if $.EditUrl }}
-                    <a href="{{ $.EditUrl }}/{{ .Id }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
+                    {{ if $.EditUrl .Id }}
+                    <a href="{{ $.EditUrl .Id }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
                         Edit
                     </a>
                     {{ end }}
-                    {{ if $.DeleteUrl }}
+                    {{ if $.DeleteUrl .Id }}
                     <button class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600"
                             {{ if $.HtmxEnabled }}
-                            hx-delete="{{ $.DeleteUrl }}/{{ .Id }}"
+                            hx-delete="{{ $.DeleteUrl .Id }}"
                             hx-target="#item-{{ .Id }}"
                             hx-swap="outerHTML swap:200ms"
                             hx-confirm="Delete {{ .Name }}?"

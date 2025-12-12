@@ -180,7 +180,7 @@ CUSTOMIZABLE TEMPLATES (override via extend):
              data-entity-id="{{ .Id }}">
 
             <!-- Preview Image/Placeholder -->
-            <a href="{{ $.ViewUrl }}/{{ .Id }}" class="block relative">
+            <a href="{{ $.ViewUrl .Id }}" class="block relative">
                 <div class="aspect-video w-full bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 overflow-hidden">
                     {{ template "GridCardPreview" . }}
                 </div>
@@ -192,7 +192,7 @@ CUSTOMIZABLE TEMPLATES (override via extend):
             <div class="p-4">
                 <div class="flex items-start justify-between mb-2">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate flex-1 mr-2">
-                        <a href="{{ $.ViewUrl }}/{{ .Id }}" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        <a href="{{ $.ViewUrl .Id }}" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                             {{ if .Name }}{{ .Name }}{{ else }}Untitled{{ end }}
                         </a>
                     </h3>
@@ -218,12 +218,12 @@ CUSTOMIZABLE TEMPLATES (override via extend):
 
                 <!-- Action Buttons -->
                 <div class="flex gap-2">
-                    <a href="{{ $.ViewUrl }}/{{ .Id }}"
+                    <a href="{{ $.ViewUrl .Id }}"
                        class="flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
                         View
                     </a>
-                    {{ if $.EditUrl }}
-                    <a href="{{ $.EditUrl }}/{{ .Id }}"
+                    {{ if $.EditUrl .Id }}
+                    <a href="{{ $.EditUrl .Id }}"
                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -236,17 +236,17 @@ CUSTOMIZABLE TEMPLATES (override via extend):
                 {{ if $.ShowActions }}
                 <div class="entity-action-menu hidden absolute right-4 mt-2 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-20">
                     <div class="py-1" role="menu">
-                        <a href="{{ $.ViewUrl }}/{{ .Id }}"
+                        <a href="{{ $.ViewUrl .Id }}"
                            class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
                             View
                         </a>
-                        {{ if $.EditUrl }}
-                        <a href="{{ $.EditUrl }}/{{ .Id }}"
+                        {{ if $.EditUrl .Id }}
+                        <a href="{{ $.EditUrl .Id }}"
                            class="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
                             Edit
                         </a>
                         {{ end }}
-                        {{ if $.DeleteUrl }}
+                        {{ if $.DeleteUrl .Id }}
                         <hr class="my-1 border-gray-200 dark:border-gray-600">
                         <button onclick="confirmEntityDelete('{{ .Id }}', '{{ .Name }}')"
                                 class="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600">
@@ -284,7 +284,7 @@ CUSTOMIZABLE TEMPLATES (override via extend):
                                 {{ template "TableRowPreview" . }}
                             </div>
                             <div class="ml-4">
-                                <a href="{{ $.ViewUrl }}/{{ .Id }}" class="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                <a href="{{ $.ViewUrl .Id }}" class="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                                     {{ if .Name }}{{ .Name }}{{ else }}Untitled{{ end }}
                                 </a>
                             </div>
@@ -295,17 +295,17 @@ CUSTOMIZABLE TEMPLATES (override via extend):
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div class="flex items-center justify-end gap-2">
-                            <a href="{{ $.ViewUrl }}/{{ .Id }}"
+                            <a href="{{ $.ViewUrl .Id }}"
                                class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
                                 View
                             </a>
-                            {{ if $.EditUrl }}
-                            <a href="{{ $.EditUrl }}/{{ .Id }}"
+                            {{ if $.EditUrl .Id }}
+                            <a href="{{ $.EditUrl .Id }}"
                                class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                                 Edit
                             </a>
                             {{ end }}
-                            {{ if $.DeleteUrl }}
+                            {{ if $.DeleteUrl .Id }}
                             <button onclick="confirmEntityDelete('{{ .Id }}', '{{ .Name }}')"
                                     class="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                                     title="Delete">
