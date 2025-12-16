@@ -85,6 +85,12 @@ func (d *EntityListingData[ItemType]) WithEdit(url string) *EntityListingData[It
 	return d
 }
 
+// WithView sets the viewer URL
+func (d *EntityListingData[ItemType]) WithView(url string) *EntityListingData[ItemType] {
+	d.ViewUrlFormat = url
+	return d
+}
+
 // WithDelete sets the delete URL
 func (d *EntityListingData[ItemType]) WithDelete(url string) *EntityListingData[ItemType] {
 	d.DeleteUrlFormat = url

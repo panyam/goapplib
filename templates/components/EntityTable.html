@@ -82,7 +82,7 @@
                                     {{ if $deleteUrl }}
                                     <button class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600"
                                             {{ if $.HtmxEnabled }}
-                                            hx-delete="{{ $.DeleteUrl }}/{{ .Id }}"
+                                            hx-delete="{{ $deleteUrl }}"
                                             hx-target="#row-{{ .Id }}"
                                             hx-swap="outerHTML swap:200ms"
                                             hx-confirm="Delete this item?"

@@ -248,7 +248,7 @@ CUSTOMIZABLE TEMPLATES (override via extend):
                         {{ end }}
                         {{ if $.DeleteUrl .Id }}
                         <hr class="my-1 border-gray-200 dark:border-gray-600">
-                        <button onclick="confirmEntityDelete('{{ .Id }}', '{{ .Name }}')"
+                        <button onclick="confirmEntityDelete('{{ $.DeleteUrl .Id }}', '{{ .Id }}', '{{ .Name }}')"
                                 class="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600">
                             Delete
                         </button>
@@ -306,7 +306,7 @@ CUSTOMIZABLE TEMPLATES (override via extend):
                             </a>
                             {{ end }}
                             {{ if $.DeleteUrl .Id }}
-                            <button onclick="confirmEntityDelete('{{ .Id }}', '{{ .Name }}')"
+                            <button onclick="confirmEntityDelete('{{ $.DeleteUrl .Id }}', '{{ .Id }}', '{{ .Name }}')"
                                     class="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                                     title="Delete">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -444,15 +444,12 @@ if (searchInput) {
 {{ end }}
 
 // Delete confirmation
-function confirmEntityDelete(id, name) {
+function confirmEntityDelete(deleteUrl, id, name) {
     if (!confirm(`Are you sure you want to delete "${name || 'this item'}"? This action cannot be undone.`)) {
         return;
     }
 
-    {{ if .DeleteUrl }}
-    fetch('{{ .DeleteUrl }}/' + id, {
-        method: 'DELETE'
-    }).then(response => {
+    fetch(deleteUrl, { method: 'DELETE' }).then(response => {
         if (response.ok || response.redirected) {
             window.location.reload();
         } else {
@@ -462,7 +459,6 @@ function confirmEntityDelete(id, name) {
         console.error('Delete error:', err);
         alert('Failed to delete item');
     });
-    {{ end }}
 }
 </script>
 
