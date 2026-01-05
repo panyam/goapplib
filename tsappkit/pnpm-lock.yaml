@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      ace-builds:
+        specifier: ^1.43.0
+        version: 1.43.5
       sass:
         specifier: ^1.77.0
         version: 1.97.1
@@ -383,6 +386,9 @@ packages:
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
+
+  ace-builds@1.43.5:
+    resolution: {integrity: sha512-iH5FLBKdB7SVn9GR37UgA/tpQS8OTWIxWAuq3Ofaw+Qbc69FfPXsXd9jeW7KRG2xKpKMqBDnu0tHBrCWY5QI7A==}
 
   acorn@8.15.0:
     resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
@@ -858,6 +864,8 @@ snapshots:
     optional: true
 
   '@types/estree@1.0.8': {}
+
+  ace-builds@1.43.5: {}
 
   acorn@8.15.0: {}
 

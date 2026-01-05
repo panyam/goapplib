@@ -26,7 +26,7 @@
   ],
   "scripts": {
     "build": "tsup && npm run build:css",
-    "build:css": "sass styles/docs/DocsPage.scss dist/DocsPage.css --style=expanded && sass styles/docs/DocsPage.scss dist/DocsPage.min.css --style=compressed",
+    "build:css": "sass styles/docs/DocsPage.scss dist/docs/DocsPage.css --style=expanded && sass styles/docs/DocsPage.scss dist/docs/DocsPage.min.css --style=compressed",
     "dev": "tsup --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
@@ -44,11 +44,19 @@
   "author": "panyam",
   "license": "MIT",
   "devDependencies": {
+    "ace-builds": "^1.43.0",
     "sass": "^1.77.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0"
   },
-  "peerDependencies": {},
+  "peerDependencies": {
+    "ace-builds": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ace-builds": {
+      "optional": true
+    }
+  },
   "repository": {
     "type": "git",
     "url": ""

@@ -37,6 +37,3 @@ export type {
     ShortcutConfig,
     ShortcutManagerConfig
 } from './KeyboardShortcutManager';
-
-// Documentation site components
-export { CodeBlock, initCodeBlocks, highlightActiveSidebarLink, initPageSetup } from './docs';
