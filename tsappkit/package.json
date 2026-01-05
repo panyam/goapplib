@@ -1,7 +1,7 @@
 {
   "name": "@panyam/tsappkit",
-  "version": "0.0.3",
-  "description": "TypeScript application toolkit with component lifecycle management, event system, and UI utilities",
+  "version": "0.0.4",
+  "description": "TypeScript application toolkit with component lifecycle management, event system, UI utilities, and documentation site components",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -10,14 +10,23 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
-    }
+    },
+    "./docs": {
+      "types": "./dist/docs/index.d.ts",
+      "import": "./dist/docs/index.mjs",
+      "require": "./dist/docs/index.js"
+    },
+    "./styles/*": "./styles/*",
+    "./dist/*": "./dist/*"
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "styles"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && npm run build:css",
+    "build:css": "sass styles/docs/DocsPage.scss dist/DocsPage.css --style=expanded && sass styles/docs/DocsPage.scss dist/DocsPage.min.css --style=compressed",
     "dev": "tsup --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
@@ -28,11 +37,14 @@
     "component",
     "lifecycle",
     "event-bus",
-    "ui-toolkit"
+    "ui-toolkit",
+    "documentation",
+    "docs-components"
   ],
   "author": "panyam",
   "license": "MIT",
   "devDependencies": {
+    "sass": "^1.77.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0"
   },

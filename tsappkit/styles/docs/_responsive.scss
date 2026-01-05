@@ -1,0 +1,37 @@
+// ============================================
+//   Responsive Styles
+// ============================================
+
+@media (max-width: 1024px) {
+  .page-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .sidebar-content {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-nav {
+    display: none;
+  }
+
+  .content-header h1 {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-container {
+    padding: var(--spacing-md);
+  }
+
+  .content-header h1 {
+    font-size: 1.75rem;
+  }
+}
