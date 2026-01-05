@@ -93,6 +93,11 @@ export function initCodeBlocks(selector: string = '.content-body pre'): void {
     if (pre.parentElement?.classList.contains('code-block')) {
       return;
     }
+    // Skip if this pre contains another pre (outer wrapper of double-wrapped code blocks)
+    // We only want to process the innermost pre that has the actual code
+    if (pre.querySelector('pre')) {
+      return;
+    }
     new CodeBlock(pre as HTMLPreElement);
   });
 }
