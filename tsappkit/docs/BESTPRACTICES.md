@@ -68,12 +68,21 @@ Organize CSS into separate component files under `static/css/components/`:
 
 ### Using tsappkit Styles
 
-Import base documentation styles via webpack in your entry point:
+**Important:** Load base documentation styles via static `<link>` tag to prevent Flash of Unstyled Content (FOUC). Do NOT import via webpack/JavaScript.
 
-```typescript
-// DocsPage.ts
-import "@panyam/tsappkit/dist/DocsPage.css";
+1. Copy the CSS during build (in Makefile):
+```makefile
+copycss:
+	cp node_modules/@panyam/tsappkit/dist/docs/DocsPage.css static/css/tsappkit-docs.css
 ```
+
+2. Include in HTML `<head>` (in BasePage.html):
+```html
+<link rel="stylesheet" href="{{.Site.PathPrefix}}/static/css/tsappkit-docs.css">
+<link rel="stylesheet" href="{{.Site.PathPrefix}}/static/css/main.css">
+```
+
+This ensures CSS loads before content renders, eliminating the flash where content appears unstyled.
 
 ### Theme Variables
 
@@ -248,13 +257,17 @@ observer.observe(document.documentElement, {
 
 ### Available Exports
 
-```typescript
-// Documentation page utilities
-import { initCodeBlocks, initPageSetup } from "@panyam/tsappkit";
+tsappkit provides two separate entry points to avoid bundle bloat:
 
-// CSS (import in entry point for webpack bundling)
-import "@panyam/tsappkit/dist/DocsPage.css";
+```typescript
+// Core components (no heavy dependencies)
+import { BaseComponent, EventBus, Modal } from "@panyam/tsappkit";
+
+// Documentation components (requires ace-builds peer dep)
+import { initCodeBlocks, initPageSetup, ActionCompiler } from "@panyam/tsappkit/docs";
 ```
+
+**Note:** CSS should be loaded statically via `<link>` tags, not imported via JavaScript. See "Using tsappkit Styles" above.
 
 ### initCodeBlocks()
 
@@ -398,13 +411,35 @@ Use conditional rendering in Content.html based on file extension:
 
 This ensures markdown files are parsed and rendered, while HTML files are output directly.
 
+### Flash of Unstyled Content (FOUC)
+
+**Problem:** Page flashes with unstyled content before CSS applies.
+
+**Cause:** CSS is loaded via JavaScript (webpack import) instead of statically in the HTML head.
+
+**Solution:** Load base CSS via static `<link>` tag in HTML head, not via JavaScript import:
+
+```makefile
+# Makefile - copy CSS during build
+copycss:
+	cp node_modules/@panyam/tsappkit/dist/docs/DocsPage.css static/css/tsappkit-docs.css
+```
+
+```html
+<!-- BasePage.html - load BEFORE content renders -->
+<link rel="stylesheet" href="{{.Site.PathPrefix}}/static/css/tsappkit-docs.css">
+<link rel="stylesheet" href="{{.Site.PathPrefix}}/static/css/main.css">
+```
+
+Remove any CSS imports from your TypeScript entry points:
+```typescript
+// DON'T do this - causes FOUC
+import "@panyam/tsappkit/dist/docs/DocsPage.css";
+```
+
 ### CSS Not Loading from node_modules
 
-Don't use `@import url()` for node_modules paths in CSS. Instead, import via webpack in your TypeScript entry point:
-
-```typescript
-import "@panyam/tsappkit/dist/DocsPage.css";
-```
+Don't use `@import url()` for node_modules paths in CSS. Copy the CSS to your static folder during build (see FOUC solution above).
 
 ### DockView Not Theming
 
