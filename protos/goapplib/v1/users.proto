@@ -1,0 +1,196 @@
+syntax = "proto3";
+
+package goapplib.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/field_mask.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/panyam/goapplib/gen/go/goapplib/v1";
+
+// User represents a user profile in the application.
+// This is designed to be generic and reusable across different applications.
+// App-specific data can be stored in the extras field.
+message User {
+  // Timestamps
+  google.protobuf.Timestamp created_at = 1;
+  google.protobuf.Timestamp updated_at = 2;
+
+  // Unique ID for the user (links to auth system user)
+  string id = 3;
+
+  // Display name
+  string name = 4;
+
+  // User bio/description
+  string description = 5;
+
+  // User tags/interests
+  repeated string tags = 6;
+
+  // Avatar/profile image URL
+  string image_url = 7;
+
+  // Primary email (from identity, for display)
+  string email = 8;
+
+  // App-specific extra data - use this for custom fields
+  // Apps can store any structured data here without modifying the proto
+  google.protobuf.Struct extras = 20;
+}
+
+// Pagination request parameters
+message Pagination {
+  // Instead of an offset an abstract "page" key is provided that offers
+  // an opaque "pointer" into some offset in a result set.
+  string page_key = 1;
+
+  // If a pagekey is not supported we can also support a direct integer offset
+  // for cases where it makes sense.
+  int32 page_offset = 2;
+
+  // Number of results to return.
+  int32 page_size = 3;
+}
+
+// Pagination response information
+message PaginationResponse {
+  // The key/pointer string that subsequent List requests should pass to
+  // continue the pagination.
+  string next_page_key = 2;
+
+  // Also support an integer offset if possible
+  int32 next_page_offset = 3;
+
+  // Whether there are more results.
+  bool has_more = 4;
+
+  // Total number of results.
+  int32 total_results = 5;
+}
+
+// Request to list users with pagination
+message ListUsersRequest {
+  // Pagination info
+  Pagination pagination = 1;
+
+  // Optional filter by owner id
+  string owner_id = 2;
+}
+
+// Response containing list of users
+message ListUsersResponse {
+  repeated User items = 1;
+  PaginationResponse pagination = 2;
+}
+
+// Request to get a single user
+message GetUserRequest {
+  string id = 1;
+  string version = 2; // Optional, defaults to latest
+}
+
+// Response containing a single user
+message GetUserResponse {
+  User user = 1;
+}
+
+// Request to update a user
+message UpdateUserRequest {
+  // User being updated
+  User user = 1;
+
+  // Mask of fields being updated in this User to make partial changes.
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+// Response from updating a user
+message UpdateUserResponse {
+  // User after update
+  User user = 1;
+}
+
+// Request to delete a user
+message DeleteUserRequest {
+  // ID of the user to be deleted.
+  string id = 1;
+}
+
+// Response from deleting a user
+message DeleteUserResponse {
+}
+
+// Request to batch get users by IDs
+message GetUsersRequest {
+  // IDs of the users to be fetched
+  repeated string ids = 1;
+}
+
+// Response containing map of users by ID
+message GetUsersResponse {
+  map<string, User> users = 1;
+}
+
+// Request to create a new user
+message CreateUserRequest {
+  // User to create
+  User user = 1;
+}
+
+// Response from creating a user
+message CreateUserResponse {
+  // Created user
+  User user = 1;
+
+  // Error specific to a field if there are any errors (e.g., duplicate ID suggestions)
+  map<string, string> field_errors = 2;
+}
+
+// UsersService provides CRUD operations for user profiles.
+service UsersService {
+  // CreateUser creates a new user profile.
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/users"
+      body: "*"
+    };
+  }
+
+  // GetUser retrieves a user by ID.
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/users/{id}"
+    };
+  }
+
+  // GetUsers retrieves multiple users by IDs.
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/users:batchGet"
+      body: "*"
+    };
+  }
+
+  // ListUsers lists users with pagination.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/users"
+    };
+  }
+
+  // UpdateUser updates a user profile.
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
+    option (google.api.http) = {
+      patch: "/api/v1/users/{user.id}"
+      body: "*"
+    };
+  }
+
+  // DeleteUser deletes a user profile.
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/users/{id}"
+    };
+  }
+}

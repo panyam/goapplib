@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package goapplib.v1;
+
+import "dal/v1/annotations.proto";
+import "goapplib/v1/users.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/panyam/goapplib/gen/gorm;goappgorm";
+
+// Well-known type wrappers for GORM compatibility.
+// These implement driver.Valuer and sql.Scanner for JSON serialization.
+
+message StructGORM {
+  option (dal.v1.gorm) = { source: "google.protobuf.Struct", implement_scanner: true };
+}
+
+message ValueGORM {
+  option (dal.v1.gorm) = { source: "google.protobuf.Value", implement_scanner: true };
+}
+
+message ListValueGORM {
+  option (dal.v1.gorm) = { source: "google.protobuf.ListValue", implement_scanner: true };
+}
+
+// UserGORM is the GORM database representation of User.
+// Auto-generates conversion functions and DAL via protoc-gen-dal.
+message UserGORM {
+  option (dal.v1.gorm) = { source: "goapplib.v1.User", table: "users" };
+
+  string id = 1 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey"]
+  }];
+
+  // Tags as JSON for cross-DB compatibility
+  repeated string tags = 6 [(dal.v1.column) = {
+    gorm_tags: ["serializer:json"]
+  }];
+
+  // Extras as JSON for app-specific data
+  StructGORM extras = 20 [(dal.v1.column) = {
+    gorm_tags: ["serializer:json"]
+  }];
+}

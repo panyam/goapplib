@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package goapplib.v1;
+
+import "dal/v1/annotations.proto";
+import "goapplib/v1/users.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/panyam/goapplib/gen/datastore;goappdatastore";
+
+// Well-known type wrappers for Datastore compatibility.
+
+message StructDatastore {
+  option (dal.v1.datastore_options) = { source: "google.protobuf.Struct" };
+}
+
+message ValueDatastore {
+  option (dal.v1.datastore_options) = { source: "google.protobuf.Value" };
+}
+
+message ListValueDatastore {
+  option (dal.v1.datastore_options) = { source: "google.protobuf.ListValue" };
+}
+
+// UserDatastore is the Google Cloud Datastore representation of User.
+// Auto-generates conversion functions and DAL via protoc-gen-dal.
+message UserDatastore {
+  option (dal.v1.datastore_options) = {
+    source: "goapplib.v1.User"
+    kind: "User"
+  };
+
+  // ID - used for key, not stored as property
+  string id = 1 [(dal.v1.column) = {
+    datastore_tags: ["-"]
+  }];
+
+  // Email - indexed for lookup by email
+  string email = 2;
+
+  // Tags as noindex (not queryable)
+  repeated string tags = 3 [(dal.v1.column) = {
+    datastore_tags: ["noindex"]
+  }];
+
+  // Extras as noindex (large nested struct)
+  StructDatastore extras = 4 [(dal.v1.column) = {
+    datastore_tags: ["noindex"]
+  }];
+}
