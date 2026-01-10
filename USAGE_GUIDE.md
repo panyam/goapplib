@@ -19,6 +19,8 @@ A lightweight, stdlib-native Go library for building server-rendered web applica
 9. [HTMX Integration](#htmx-integration)
 10. [Responsive Patterns](#responsive-patterns)
 11. [Template Installation](#template-installation)
+12. [UsersService](#usersservice)
+13. [API Reference](#api-reference)
 
 ---
 
@@ -1146,6 +1148,126 @@ func main() {
 
     // Serve
     http.ListenAndServe(":8080", mux)
+}
+```
+
+---
+
+## UsersService
+
+The library provides a complete user management service with multiple storage backends.
+
+### User Proto
+
+Users are defined using Protocol Buffers with an extensible `extras` field:
+
+```protobuf
+message User {
+  google.protobuf.Timestamp created_at = 1;
+  google.protobuf.Timestamp updated_at = 2;
+  string id = 3;
+  string name = 4;
+  string description = 5;
+  repeated string tags = 6;
+  string image_url = 7;
+  string email = 8;
+  google.protobuf.Struct extras = 20;  // App-specific data
+}
+```
+
+### Service Interface
+
+```go
+type UsersService interface {
+    CreateUser(ctx context.Context, req *v1.CreateUserRequest) (*v1.CreateUserResponse, error)
+    GetUser(ctx context.Context, req *v1.GetUserRequest) (*v1.GetUserResponse, error)
+    GetUsers(ctx context.Context, req *v1.GetUsersRequest) (*v1.GetUsersResponse, error)
+    ListUsers(ctx context.Context, req *v1.ListUsersRequest) (*v1.ListUsersResponse, error)
+    UpdateUser(ctx context.Context, req *v1.UpdateUserRequest) (*v1.UpdateUserResponse, error)
+    DeleteUser(ctx context.Context, req *v1.DeleteUserRequest) (*v1.DeleteUserResponse, error)
+    EnsureUser(ctx context.Context, userId, name, email, imageUrl string) (*v1.User, error)
+}
+```
+
+### Storage Backends
+
+#### FileSystem Backend (Development)
+
+Stores users as JSON files. Ideal for development and testing.
+
+```go
+import fsgal "github.com/panyam/goapplib/services/backends/fs"
+
+userService := fsgal.NewUsersService("./data/users")
+```
+
+#### GORM Backend (Production)
+
+Works with PostgreSQL, MySQL, SQLite via GORM. Auto-migrates the schema.
+
+```go
+import gormgal "github.com/panyam/goapplib/services/backends/gorm"
+import "gorm.io/driver/postgres"
+import "gorm.io/gorm"
+
+db, _ := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+userService := gormgal.NewUsersService(db)
+```
+
+#### Google Datastore Backend (GAE)
+
+For Google Cloud Platform deployments. Supports namespacing for multi-tenancy.
+
+```go
+import gaegal "github.com/panyam/goapplib/services/backends/gae"
+import "cloud.google.com/go/datastore"
+
+client, _ := datastore.NewClient(ctx, projectID)
+userService := gaegal.NewUsersService(client, "tenant-namespace")
+```
+
+### BaseUsersService Features
+
+All backends inherit from `BaseUsersService` which provides:
+
+- **Caching**: In-memory cache with configurable enablement
+- **EnsureUser**: Creates user if not exists, returns existing otherwise
+- **GetUser/GetUsers**: Single and batch user retrieval
+- **ListUsers**: Paginated user listing
+
+### AuthService Integration
+
+Integrates with oneauth for OAuth authentication:
+
+```go
+import "github.com/panyam/goapplib/services"
+
+// Create AuthService wrapping UsersService
+authService := services.NewAuthService(authDB, usersService)
+
+// In OAuth callback handler
+user, err := authService.EnsureUser(ctx, identity.UserId, profile.Name, profile.Email, profile.ImageUrl)
+```
+
+### App-Specific Data
+
+Use the `extras` field for application-specific user data:
+
+```go
+import "google.golang.org/protobuf/types/known/structpb"
+
+extras, _ := structpb.NewStruct(map[string]any{
+    "preferences": map[string]any{
+        "theme": "dark",
+        "notifications": true,
+    },
+    "subscription_tier": "pro",
+})
+
+user := &v1.User{
+    Name:   "John Doe",
+    Email:  "john@example.com",
+    Extras: extras,
 }
 ```
 

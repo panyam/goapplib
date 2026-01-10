@@ -18,6 +18,25 @@ goapplib/
 ├── muxbuilder.go       # Fluent MuxBuilder API
 ├── ratelimit.go        # Rate limiting middleware
 │
+├── protos/             # Protocol Buffer definitions
+│   └── goapplib/v1/
+│       ├── users.proto          # User message and UsersService RPCs
+│       ├── gorm/users.proto     # GORM database mapping
+│       └── datastore/users.proto # Google Datastore mapping
+│
+├── gen/                # Generated protobuf code
+│   ├── go/goapplib/v1/ # Go protobuf messages
+│   ├── gorm/           # GORM models and converters
+│   └── datastore/      # Datastore entities and converters
+│
+├── services/           # Service interfaces and implementations
+│   ├── users_service.go         # UsersService interface + BaseUsersService
+│   ├── auth_service.go          # AuthService wrapper (oneauth integration)
+│   └── backends/
+│       ├── fs/users_service.go      # FileSystem backend
+│       ├── gorm/users_service.go    # GORM/PostgreSQL backend
+│       └── gae/users_service.go     # Google Datastore backend
+│
 └── templates/          # Base templates (copy/symlink to your app)
     ├── BasePage.html
     ├── Header.html
@@ -85,6 +104,51 @@ mux.Handle("/auth/", rateLimiter.WrapAuth(authHandler))
 mux.Handle("/api/", rateLimiter.WrapAPI(apiHandler))
 ```
 
+### 9. UsersService with Multi-Backend Support
+Complete user management with pluggable storage backends:
+- **Interface-based design**: `UsersService` interface + `BaseUsersService` with caching
+- **Storage abstraction**: `UserStorageProvider` interface for backend implementations
+- **Multiple backends**: FileSystem (dev), GORM/PostgreSQL (production), Google Datastore (GAE)
+- **Proto-defined**: User message with extensible `extras` field for app-specific data
+- **Generated DAL**: Uses protoc-gen-dal for type-safe database access
+
+```go
+// FileSystem backend (development)
+import fsgal "github.com/panyam/goapplib/services/backends/fs"
+userService := fsgal.NewUsersService("./data/users")
+
+// GORM backend (PostgreSQL, MySQL, SQLite)
+import gormgal "github.com/panyam/goapplib/services/backends/gorm"
+userService := gormgal.NewUsersService(db)
+
+// Google Datastore backend (GAE)
+import gaegal "github.com/panyam/goapplib/services/backends/gae"
+userService := gaegal.NewUsersService(client, "namespace")
+
+// Use the service
+resp, err := userService.CreateUser(ctx, &v1.CreateUserRequest{
+    User: &v1.User{
+        Name:  "John Doe",
+        Email: "john@example.com",
+    },
+})
+```
+
+### 10. AuthService Integration
+Wrapper around oneauth for OAuth authentication:
+- Integrates with oneauth's `AuthDB` for identity management
+- Automatic user creation/lookup on OAuth callback
+- Bridge between goapplib User proto and oneauth User interface
+
+```go
+import "github.com/panyam/goapplib/services"
+
+authService := services.NewAuthService(authDB, usersService)
+
+// In OAuth callback
+user, err := authService.EnsureUser(ctx, identity.UserId, profile.Name, profile.Email, profile.ImageUrl)
+```
+
 ## Quick Start
 
 See `USAGE_GUIDE.md` for complete documentation.
@@ -142,5 +206,7 @@ templates := goal.SetupTemplates(
 
 - [x] Publish to github.com/panyam/goapplib
 - [x] Add middleware utilities (rate limiting)
+- [x] Add UsersService with multi-backend support (FS, GORM, GAE)
+- [x] Add AuthService integration with oneauth
 - [ ] Add more component templates
 - [ ] Add form helpers
