@@ -39,7 +39,6 @@ package gorm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -87,24 +86,24 @@ func NewUsersService(db *gorm.DB) *UsersService {
 func (s *UsersService) LoadUser(ctx context.Context, id string) (*v1.User, error) {
 	userGorm, err := s.UserDAL.Get(ctx, s.storage, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, services.ErrUserNotFound
-		}
 		return nil, err
 	}
-	return v1gorm.UserGORMToUser(userGorm, nil, nil)
+	if userGorm == nil {
+		return nil, services.ErrUserNotFound
+	}
+	return v1gorm.UserFromUserGORM(nil, userGorm, nil)
 }
 
 // ListAllUsers implements UserStorageProvider.
 func (s *UsersService) ListAllUsers(ctx context.Context) ([]*v1.User, error) {
-	userGorms, err := s.UserDAL.List(ctx, s.storage, s.MaxPageSize, 0)
+	userGorms, err := s.UserDAL.List(ctx, s.storage.Limit(s.MaxPageSize))
 	if err != nil {
 		return nil, err
 	}
 
 	users := make([]*v1.User, 0, len(userGorms))
 	for _, ug := range userGorms {
-		user, err := v1gorm.UserGORMToUser(ug, nil, nil)
+		user, err := v1gorm.UserFromUserGORM(nil, ug, nil)
 		if err != nil {
 			continue
 		}
@@ -129,8 +128,8 @@ func (s *UsersService) DeleteFromStorage(ctx context.Context, id string) error {
 
 // UserExists implements UserStorageProvider.
 func (s *UsersService) UserExists(ctx context.Context, id string) bool {
-	_, err := s.UserDAL.Get(ctx, s.storage, id)
-	return err == nil
+	user, err := s.UserDAL.Get(ctx, s.storage, id)
+	return err == nil && user != nil
 }
 
 // CreateUser creates a new user profile.
@@ -164,7 +163,7 @@ func (s *UsersService) CreateUser(ctx context.Context, req *v1.CreateUserRequest
 	}
 
 	// Convert back to get timestamps
-	user, err := v1gorm.UserGORMToUser(userGorm, nil, nil)
+	user, err := v1gorm.UserFromUserGORM(nil, userGorm, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -182,13 +181,13 @@ func (s *UsersService) UpdateUser(ctx context.Context, req *v1.UpdateUserRequest
 	// Load existing user
 	existingGorm, err := s.UserDAL.Get(ctx, s.storage, req.User.Id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, services.ErrUserNotFound
-		}
 		return nil, err
 	}
+	if existingGorm == nil {
+		return nil, services.ErrUserNotFound
+	}
 
-	existingUser, err := v1gorm.UserGORMToUser(existingGorm, nil, nil)
+	existingUser, err := v1gorm.UserFromUserGORM(nil, existingGorm, nil)
 	if err != nil {
 		return nil, err
 	}

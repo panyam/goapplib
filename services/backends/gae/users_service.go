@@ -90,24 +90,30 @@ func (s *UsersService) LoadUser(ctx context.Context, id string) (*v1.User, error
 	key := s.NamespacedKey("User", id)
 	userDs, err := s.UserDAL.Get(ctx, s.client, key)
 	if err != nil {
-		if err == datastore.ErrNoSuchEntity {
-			return nil, services.ErrUserNotFound
-		}
 		return nil, err
 	}
-	return v1ds.UserDatastoreToUser(userDs, nil, nil)
+	if userDs == nil {
+		return nil, services.ErrUserNotFound
+	}
+	return v1ds.UserFromUserDatastore(nil, userDs, nil)
 }
 
 // ListAllUsers implements UserStorageProvider.
 func (s *UsersService) ListAllUsers(ctx context.Context) ([]*v1.User, error) {
-	userDss, err := s.UserDAL.List(ctx, s.client, s.namespace, s.MaxPageSize, 0)
+	query := datastore.NewQuery(s.UserDAL.Kind)
+	if s.namespace != "" {
+		query = query.Namespace(s.namespace)
+	}
+	query = query.Limit(s.MaxPageSize)
+
+	userDss, err := s.UserDAL.Query(ctx, s.client, query)
 	if err != nil {
 		return nil, err
 	}
 
 	users := make([]*v1.User, 0, len(userDss))
 	for _, uds := range userDss {
-		user, err := v1ds.UserDatastoreToUser(uds, nil, nil)
+		user, err := v1ds.UserFromUserDatastore(nil, uds, nil)
 		if err != nil {
 			continue
 		}
@@ -118,12 +124,15 @@ func (s *UsersService) ListAllUsers(ctx context.Context) ([]*v1.User, error) {
 
 // SaveUser implements UserStorageProvider.
 func (s *UsersService) SaveUser(ctx context.Context, id string, user *v1.User) error {
-	key := s.NamespacedKey("User", id)
 	userDs, err := v1ds.UserToUserDatastore(user, nil, nil)
 	if err != nil {
 		return err
 	}
-	return s.UserDAL.Save(ctx, s.client, key, userDs)
+	// Set the key on the entity
+	userDs.Key = s.NamespacedKey("User", id)
+	userDs.Id = id
+	_, err = s.UserDAL.Put(ctx, s.client, userDs)
+	return err
 }
 
 // DeleteFromStorage implements UserStorageProvider.

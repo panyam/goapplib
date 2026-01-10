@@ -7,9 +7,9 @@ require (
 	connectrpc.com/connect v1.19.1
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3
-	github.com/panyam/goutils v0.1.12
+	github.com/panyam/goutils v0.1.13
 	github.com/panyam/oneauth v0.0.16
-	github.com/panyam/protoc-gen-dal v0.0.9
+	github.com/panyam/protoc-gen-dal v0.0.10
 	github.com/panyam/templar v0.0.27
 	golang.org/x/oauth2 v0.32.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20251111163417-95abcf5c77ba

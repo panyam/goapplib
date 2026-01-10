@@ -2,9 +2,9 @@
 package dal
 
 import (
+	"context"
 	datastore "github.com/panyam/goapplib/gen/datastore"
 	dslib "cloud.google.com/go/datastore"
-	"context"
 )
 
 // UserDatastoreDAL provides database access helper methods for datastore.UserDatastore.

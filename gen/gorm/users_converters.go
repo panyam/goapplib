@@ -101,33 +101,22 @@ func ValueToValueGORM(
 	}
 
 	// Initialize struct with inline values
-	*dest = ValueGORM{}
+	*dest = ValueGORM{
+		NullValue:   src.GetNullValue(),
+		NumberValue: src.GetNumberValue(),
+		StringValue: src.GetStringValue(),
+		BoolValue:   src.GetBoolValue(),
+	}
 	out = dest
 
-	if src.NullValue != nil {
-		out.NullValue = src.NullValue
-	}
-
-	if src.NumberValue != nil {
-		out.NumberValue = src.NumberValue
-	}
-
-	if src.StringValue != nil {
-		out.StringValue = src.StringValue
-	}
-
-	if src.BoolValue != nil {
-		out.BoolValue = src.BoolValue
-	}
-
-	if src.StructValue != nil {
-		_, err = StructToStructGORM(src.StructValue, &out.StructValue, nil)
+	if src.GetStructValue() != nil {
+		_, err = StructToStructGORM(src.GetStructValue(), &out.StructValue, nil)
 		if err != nil {
 			return nil, fmt.Errorf("converting StructValue: %w", err)
 		}
 	}
-	if src.ListValue != nil {
-		_, err = ListValueToListValueGORM(src.ListValue, &out.ListValue, nil)
+	if src.GetListValue() != nil {
+		_, err = ListValueToListValueGORM(src.GetListValue(), &out.ListValue, nil)
 		if err != nil {
 			return nil, fmt.Errorf("converting ListValue: %w", err)
 		}
@@ -158,22 +147,8 @@ func ValueFromValueGORM(
 	}
 
 	// Initialize struct with inline values
-	*dest = structpb.Value{
-		NullValue:   src.NullValue,
-		NumberValue: src.NumberValue,
-		StringValue: src.StringValue,
-		BoolValue:   src.BoolValue,
-	}
+	*dest = structpb.Value{}
 	out = dest
-
-	out.StructValue, err = StructFromStructGORM(nil, &src.StructValue, nil)
-	if err != nil {
-		return nil, fmt.Errorf("converting StructValue: %w", err)
-	}
-	out.ListValue, err = ListValueFromListValueGORM(nil, &src.ListValue, nil)
-	if err != nil {
-		return nil, fmt.Errorf("converting ListValue: %w", err)
-	}
 
 	// Apply decorator if provided
 	if decorator != nil {

@@ -2,12 +2,11 @@
 package gorm
 
 import (
-	"time"
-	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	structpb "google.golang.org/protobuf/types/known/structpb"
-	v1 "github.com/panyam/goapplib/gen/go/goapplib/v1"
+	"time"
+	"database/sql/driver"
 )
 
 // StructGORM is the GORM model for google.protobuf.Struct

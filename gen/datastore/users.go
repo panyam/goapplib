@@ -2,7 +2,6 @@
 package datastore
 
 import (
-	v1 "github.com/panyam/goapplib/gen/go/goapplib/v1"
 	"time"
 	"cloud.google.com/go/datastore"
 	structpb "google.golang.org/protobuf/types/known/structpb"
