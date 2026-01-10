@@ -16,6 +16,7 @@ goapplib/
 ├── htmx.go             # HtmxResponse helpers
 ├── register.go         # Register, RegisterGroup, RegisterFunc, RegisterHandler
 ├── muxbuilder.go       # Fluent MuxBuilder API
+├── ratelimit.go        # Rate limiting middleware
 │
 └── templates/          # Base templates (copy/symlink to your app)
     ├── BasePage.html
@@ -68,6 +69,21 @@ Templates include mobile-friendly patterns:
 - Drawers with swipe gestures
 - Bottom navigation bar
 - Responsive grids
+
+### 8. Rate Limiting
+Built-in sliding window rate limiting middleware:
+- Separate limits for auth endpoints (stricter) vs API endpoints
+- Configurable limits and time windows
+- Custom key functions for rate limit identity
+
+```go
+// Use default config (10 auth/15min, 100 API/min)
+rateLimiter := goal.NewRateLimitMiddleware(nil)
+
+// Apply to routes
+mux.Handle("/auth/", rateLimiter.WrapAuth(authHandler))
+mux.Handle("/api/", rateLimiter.WrapAPI(apiHandler))
+```
 
 ## Quick Start
 
@@ -125,6 +141,6 @@ templates := goal.SetupTemplates(
 ## Next Steps
 
 - [x] Publish to github.com/panyam/goapplib
+- [x] Add middleware utilities (rate limiting)
 - [ ] Add more component templates
 - [ ] Add form helpers
-- [ ] Add middleware utilities
