@@ -1,4 +1,6 @@
 version: v2
+modules:
+  - name: buf.build/goal/goapplib
 deps:
   - buf.build/protocolbuffers/wellknowntypes
   - buf.build/googleapis/googleapis
