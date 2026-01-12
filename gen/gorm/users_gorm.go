@@ -2,11 +2,11 @@
 package gorm
 
 import (
-	"encoding/json"
-	"fmt"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	"time"
 	"database/sql/driver"
+	"encoding/json"
+	"fmt"
 )
 
 // StructGORM is the GORM model for google.protobuf.Struct
@@ -111,6 +111,7 @@ type UserGORM struct {
 	Tags        []string `gorm:"serializer:json"`
 	ImageUrl    string
 	Email       string
+	Nickname    string
 	Extras      StructGORM `gorm:"serializer:json"`
 }
 

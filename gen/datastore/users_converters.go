@@ -331,6 +331,7 @@ func UserToUserDatastore(
 		Tags:        src.Tags,
 		ImageUrl:    src.ImageUrl,
 		Email:       src.Email,
+		Nickname:    src.Nickname,
 	}
 	out = dest
 
@@ -393,6 +394,7 @@ func UserFromUserDatastore(
 		Tags:        src.Tags,
 		ImageUrl:    src.ImageUrl,
 		Email:       src.Email,
+		Nickname:    src.Nickname,
 	}
 	out = dest
 

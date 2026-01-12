@@ -58,6 +58,8 @@ type UserDatastore struct {
 
 	Email string `datastore:"email"`
 
+	Nickname string `datastore:"nickname"`
+
 	Extras StructDatastore `datastore:"extras,noindex"`
 }
 

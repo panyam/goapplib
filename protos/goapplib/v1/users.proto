@@ -35,6 +35,9 @@ message User {
   // Primary email (from identity, for display)
   string email = 8;
 
+  // Nick name for the user if any
+  string nickname = 9;
+
   // App-specific extra data - use this for custom fields
   // Apps can store any structured data here without modifying the proto
   google.protobuf.Struct extras = 20;

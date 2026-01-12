@@ -258,6 +258,7 @@ func UserToUserGORM(
 		Tags:        src.Tags,
 		ImageUrl:    src.ImageUrl,
 		Email:       src.Email,
+		Nickname:    src.Nickname,
 	}
 	out = dest
 
@@ -310,6 +311,7 @@ func UserFromUserGORM(
 		Tags:        src.Tags,
 		ImageUrl:    src.ImageUrl,
 		Email:       src.Email,
+		Nickname:    src.Nickname,
 	}
 	out = dest
 

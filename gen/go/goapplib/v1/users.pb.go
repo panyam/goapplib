@@ -45,6 +45,8 @@ type User struct {
 	ImageUrl string `protobuf:"bytes,7,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
 	// Primary email (from identity, for display)
 	Email string `protobuf:"bytes,8,opt,name=email,proto3" json:"email,omitempty"`
+	// Nick name for the user if any
+	Nickname string `protobuf:"bytes,9,opt,name=nickname,proto3" json:"nickname,omitempty"`
 	// App-specific extra data - use this for custom fields
 	// Apps can store any structured data here without modifying the proto
 	Extras        *structpb.Struct `protobuf:"bytes,20,opt,name=extras,proto3" json:"extras,omitempty"`
@@ -134,6 +136,13 @@ func (x *User) GetImageUrl() string {
 func (x *User) GetEmail() string {
 	if x != nil {
 		return x.Email
+	}
+	return ""
+}
+
+func (x *User) GetNickname() string {
+	if x != nil {
+		return x.Nickname
 	}
 	return ""
 }
@@ -871,7 +880,7 @@ var File_goapplib_v1_users_proto protoreflect.FileDescriptor
 
 const file_goapplib_v1_users_proto_rawDesc = "" +
 	"\n" +
-	"\x17goapplib/v1/users.proto\x12\vgoapplib.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/api/annotations.proto\"\xba\x02\n" +
+	"\x17goapplib/v1/users.proto\x12\vgoapplib.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/api/annotations.proto\"\xd6\x02\n" +
 	"\x04User\x129\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
@@ -882,7 +891,8 @@ const file_goapplib_v1_users_proto_rawDesc = "" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
 	"\x04tags\x18\x06 \x03(\tR\x04tags\x12\x1b\n" +
 	"\timage_url\x18\a \x01(\tR\bimageUrl\x12\x14\n" +
-	"\x05email\x18\b \x01(\tR\x05email\x12/\n" +
+	"\x05email\x18\b \x01(\tR\x05email\x12\x1a\n" +
+	"\bnickname\x18\t \x01(\tR\bnickname\x12/\n" +
 	"\x06extras\x18\x14 \x01(\v2\x17.google.protobuf.StructR\x06extras\"e\n" +
 	"\n" +
 	"Pagination\x12\x19\n" +
