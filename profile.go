@@ -11,6 +11,7 @@ type SampleProfilePage[AC any] struct {
 
 	// User information
 	UserID            string
+	Nickname          string
 	Email             string
 	EmailVerified     bool
 	Username          string
