@@ -7,7 +7,7 @@ import (
 	"log"
 
 	oa "github.com/panyam/oneauth"
-	"github.com/panyam/oneauth/stores"
+	"github.com/panyam/oneauth/stores/fs"
 	"golang.org/x/oauth2"
 )
 
@@ -62,10 +62,10 @@ type AuthService struct {
 // NewAuthService creates a new AuthService with file-based stores
 func NewAuthService(storagePath string) *AuthService {
 	service := &AuthService{
-		UserStore:     stores.NewFSUserStore(storagePath),
-		IdentityStore: stores.NewFSIdentityStore(storagePath),
-		ChannelStore:  stores.NewFSChannelStore(storagePath),
-		TokenStore:    stores.NewFSTokenStore(storagePath),
+		UserStore:     fs.NewFSUserStore(storagePath),
+		IdentityStore: fs.NewFSIdentityStore(storagePath),
+		ChannelStore:  fs.NewFSChannelStore(storagePath),
+		TokenStore:    fs.NewFSTokenStore(storagePath),
 		NextID:        defaultIDGenerator,
 	}
 	return service
