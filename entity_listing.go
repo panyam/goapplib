@@ -36,6 +36,7 @@ type EntityListingData[ItemType any] struct {
 
 	// Actions
 	ShowActions    bool
+	ShowEditButton bool // Show edit button (typically only when logged in)
 	HtmxEnabled    bool
 	RefreshTrigger string
 
