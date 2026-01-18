@@ -37,7 +37,11 @@ CUSTOMIZABLE BLOCKS:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {{ block "TitleSection" . }}<title>{{ .Title }}</title>{{ end }}
+    {{ block "TitleSection" . }}<title>{{ or .MetaTitle .Title }}</title>{{ end }}
+
+    <!-- SEO Meta Tags -->
+    {{ if .CanonicalUrl }}<link rel="canonical" href="{{ .CanonicalUrl }}">{{ end }}
+    {{ if .MetaDescription }}<meta name="description" content="{{ .MetaDescription }}">{{ end }}
 
     <!-- Theme initialization (before CSS to prevent flash) -->
     <script>

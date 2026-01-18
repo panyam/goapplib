@@ -8,7 +8,7 @@ import (
 // BasePage provides common page metadata.
 // Embed this in your page structs.
 type BasePage struct {
-	Title               string // Page title for <title> tag
+	Title               string // Page title (internal use, fallback for MetaTitle)
 	BodyClass           string // CSS classes for <body>
 	ActiveTab           string // Highlight active navigation tab
 	CustomHeader        bool   // If true, skip default header rendering
@@ -16,6 +16,11 @@ type BasePage struct {
 	SplashTitle         string // Custom splash title
 	SplashMessage       string // Custom splash message
 	BodyDataAttributes  string // HTML data attributes for body
+
+	// SEO fields
+	MetaTitle       string // Title for <title> tag and search results (falls back to Title if empty)
+	MetaDescription string // Meta description for search engines
+	CanonicalUrl    string // Canonical URL for SEO (e.g., https://example.com/page/)
 }
 
 // Load implements Loader for BasePage.
