@@ -1,47 +1,34 @@
 package services
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
-	"log"
-
 	oa "github.com/panyam/oneauth"
 	"github.com/panyam/oneauth/stores/fs"
 	"golang.org/x/oauth2"
 )
 
 // AuthService orchestrates authentication by coordinating oneauth stores.
-// It implements the oneauth store interfaces (UserStore, IdentityStore, ChannelStore)
-// and provides the main EnsureAuthUser method for handling OAuth and local authentication.
 //
-// # Design
+// Deprecated: AuthService is a thin wrapper around oneauth. For new code,
+// use oneauth directly with NewEnsureAuthUserFunc and the helper functions.
+// This wrapper is maintained for backwards compatibility.
 //
-// AuthService is a thin wrapper around oneauth's store abstractions:
-//   - UserStore: manages user accounts
-//   - IdentityStore: manages contact identities (email, phone)
-//   - ChannelStore: manages authentication providers (local, Google, GitHub)
-//   - TokenStore: manages verification and reset tokens
+// # Migration Guide
 //
-// # Usage
+// Instead of:
 //
-// For filesystem-based storage (development/testing):
+//	authService := services.NewAuthService("/path")
+//	user, _ := authService.EnsureAuthUser("oauth", "google", token, userInfo)
 //
-//	authService := services.NewAuthService("/path/to/storage")
+// Use oneauth directly:
 //
-// For custom stores:
-//
-//	authService := services.NewAuthServiceWithStores(userStore, identityStore, channelStore, tokenStore)
-//
-// # Authentication Flow
-//
-// The EnsureAuthUser method handles the complete authentication flow:
-//  1. Extract identity (email/phone) from user info
-//  2. Get or create identity in the identity store
-//  3. Get or create user if identity has no associated user
-//  4. Get or create channel for the provider
-//  5. Update channel credentials (OAuth tokens)
-//  6. Mark identity as verified (for OAuth)
+//	config := oneauth.EnsureAuthUserConfig{
+//	    UserStore:     gorm.NewUserStore(db),
+//	    IdentityStore: gorm.NewIdentityStore(db),
+//	    ChannelStore:  gorm.NewChannelStore(db),
+//	    UsernameStore: gorm.NewUsernameStore(db), // Optional
+//	}
+//	ensureUser := oneauth.NewEnsureAuthUserFunc(config)
+//	user, _ := ensureUser("oauth", "google", token, userInfo)
 //
 // # Integration with UsersService
 //
@@ -56,62 +43,105 @@ type AuthService struct {
 	IdentityStore oa.IdentityStore
 	ChannelStore  oa.ChannelStore
 	TokenStore    oa.TokenStore
-	NextID        func() string // Callback for generating user IDs
+	UsernameStore oa.UsernameStore // Optional - for username uniqueness
+
+	// Internal: cached ensureUser function
+	ensureUser func(authtype string, provider string, token any, userInfo map[string]any) (oa.User, error)
 }
 
-// NewAuthService creates a new AuthService with file-based stores
+// NewAuthService creates a new AuthService with file-based stores.
+//
+// Deprecated: Use oneauth stores directly. See AuthService documentation.
 func NewAuthService(storagePath string) *AuthService {
 	service := &AuthService{
 		UserStore:     fs.NewFSUserStore(storagePath),
 		IdentityStore: fs.NewFSIdentityStore(storagePath),
 		ChannelStore:  fs.NewFSChannelStore(storagePath),
 		TokenStore:    fs.NewFSTokenStore(storagePath),
-		NextID:        defaultIDGenerator,
 	}
+	service.initEnsureUser()
 	return service
 }
 
-// NewAuthServiceWithStores creates a new AuthService with custom stores
+// NewAuthServiceWithStores creates a new AuthService with custom stores.
+//
+// Deprecated: Use oneauth stores directly. See AuthService documentation.
 func NewAuthServiceWithStores(userStore oa.UserStore, identityStore oa.IdentityStore, channelStore oa.ChannelStore, tokenStore oa.TokenStore) *AuthService {
-	return &AuthService{
+	service := &AuthService{
 		UserStore:     userStore,
 		IdentityStore: identityStore,
 		ChannelStore:  channelStore,
 		TokenStore:    tokenStore,
-		NextID:        defaultIDGenerator,
 	}
+	service.initEnsureUser()
+	return service
 }
 
-// defaultIDGenerator generates a cryptographically secure random ID
-func defaultIDGenerator() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
+// NewAuthServiceWithAllStores creates a new AuthService with all stores including UsernameStore.
+func NewAuthServiceWithAllStores(userStore oa.UserStore, identityStore oa.IdentityStore, channelStore oa.ChannelStore, tokenStore oa.TokenStore, usernameStore oa.UsernameStore) *AuthService {
+	service := &AuthService{
+		UserStore:     userStore,
+		IdentityStore: identityStore,
+		ChannelStore:  channelStore,
+		TokenStore:    tokenStore,
+		UsernameStore: usernameStore,
+	}
+	service.initEnsureUser()
+	return service
 }
 
-// CreateLocalUser creates a new user with local authentication
+// initEnsureUser initializes the internal ensureUser function using oneauth
+func (s *AuthService) initEnsureUser() {
+	config := oa.EnsureAuthUserConfig{
+		UserStore:     s.UserStore,
+		IdentityStore: s.IdentityStore,
+		ChannelStore:  s.ChannelStore,
+		UsernameStore: s.UsernameStore,
+	}
+	s.ensureUser = oa.NewEnsureAuthUserFunc(config)
+}
+
+// CreateLocalUser creates a new user with local authentication.
+// Pass-through to oneauth.NewCreateUserFunc.
 func (s *AuthService) CreateLocalUser(creds *oa.Credentials) (oa.User, error) {
-	createFunc := oa.NewCreateUserFunc(s.UserStore, s.IdentityStore, s.ChannelStore)
-	return createFunc(creds)
+	return oa.NewCreateUserFunc(s.UserStore, s.IdentityStore, s.ChannelStore)(creds)
 }
 
-// ValidateLocalCredentials validates username/password and returns the user
+// ValidateLocalCredentials validates username/password and returns the user.
+// Pass-through to oneauth.NewCredentialsValidator.
 func (s *AuthService) ValidateLocalCredentials(username, password, usernameType string) (oa.User, error) {
-	validateFunc := oa.NewCredentialsValidator(s.IdentityStore, s.ChannelStore, s.UserStore)
-	return validateFunc(username, password, usernameType)
+	return oa.NewCredentialsValidator(s.IdentityStore, s.ChannelStore, s.UserStore)(username, password, usernameType)
 }
 
-// VerifyEmailByToken verifies an email using a verification token
+// ValidateLocalCredentialsWithUsername validates credentials allowing username-based login.
+// Pass-through to oneauth.NewCredentialsValidatorWithUsername.
+func (s *AuthService) ValidateLocalCredentialsWithUsername(username, password, usernameType string) (oa.User, error) {
+	if s.UsernameStore == nil {
+		// Fall back to standard validator if no UsernameStore
+		return s.ValidateLocalCredentials(username, password, usernameType)
+	}
+	return oa.NewCredentialsValidatorWithUsername(s.IdentityStore, s.ChannelStore, s.UserStore, s.UsernameStore)(username, password, usernameType)
+}
+
+// VerifyEmailByToken verifies an email using a verification token.
+// Pass-through to oneauth.NewVerifyEmailFunc.
 func (s *AuthService) VerifyEmailByToken(token string) error {
-	verifyFunc := oa.NewVerifyEmailFunc(s.IdentityStore, s.TokenStore)
-	return verifyFunc(token)
+	return oa.NewVerifyEmailFunc(s.IdentityStore, s.TokenStore)(token)
 }
 
-// UpdatePassword updates the password for a user identified by email
+// UpdatePassword updates the password for a user identified by email.
+// Pass-through to oneauth.NewUpdatePasswordFunc.
 func (s *AuthService) UpdatePassword(email, newPassword string) error {
-	updateFunc := oa.NewUpdatePasswordFunc(s.IdentityStore, s.ChannelStore)
-	return updateFunc(email, newPassword)
+	return oa.NewUpdatePasswordFunc(s.IdentityStore, s.ChannelStore)(email, newPassword)
 }
+
+// EnsureAuthUser handles user creation/lookup for both OAuth and local authentication.
+// Pass-through to oneauth.NewEnsureAuthUserFunc with channel linking support.
+func (s *AuthService) EnsureAuthUser(authtype, provider string, token *oauth2.Token, userInfo map[string]any) (oa.User, error) {
+	return s.ensureUser(authtype, provider, token, userInfo)
+}
+
+// --- Store interface pass-throughs (for interface compliance) ---
 
 // Implement oa.UserStore interface
 func (s *AuthService) CreateUser(userId string, isActive bool, profile map[string]any) (oa.User, error) {
@@ -158,100 +188,4 @@ func (s *AuthService) SaveChannel(channel *oa.Channel) error {
 
 func (s *AuthService) GetChannelsByIdentity(identityKey string) ([]*oa.Channel, error) {
 	return s.ChannelStore.GetChannelsByIdentity(identityKey)
-}
-
-// EnsureAuthUser is the main orchestration method for authentication.
-// It handles both OAuth and local auth, unifying identities across providers.
-func (s *AuthService) EnsureAuthUser(authtype, provider string, token *oauth2.Token, userInfo map[string]any) (oa.User, error) {
-	// Extract primary identity (email or phone)
-	var identityType, identityValue string
-
-	if email, ok := userInfo["email"].(string); ok && email != "" {
-		identityType = "email"
-		identityValue = email
-	} else if phone, ok := userInfo["phone"].(string); ok && phone != "" {
-		identityType = "phone"
-		identityValue = phone
-	} else {
-		return nil, fmt.Errorf("no valid identity found in userInfo")
-	}
-
-	identityKey := oa.IdentityKey(identityType, identityValue)
-
-	// Get or create identity
-	identity, newIdentity, err := s.IdentityStore.GetIdentity(identityType, identityValue, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get identity: %w", err)
-	}
-
-	var user oa.User
-
-	// If identity doesn't have a user, create one
-	if identity.UserID == "" {
-		userId := s.NextID()
-		profile := userInfo
-		if profile == nil {
-			profile = make(map[string]any)
-		}
-
-		user, err = s.UserStore.CreateUser(userId, true, profile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create user: %w", err)
-		}
-
-		identity.UserID = userId
-		if err := s.IdentityStore.SaveIdentity(identity); err != nil {
-			return nil, fmt.Errorf("failed to link identity to user: %w", err)
-		}
-
-		log.Printf("Created new user %s for identity %s", userId, identityKey)
-	} else {
-		// Load existing user
-		user, err = s.UserStore.GetUserById(identity.UserID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get user: %w", err)
-		}
-		log.Printf("Found existing user %s for identity %s", identity.UserID, identityKey)
-	}
-
-	// Get or create channel
-	channel, newChannel, err := s.ChannelStore.GetChannel(provider, identityKey, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get channel: %w", err)
-	}
-
-	// Update channel credentials (e.g., OAuth tokens)
-	if token != nil {
-		if channel.Credentials == nil {
-			channel.Credentials = make(map[string]any)
-		}
-		channel.Credentials["access_token"] = token.AccessToken
-		channel.Credentials["refresh_token"] = token.RefreshToken
-		channel.Credentials["token_type"] = token.TokenType
-	}
-
-	// Update channel profile
-	if userInfo != nil {
-		channel.Profile = userInfo
-	}
-
-	if err := s.ChannelStore.SaveChannel(channel); err != nil {
-		return nil, fmt.Errorf("failed to save channel: %w", err)
-	}
-
-	// OAuth providers verify identities automatically
-	if authtype == "oauth" && !identity.Verified {
-		if err := s.IdentityStore.MarkIdentityVerified(identityType, identityValue); err != nil {
-			log.Printf("Warning: failed to mark identity verified: %v", err)
-		}
-	}
-
-	if newIdentity {
-		log.Printf("Created new identity: %s", identityKey)
-	}
-	if newChannel {
-		log.Printf("Created new channel: %s for %s", provider, identityKey)
-	}
-
-	return user, nil
 }

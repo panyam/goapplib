@@ -31,7 +31,8 @@ goapplib/
 │
 ├── services/           # Service interfaces and implementations
 │   ├── users_service.go         # UsersService interface + BaseUsersService
-│   ├── auth_service.go          # AuthService wrapper (oneauth integration)
+│   ├── auth_service.go          # AuthService (deprecated - pass-through to oneauth)
+│   ├── oneauth_bridge.go        # UserBridge adapts v1.User to oneauth.User
 │   └── backends/
 │       ├── fs/users_service.go      # FileSystem backend
 │       ├── gorm/users_service.go    # GORM/PostgreSQL backend
@@ -134,19 +135,34 @@ resp, err := userService.CreateUser(ctx, &v1.CreateUserRequest{
 })
 ```
 
-### 10. AuthService Integration
-Wrapper around oneauth for OAuth authentication:
-- Integrates with oneauth's `AuthDB` for identity management
-- Automatic user creation/lookup on OAuth callback
-- Bridge between goapplib User proto and oneauth User interface
+### 10. AuthService Integration (Deprecated)
+**Deprecated**: AuthService is now a thin pass-through to oneauth. For new code, use oneauth directly.
+
+The AuthService wrapper is maintained for backwards compatibility but delegates entirely to oneauth:
+- `EnsureAuthUser` → `oneauth.NewEnsureAuthUserFunc` (with channel linking support)
+- `CreateLocalUser` → `oneauth.NewCreateUserFunc`
+- `ValidateLocalCredentials` → `oneauth.NewCredentialsValidator`
+- Now supports `UsernameStore` for username-based login
 
 ```go
+// Legacy usage (still works, but deprecated)
 import "github.com/panyam/goapplib/services"
+authService := services.NewAuthService("/path/to/storage")
+user, err := authService.EnsureAuthUser("oauth", "google", token, userInfo)
 
-authService := services.NewAuthService(authDB, usersService)
-
-// In OAuth callback
-user, err := authService.EnsureUser(ctx, identity.UserId, profile.Name, profile.Email, profile.ImageUrl)
+// Recommended: Use oneauth directly
+import (
+    "github.com/panyam/oneauth"
+    "github.com/panyam/oneauth/stores/gorm"
+)
+config := oneauth.EnsureAuthUserConfig{
+    UserStore:     gorm.NewUserStore(db),
+    IdentityStore: gorm.NewIdentityStore(db),
+    ChannelStore:  gorm.NewChannelStore(db),
+    UsernameStore: gorm.NewUsernameStore(db), // Optional
+}
+ensureUser := oneauth.NewEnsureAuthUserFunc(config)
+user, err := ensureUser("oauth", "google", token, userInfo)
 ```
 
 ## Quick Start
