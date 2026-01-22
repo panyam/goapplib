@@ -152,70 +152,70 @@ goapplib currently provides:
 
 ### 5.1 TagsService
 
-| ID | As a... | I want to... | So that... | Priority |
-|----|---------|--------------|------------|----------|
-| T1 | Developer | Create tags with colors | Users can visually categorize items | P0 |
-| T2 | User | Tag multiple items at once | I can organize efficiently | P0 |
-| T3 | User | Filter items by tags | I can find related content | P0 |
-| T4 | User | See tag suggestions | I maintain consistent tagging | P1 |
-| T5 | Admin | Merge duplicate tags | The tag system stays clean | P1 |
-| T6 | User | Use keyboard shortcuts for tags | I can tag quickly | P2 |
+| ID | As a...   | I want to...                    | So that...                          | Priority |
+|----|-----------|---------------------------------|-------------------------------------|----------|
+| T1 | Developer | Create tags with colors         | Users can visually categorize items | P0       |
+| T2 | User      | Tag multiple items at once      | I can organize efficiently          | P0       |
+| T3 | User      | Filter items by tags            | I can find related content          | P0       |
+| T4 | User      | See tag suggestions             | I maintain consistent tagging       | P1       |
+| T5 | Admin     | Merge duplicate tags            | The tag system stays clean          | P1       |
+| T6 | User      | Use keyboard shortcuts for tags | I can tag quickly                   | P2       |
 
 ### 5.2 CollectionsService
 
-| ID | As a... | I want to... | So that... | Priority |
-|----|---------|--------------|------------|----------|
-| C1 | User | Create nested collections | I can organize hierarchically | P0 |
-| C2 | User | Add items to multiple collections | Items aren't duplicated | P0 |
-| C3 | User | Create smart/saved searches | Collections auto-update | P1 |
-| C4 | User | Drag items between collections | Organization is intuitive | P1 |
-| C5 | User | See collection item counts | I know what's where | P0 |
-| C6 | User | Reorder collections | Display matches my workflow | P2 |
+| ID | As a... | I want to...                      | So that...                    | Priority |
+|----|---------|-----------------------------------|-------------------------------|----------|
+| C1 | User    | Create nested collections         | I can organize hierarchically | P0       |
+| C2 | User    | Add items to multiple collections | Items aren't duplicated       | P0       |
+| C3 | User    | Create smart/saved searches       | Collections auto-update       | P1       |
+| C4 | User    | Drag items between collections    | Organization is intuitive     | P1       |
+| C5 | User    | See collection item counts        | I know what's where           | P0       |
+| C6 | User    | Reorder collections               | Display matches my workflow   | P2       |
 
 ### 5.3 OrganizationsService
 
-| ID | As a... | I want to... | So that... | Priority |
-|----|---------|--------------|------------|----------|
-| O1 | User | Create an organization | I can collaborate with others | P0 |
-| O2 | Admin | Invite members | People can join my org | P0 |
-| O3 | Admin | Set member roles | Access is controlled | P0 |
-| O4 | User | See my organizations | I can switch contexts | P0 |
-| O5 | Admin | Create teams within org | I can group members | P1 |
-| O6 | Owner | Transfer ownership | Continuity is maintained | P1 |
-| O7 | Admin | Set org visibility | I control discoverability | P1 |
+| ID | As a... | I want to...            | So that...                    | Priority |
+|----|---------|-------------------------|-------------------------------|----------|
+| O1 | User    | Create an organization  | I can collaborate with others | P0       |
+| O2 | Admin   | Invite members          | People can join my org        | P0       |
+| O3 | Admin   | Set member roles        | Access is controlled          | P0       |
+| O4 | User    | See my organizations    | I can switch contexts         | P0       |
+| O5 | Admin   | Create teams within org | I can group members           | P1       |
+| O6 | Owner   | Transfer ownership      | Continuity is maintained      | P1       |
+| O7 | Admin   | Set org visibility      | I control discoverability     | P1       |
 
 ### 5.4 PermissionsService
 
-| ID | As a... | I want to... | So that... | Priority |
-|----|---------|--------------|------------|----------|
-| P1 | Developer | Define custom roles | Permissions match my app | P0 |
-| P2 | Admin | Grant resource permissions | Access is controlled | P0 |
-| P3 | Developer | Check permissions efficiently | App stays performant | P0 |
-| P4 | Admin | See who has access | I can audit permissions | P1 |
-| P5 | Admin | Set permission expiration | Temporary access works | P2 |
-| P6 | User | See my permissions | I know what I can do | P1 |
+| ID | As a...   | I want to...                  | So that...               | Priority |
+|----|-----------|-------------------------------|--------------------------|----------|
+| P1 | Developer | Define custom roles           | Permissions match my app | P0       |
+| P2 | Admin     | Grant resource permissions    | Access is controlled     | P0       |
+| P3 | Developer | Check permissions efficiently | App stays performant     | P0       |
+| P4 | Admin     | See who has access            | I can audit permissions  | P1       |
+| P5 | Admin     | Set permission expiration     | Temporary access works   | P2       |
+| P6 | User      | See my permissions            | I know what I can do     | P1       |
 
 ### 5.5 SharingService
 
-| ID | As a... | I want to... | So that... | Priority |
-|----|---------|--------------|------------|----------|
-| S1 | User | Share via link | Recipients don't need accounts | P0 |
-| S2 | User | Share with specific users | Only intended recipients access | P0 |
-| S3 | User | Set link expiration | Shares don't persist forever | P1 |
-| S4 | User | Password protect shares | Extra security is available | P2 |
-| S5 | User | See share analytics | I know who accessed | P2 |
-| S6 | Admin | Revoke shares | I can control access | P0 |
+| ID | As a... | I want to...              | So that...                      | Priority |
+|----|---------|---------------------------|---------------------------------|----------|
+| S1 | User    | Share via link            | Recipients don't need accounts  | P0       |
+| S2 | User    | Share with specific users | Only intended recipients access | P0       |
+| S3 | User    | Set link expiration       | Shares don't persist forever    | P1       |
+| S4 | User    | Password protect shares   | Extra security is available     | P2       |
+| S5 | User    | See share analytics       | I know who accessed             | P2       |
+| S6 | Admin   | Revoke shares             | I can control access            | P0       |
 
 ### 5.6 NotesService
 
-| ID | As a... | I want to... | So that... | Priority |
-|----|---------|--------------|------------|----------|
-| N1 | User | Create standalone notes | I can capture thoughts | P0 |
-| N2 | User | Attach notes to items | Context is preserved | P0 |
-| N3 | User | Search note content | I can find information | P1 |
-| N4 | User | Version note history | I can recover changes | P2 |
-| N5 | User | Pin important notes | Quick access is available | P1 |
-| N6 | User | Color-code notes | Visual organization helps | P2 |
+| ID | As a... | I want to...            | So that...                | Priority |
+|----|---------|-------------------------|---------------------------|----------|
+| N1 | User    | Create standalone notes | I can capture thoughts    | P0       |
+| N2 | User    | Attach notes to items   | Context is preserved      | P0       |
+| N3 | User    | Search note content     | I can find information    | P1       |
+| N4 | User    | Version note history    | I can recover changes     | P2       |
+| N5 | User    | Pin important notes     | Quick access is available | P1       |
+| N6 | User    | Color-code notes        | Visual organization helps | P2       |
 
 ### 5.7 UserActivityService
 
@@ -230,17 +230,17 @@ goapplib currently provides:
 - "Progress: 60% complete"
 - "Last accessed 3 days ago"
 
-| ID | As a... | I want to... | So that... | Priority |
-|----|---------|--------------|------------|----------|
-| UA1 | User | Record when I interacted with content | I can track my history | P0 |
-| UA2 | User | Add private notes to any content | I remember my personal context | P0 |
-| UA3 | User | Rate/score content privately | I can remember what I liked | P1 |
-| UA4 | User | Track progress on content | I know where I left off | P1 |
-| UA5 | User | See my activity history | I can review what I've done | P0 |
-| UA6 | User | Filter content by my activity | I find things I've interacted with | P1 |
-| UA7 | User | Set personal status on content | I can track my workflow | P1 |
-| UA8 | User | Keep activities private from shared content | My personal notes stay private | P0 |
-| UA9 | User | Export my activity history | I own my data | P2 |
+| ID  | As a... | I want to...                                | So that...                         | Priority |
+|-----|---------|---------------------------------------------|------------------------------------|----------|
+| UA1 | User    | Record when I interacted with content       | I can track my history             | P0       |
+| UA2 | User    | Add private notes to any content            | I remember my personal context     | P0       |
+| UA3 | User    | Rate/score content privately                | I can remember what I liked        | P1       |
+| UA4 | User    | Track progress on content                   | I know where I left off            | P1       |
+| UA5 | User    | See my activity history                     | I can review what I've done        | P0       |
+| UA6 | User    | Filter content by my activity               | I find things I've interacted with | P1       |
+| UA7 | User    | Set personal status on content              | I can track my workflow            | P1       |
+| UA8 | User    | Keep activities private from shared content | My personal notes stay private     | P0       |
+| UA9 | User    | Export my activity history                  | I own my data                      | P2       |
 
 ---
 
@@ -254,7 +254,7 @@ goapplib currently provides:
 - **FR-T3**: Delete tag (with option to remove from all entities)
 - **FR-T4**: Merge two tags into one
 - **FR-T5**: List tags with filtering and pagination
-- **FR-T6**: Support tag scopes: user-level, org-level, global
+- **[FR-T6](FR-T6)**: Support tag scopes: user-level, org-level, global
 
 #### 6.1.2 Entity Tagging
 - **FR-T7**: Add tag to entity (any entity type)
