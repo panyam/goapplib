@@ -159,8 +159,8 @@ testds: downds
 # ============================================================================
 
 # Override via command line: make testrealDS DS_REAL_PROJECT=other-project
-DS_REAL_PROJECT ?=
-DS_REAL_CREDENTIALS ?=
+DS_REAL_PROJECT ?= gappeng
+DS_REAL_CREDENTIALS ?= ~/dev-app-data/secrets/gappeng/gappeng-7bb71377bfa2.json
 DS_REAL_NAMESPACE ?= content-test
 
 # Run tests against real Google Cloud Datastore

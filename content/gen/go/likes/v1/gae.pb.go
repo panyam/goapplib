@@ -7,12 +7,13 @@
 package likesv1
 
 import (
-	_ "github.com/panyam/protoc-gen-dal/protos/gen/dal/v1"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	_ "github.com/panyam/protoc-gen-dal/protos/gen/dal/v1"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -276,7 +277,7 @@ const file_likes_v1_gae_proto_rawDesc = "" +
 	"\tentity_id\x18\x03 \x01(\tR\bentityId\x12\x17\n" +
 	"\auser_id\x18\x04 \x01(\tR\x06userId\x12#\n" +
 	"\rreaction_type\x18\x05 \x01(\tR\freactionType:!Ҧ\x1d\x1d\n" +
-	"\x04Like*\x15content.likes.v1.Like\"\xda\x02\n" +
+	"\x04Like*\x15content.likes.v1.Like\"\xdc\x02\n" +
 	"\x13LikeCountsDatastore\x12\x1f\n" +
 	"\ventity_type\x18\x01 \x01(\tR\n" +
 	"entityType\x12\x1b\n" +
@@ -286,9 +287,9 @@ const file_likes_v1_gae_proto_rawDesc = "" +
 	"\x10by_reaction_type\x18\x04 \x03(\v29.content.likes.v1.LikeCountsDatastore.ByReactionTypeEntryB\r\x92\xa6\x1d\tr\anoindexR\x0ebyReactionType\x1aA\n" +
 	"\x13ByReactionTypeEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01:-Ҧ\x1d)\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01:/Ҧ\x1d+\n" +
 	"\n" +
-	"LikeCounts*\x1bcontent.likes.v1.LikeCountsB\xbe\x01\n" +
+	"LikeCounts*\x1bcontent.likes.v1.LikeCounts8\x01B\xbe\x01\n" +
 	"\x14com.content.likes.v1B\bGaeProtoP\x01Z:github.com/panyam/goapplib/content/gen/go/likes/v1;likesv1\xa2\x02\x03CLX\xaa\x02\x10Content.Likes.V1\xca\x02\x10Content\\Likes\\V1\xe2\x02\x1cContent\\Likes\\V1\\GPBMetadata\xea\x02\x12Content::Likes::V1b\x06proto3"
 
 var (

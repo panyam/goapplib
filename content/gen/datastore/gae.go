@@ -2,7 +2,10 @@
 package v1
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
+
 	"cloud.google.com/go/datastore"
 )
 
@@ -78,4 +81,132 @@ type LikeCountsDatastore struct {
 // Kind returns the Datastore kind name for LikeCountsDatastore.
 func (*LikeCountsDatastore) Kind() string {
 	return "LikeCounts"
+}
+
+// Save implements the PropertyLoadSaver interface for LikeCountsDatastore.
+// It serializes map fields to JSON since Datastore doesn't natively support Go maps.
+func (m *LikeCountsDatastore) Save() ([]datastore.Property, error) {
+	// First, get the default properties using datastore.SaveStruct
+	// We need a copy without the map fields to avoid the "unsupported struct field type" error
+	props, err := m.saveNonMapFields()
+	if err != nil {
+		return nil, err
+	}
+
+	// Serialize ByReactionType map to JSON
+	if m.ByReactionType != nil {
+		ByReactionTypeJSON, err := json.Marshal(m.ByReactionType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal ByReactionType: %w", err)
+		}
+		props = append(props, datastore.Property{
+			Name:    "by_reaction_type",
+			Value:   ByReactionTypeJSON,
+			NoIndex: true, // Maps are typically not indexed
+		})
+	}
+
+	return props, nil
+}
+
+// saveNonMapFields saves all non-map fields using a temporary struct.
+func (m *LikeCountsDatastore) saveNonMapFields() ([]datastore.Property, error) {
+	// Create a temporary struct with only the non-map fields
+	type nonMapFields struct {
+		Key *datastore.Key `datastore:"-"`
+
+		EntityType string `datastore:"entity_type"`
+
+		EntityId string `datastore:"entity_id"`
+
+		TotalCount int64 `datastore:"total_count"`
+
+		UpdatedAt time.Time `datastore:"updated_at"`
+	}
+
+	tmp := nonMapFields{
+
+		Key: m.Key,
+
+		EntityType: m.EntityType,
+
+		EntityId: m.EntityId,
+
+		TotalCount: m.TotalCount,
+
+		UpdatedAt: m.UpdatedAt,
+	}
+
+	return datastore.SaveStruct(&tmp)
+}
+
+// Load implements the PropertyLoadSaver interface for LikeCountsDatastore.
+// It deserializes JSON-encoded map fields back to Go maps.
+func (m *LikeCountsDatastore) Load(props []datastore.Property) error {
+	// Separate map properties from regular properties
+	var regularProps []datastore.Property
+
+	var ByReactionTypeProp *datastore.Property
+
+	for i := range props {
+		switch props[i].Name {
+
+		case "by_reaction_type":
+			ByReactionTypeProp = &props[i]
+
+		default:
+			regularProps = append(regularProps, props[i])
+		}
+	}
+
+	// Load non-map fields using a temporary struct
+	type nonMapFields struct {
+		Key *datastore.Key `datastore:"-"`
+
+		EntityType string `datastore:"entity_type"`
+
+		EntityId string `datastore:"entity_id"`
+
+		TotalCount int64 `datastore:"total_count"`
+
+		UpdatedAt time.Time `datastore:"updated_at"`
+	}
+
+	var tmp nonMapFields
+	if err := datastore.LoadStruct(&tmp, regularProps); err != nil {
+		return err
+	}
+
+	// Copy non-map fields back
+
+	m.Key = tmp.Key
+
+	m.EntityType = tmp.EntityType
+
+	m.EntityId = tmp.EntityId
+
+	m.TotalCount = tmp.TotalCount
+
+	m.UpdatedAt = tmp.UpdatedAt
+
+	// Deserialize ByReactionType from JSON
+	if ByReactionTypeProp != nil {
+		var jsonBytes []byte
+		switch v := ByReactionTypeProp.Value.(type) {
+		case []byte:
+			jsonBytes = v
+		case string:
+			jsonBytes = []byte(v)
+		default:
+			return fmt.Errorf("unexpected type for by_reaction_type: %T", ByReactionTypeProp.Value)
+		}
+		if len(jsonBytes) > 0 {
+			m.ByReactionType = make(map[string]int64)
+			if err := json.Unmarshal(jsonBytes, &m.ByReactionType); err != nil {
+				return fmt.Errorf("failed to unmarshal ByReactionType: %w", err)
+			}
+		}
+	}
+
+	return nil
 }

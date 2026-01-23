@@ -80,34 +80,34 @@ resp, err := service.AddReaction(ctx, &v1.AddReactionRequest{
 
 ### Core Operations
 
-| Method | Description |
-|--------|-------------|
-| `AddReaction` | Add or update a user's reaction to an entity |
-| `RemoveReaction` | Remove a user's reaction from an entity |
-| `ToggleReaction` | Toggle a reaction on/off |
+| Method           | Description                                  |
+|------------------|----------------------------------------------|
+| `AddReaction`    | Add or update a user's reaction to an entity |
+| `RemoveReaction` | Remove a user's reaction from an entity      |
+| `ToggleReaction` | Toggle a reaction on/off                     |
 
 ### Query Operations
 
-| Method | Description |
-|--------|-------------|
-| `GetUserReaction` | Get a user's current reaction on an entity |
-| `GetLikeCounts` | Get aggregated counts for an entity |
-| `ListReactors` | List users who reacted to an entity |
-| `ListUserReactions` | List all reactions by a user |
+| Method              | Description                                |
+|---------------------|--------------------------------------------|
+| `GetUserReaction`   | Get a user's current reaction on an entity |
+| `GetLikeCounts`     | Get aggregated counts for an entity        |
+| `ListReactors`      | List users who reacted to an entity        |
+| `ListUserReactions` | List all reactions by a user               |
 
 ### Batch Operations
 
-| Method | Description |
-|--------|-------------|
+| Method                  | Description                                  |
+|-------------------------|----------------------------------------------|
 | `BatchGetUserReactions` | Get a user's reactions for multiple entities |
-| `BatchGetLikeCounts` | Get counts for multiple entities |
+| `BatchGetLikeCounts`    | Get counts for multiple entities             |
 
 ### Reaction Type Management
 
-| Method | Description |
-|--------|-------------|
+| Method               | Description                        |
+|----------------------|------------------------------------|
 | `CreateReactionType` | Create a new reaction type (admin) |
-| `ListReactionTypes` | List available reaction types |
+| `ListReactionTypes`  | List available reaction types      |
 
 ## Data Models
 

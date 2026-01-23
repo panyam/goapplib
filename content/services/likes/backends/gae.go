@@ -78,9 +78,9 @@ func (p *datastoreLikesStorageProvider) DeleteLike(ctx context.Context, entityTy
 // GetLike retrieves a like from Datastore.
 func (p *datastoreLikesStorageProvider) GetLike(ctx context.Context, entityType, entityID, userID string) (*v1.Like, error) {
 	query := datastore.NewQuery(likeKind).
-		FilterField("EntityType", "=", entityType).
-		FilterField("EntityId", "=", entityID).
-		FilterField("UserId", "=", userID).
+		FilterField("entity_type", "=", entityType).
+		FilterField("entity_id", "=", entityID).
+		FilterField("user_id", "=", userID).
 		Limit(1)
 
 	if p.namespace != "" {
@@ -88,7 +88,7 @@ func (p *datastoreLikesStorageProvider) GetLike(ctx context.Context, entityType,
 	}
 
 	var dsLikes []dsgen.LikeDatastore
-	_, err := p.client.GetAll(ctx, query, &dsLikes)
+	keys, err := p.client.GetAll(ctx, query, &dsLikes)
 	if err != nil {
 		return nil, err
 	}
@@ -97,22 +97,25 @@ func (p *datastoreLikesStorageProvider) GetLike(ctx context.Context, entityType,
 		return nil, nil
 	}
 
+	// Populate Id from the key since it's not persisted in the entity
+	dsLikes[0].Id = keys[0].Name
+
 	return likeFromDatastore(&dsLikes[0]), nil
 }
 
 // ListLikesByEntity lists likes for an entity.
 func (p *datastoreLikesStorageProvider) ListLikesByEntity(ctx context.Context, entityType, entityID string, reactionType string, limit, offset int) ([]*v1.Like, int, error) {
 	query := datastore.NewQuery(likeKind).
-		FilterField("EntityType", "=", entityType).
-		FilterField("EntityId", "=", entityID).
-		Order("-CreatedAt")
+		FilterField("entity_type", "=", entityType).
+		FilterField("entity_id", "=", entityID).
+		Order("-created_at")
 
 	if p.namespace != "" {
 		query = query.Namespace(p.namespace)
 	}
 
 	if reactionType != "" {
-		query = query.FilterField("ReactionType", "=", reactionType)
+		query = query.FilterField("reaction_type", "=", reactionType)
 	}
 
 	// Get total count
@@ -126,14 +129,16 @@ func (p *datastoreLikesStorageProvider) ListLikesByEntity(ctx context.Context, e
 	// Get paginated results
 	query = query.Offset(offset).Limit(limit)
 	var dsLikes []dsgen.LikeDatastore
-	_, err = p.client.GetAll(ctx, query, &dsLikes)
+	resultKeys, err := p.client.GetAll(ctx, query, &dsLikes)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	likes := make([]*v1.Like, len(dsLikes))
-	for i, dl := range dsLikes {
-		likes[i] = likeFromDatastore(&dl)
+	for i := range dsLikes {
+		// Populate Id from the key since it's not persisted in the entity
+		dsLikes[i].Id = resultKeys[i].Name
+		likes[i] = likeFromDatastore(&dsLikes[i])
 	}
 
 	return likes, total, nil
@@ -142,15 +147,15 @@ func (p *datastoreLikesStorageProvider) ListLikesByEntity(ctx context.Context, e
 // ListLikesByUser lists likes by a user.
 func (p *datastoreLikesStorageProvider) ListLikesByUser(ctx context.Context, userID string, entityType string, limit, offset int) ([]*v1.Like, int, error) {
 	query := datastore.NewQuery(likeKind).
-		FilterField("UserId", "=", userID).
-		Order("-CreatedAt")
+		FilterField("user_id", "=", userID).
+		Order("-created_at")
 
 	if p.namespace != "" {
 		query = query.Namespace(p.namespace)
 	}
 
 	if entityType != "" {
-		query = query.FilterField("EntityType", "=", entityType)
+		query = query.FilterField("entity_type", "=", entityType)
 	}
 
 	// Get total count
@@ -228,7 +233,7 @@ func (p *datastoreLikesStorageProvider) GetReactionType(ctx context.Context, id 
 // ListReactionTypes lists all reaction types.
 func (p *datastoreLikesStorageProvider) ListReactionTypes(ctx context.Context) ([]*v1.ReactionType, error) {
 	query := datastore.NewQuery(reactionTypeKind).
-		Order("DisplayOrder")
+		Order("display_order")
 
 	if p.namespace != "" {
 		query = query.Namespace(p.namespace)

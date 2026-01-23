@@ -44,6 +44,7 @@ message LikeCountsDatastore {
   option (dal.v1.datastore_options) = {
     source: "content.likes.v1.LikeCounts"
     kind: "LikeCounts"
+    implement_property_loader: true
   };
 
   // Composite key: entity_type:entity_id

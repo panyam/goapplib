@@ -2,9 +2,10 @@
 package dal
 
 import (
-	datastore "github.com/panyam/goapplib/content/gen/datastore"
-	dslib "cloud.google.com/go/datastore"
 	"context"
+
+	dslib "cloud.google.com/go/datastore"
+	datastore "github.com/panyam/goapplib/content/gen/datastore"
 )
 
 // ReactionTypeDatastoreDAL provides database access helper methods for datastore.ReactionTypeDatastore.
