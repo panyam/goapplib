@@ -1,0 +1,63 @@
+syntax = "proto3";
+package content.likes.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/go/likes/v1;likesv1";
+
+// ReactionType defines a configurable reaction type (like, love, celebrate, etc.).
+// Apps can define their own reaction palette.
+message ReactionType {
+  // Unique identifier (e.g., "like", "love", "celebrate")
+  string id = 1;
+  // Display name for the reaction
+  string name = 2;
+  // Emoji representation (e.g., "👍", "❤️", "🎉")
+  string emoji = 3;
+  // Custom icon URL if not using emoji
+  string icon_url = 4;
+  // Display order in reaction picker (lower = first)
+  int32 display_order = 5;
+  // Whether this is the default/primary reaction
+  bool is_default = 6;
+
+  // Metadata
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  string creator_id = 12;
+}
+
+// Like represents a user's reaction to an entity.
+// One reaction per user per entity (changing reaction replaces previous).
+message Like {
+  // Unique identifier
+  string id = 1;
+  // Type of entity being reacted to (e.g., "post", "comment", "video")
+  string entity_type = 2;
+  // ID of the entity being reacted to
+  string entity_id = 3;
+  // User who created the reaction
+  string user_id = 4;
+  // Type of reaction (references ReactionType.id)
+  string reaction_type = 5;
+
+  // Metadata
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  string creator_id = 12;
+}
+
+// LikeCounts provides denormalized reaction counts for fast reads.
+// Updated on every add/remove operation.
+message LikeCounts {
+  // Type of entity
+  string entity_type = 1;
+  // ID of the entity
+  string entity_id = 2;
+  // Total number of reactions across all types
+  int64 total_count = 3;
+  // Count breakdown by reaction type (e.g., {"like": 10, "love": 3})
+  map<string, int64> by_reaction_type = 4;
+  // Last time counts were updated
+  google.protobuf.Timestamp updated_at = 5;
+}

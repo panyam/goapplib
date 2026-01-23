@@ -1,0 +1,57 @@
+syntax = "proto3";
+package content.likes.v1;
+
+import "dal/v1/annotations.proto";
+import "likes/v1/models.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/datastore/likes/v1;likesv1datastore";
+
+// ReactionTypeDatastore is the Datastore model for ReactionType.
+message ReactionTypeDatastore {
+  option (dal.v1.datastore_options) = {
+    source: "content.likes.v1.ReactionType"
+    kind: "ReactionType"
+  };
+
+  string id = 1 [(dal.v1.column) = {
+    datastore_tags: ["-"]
+  }];
+  string name = 2;
+  string emoji = 3;
+  string icon_url = 4;
+  int32 display_order = 5;
+  bool is_default = 6;
+}
+
+// LikeDatastore is the Datastore model for Like.
+message LikeDatastore {
+  option (dal.v1.datastore_options) = {
+    source: "content.likes.v1.Like"
+    kind: "Like"
+  };
+
+  string id = 1 [(dal.v1.column) = {
+    datastore_tags: ["-"]
+  }];
+  string entity_type = 2;
+  string entity_id = 3;
+  string user_id = 4;
+  string reaction_type = 5;
+}
+
+// LikeCountsDatastore is the Datastore model for denormalized like counts.
+message LikeCountsDatastore {
+  option (dal.v1.datastore_options) = {
+    source: "content.likes.v1.LikeCounts"
+    kind: "LikeCounts"
+  };
+
+  // Composite key: entity_type:entity_id
+  string entity_type = 1;
+  string entity_id = 2;
+  int64 total_count = 3;
+  // JSON-serialized map of reaction type to count
+  map<string, int64> by_reaction_type = 4 [(dal.v1.column) = {
+    datastore_tags: ["noindex"]
+  }];
+}
