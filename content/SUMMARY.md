@@ -87,6 +87,9 @@ make updb && make testpg && make downdb
 
 # Datastore emulator
 make upds && make testds && make downds
+
+# Real Google Cloud Datastore
+make testrealDS
 ```
 
 ## Implementation Status

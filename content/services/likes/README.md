@@ -158,8 +158,10 @@ message ReactionType {
 ### Datastore Kinds
 
 - `Like` - Individual reaction entities
-- `LikeCounts` - Denormalized count entities
+- `LikeCounts` - Denormalized count entities (uses PropertyLoadSaver for map serialization)
 - `ReactionType` - Reaction type definitions
+
+Note: The `LikeCounts` entity uses `implement_property_loader: true` in the proto to generate PropertyLoadSaver methods that serialize the `map<string, int64>` field as JSON, since Datastore doesn't natively support Go maps.
 
 ## Integration Testing
 
