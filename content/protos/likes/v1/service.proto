@@ -1,0 +1,230 @@
+syntax = "proto3";
+package content.likes.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "common/v1/types.proto";
+import "likes/v1/models.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/go/likes/v1;likesv1";
+
+// LikesService provides high-volume reaction functionality for any entity.
+service LikesService {
+  // AddReaction adds or updates a user's reaction to an entity.
+  // If user already has a reaction, it replaces the previous one.
+  rpc AddReaction(AddReactionRequest) returns (AddReactionResponse) {
+    option (google.api.http) = {
+      post: "/v1/likes"
+      body: "*"
+    };
+  }
+
+  // RemoveReaction removes a user's reaction from an entity.
+  rpc RemoveReaction(RemoveReactionRequest) returns (RemoveReactionResponse) {
+    option (google.api.http) = {
+      delete: "/v1/likes"
+    };
+  }
+
+  // ToggleReaction toggles a reaction on/off. If user has the same reaction,
+  // it removes it. If different or none, it sets the new reaction.
+  rpc ToggleReaction(ToggleReactionRequest) returns (ToggleReactionResponse) {
+    option (google.api.http) = {
+      post: "/v1/likes/toggle"
+      body: "*"
+    };
+  }
+
+  // GetUserReaction returns a user's current reaction on an entity (if any).
+  rpc GetUserReaction(GetUserReactionRequest) returns (GetUserReactionResponse) {
+    option (google.api.http) = {
+      get: "/v1/likes/user"
+    };
+  }
+
+  // GetLikeCounts returns aggregated reaction counts for an entity.
+  rpc GetLikeCounts(GetLikeCountsRequest) returns (GetLikeCountsResponse) {
+    option (google.api.http) = {
+      get: "/v1/likes/counts/{entity_type}/{entity_id}"
+    };
+  }
+
+  // ListReactors returns users who reacted to an entity.
+  rpc ListReactors(ListReactorsRequest) returns (ListReactorsResponse) {
+    option (google.api.http) = {
+      get: "/v1/likes/reactors/{entity_type}/{entity_id}"
+    };
+  }
+
+  // ListUserReactions returns all reactions by a specific user.
+  rpc ListUserReactions(ListUserReactionsRequest) returns (ListUserReactionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/likes/user/{user_id}"
+    };
+  }
+
+  // BatchGetUserReactions returns a user's reactions for multiple entities.
+  rpc BatchGetUserReactions(BatchGetUserReactionsRequest) returns (BatchGetUserReactionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/likes/batch/user-reactions"
+      body: "*"
+    };
+  }
+
+  // BatchGetLikeCounts returns reaction counts for multiple entities.
+  rpc BatchGetLikeCounts(BatchGetLikeCountsRequest) returns (BatchGetLikeCountsResponse) {
+    option (google.api.http) = {
+      post: "/v1/likes/batch/counts"
+      body: "*"
+    };
+  }
+
+  // CreateReactionType creates a new reaction type (admin operation).
+  rpc CreateReactionType(CreateReactionTypeRequest) returns (CreateReactionTypeResponse) {
+    option (google.api.http) = {
+      post: "/v1/likes/reaction-types"
+      body: "*"
+    };
+  }
+
+  // ListReactionTypes returns all available reaction types.
+  rpc ListReactionTypes(ListReactionTypesRequest) returns (ListReactionTypesResponse) {
+    option (google.api.http) = {
+      get: "/v1/likes/reaction-types"
+    };
+  }
+}
+
+// AddReactionRequest adds a reaction to an entity.
+message AddReactionRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+  string user_id = 3;
+  // Reaction type to add (defaults to "like" if not specified)
+  string reaction_type = 4;
+}
+
+message AddReactionResponse {
+  Like like = 1;
+  // Updated counts after adding reaction
+  LikeCounts counts = 2;
+}
+
+// RemoveReactionRequest removes a user's reaction from an entity.
+message RemoveReactionRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+  string user_id = 3;
+}
+
+message RemoveReactionResponse {
+  // True if a reaction was removed
+  bool removed = 1;
+  // Updated counts after removing reaction
+  LikeCounts counts = 2;
+}
+
+// ToggleReactionRequest toggles a reaction on/off.
+message ToggleReactionRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+  string user_id = 3;
+  string reaction_type = 4;
+}
+
+message ToggleReactionResponse {
+  // The new reaction (null if removed)
+  Like like = 1;
+  // True if reaction was added, false if removed
+  bool added = 2;
+  // Updated counts
+  LikeCounts counts = 3;
+}
+
+// GetUserReactionRequest gets a user's reaction on a specific entity.
+message GetUserReactionRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+  string user_id = 3;
+}
+
+message GetUserReactionResponse {
+  // The user's reaction (null if none)
+  Like like = 1;
+}
+
+// GetLikeCountsRequest gets reaction counts for an entity.
+message GetLikeCountsRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+}
+
+message GetLikeCountsResponse {
+  LikeCounts counts = 1;
+}
+
+// ListReactorsRequest lists users who reacted to an entity.
+message ListReactorsRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+  // Filter by reaction type (optional)
+  string reaction_type = 3;
+  content.common.v1.PaginationRequest pagination = 10;
+}
+
+message ListReactorsResponse {
+  repeated Like likes = 1;
+  content.common.v1.PaginationResponse pagination = 10;
+}
+
+// ListUserReactionsRequest lists all reactions by a user.
+message ListUserReactionsRequest {
+  string user_id = 1;
+  // Filter by entity type (optional)
+  string entity_type = 2;
+  content.common.v1.PaginationRequest pagination = 10;
+}
+
+message ListUserReactionsResponse {
+  repeated Like likes = 1;
+  content.common.v1.PaginationResponse pagination = 10;
+}
+
+// BatchGetUserReactionsRequest gets a user's reactions for multiple entities.
+message BatchGetUserReactionsRequest {
+  string user_id = 1;
+  repeated content.common.v1.EntityRef entities = 2;
+}
+
+message BatchGetUserReactionsResponse {
+  // Map of "entity_type:entity_id" to Like
+  map<string, Like> reactions = 1;
+}
+
+// BatchGetLikeCountsRequest gets counts for multiple entities.
+message BatchGetLikeCountsRequest {
+  repeated content.common.v1.EntityRef entities = 1;
+}
+
+message BatchGetLikeCountsResponse {
+  // Map of "entity_type:entity_id" to LikeCounts
+  map<string, LikeCounts> counts = 1;
+}
+
+// CreateReactionTypeRequest creates a new reaction type.
+message CreateReactionTypeRequest {
+  ReactionType reaction_type = 1;
+}
+
+message CreateReactionTypeResponse {
+  ReactionType reaction_type = 1;
+}
+
+// ListReactionTypesRequest lists available reaction types.
+message ListReactionTypesRequest {
+  // No parameters - returns all types
+}
+
+message ListReactionTypesResponse {
+  repeated ReactionType reaction_types = 1;
+}

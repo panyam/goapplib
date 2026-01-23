@@ -1,0 +1,66 @@
+syntax = "proto3";
+package content.likes.v1;
+
+import "dal/v1/annotations.proto";
+import "likes/v1/models.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/gorm/likes/v1;likesv1gorm";
+
+// ReactionTypeGORM is the GORM model for ReactionType.
+message ReactionTypeGORM {
+  option (dal.v1.gorm) = {
+    source: "content.likes.v1.ReactionType"
+    table: "reaction_types"
+  };
+
+  string id = 1 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey"]
+  }];
+  string name = 2;
+  string emoji = 3;
+  string icon_url = 4;
+  int32 display_order = 5;
+  bool is_default = 6;
+}
+
+// LikeGORM is the GORM model for Like.
+message LikeGORM {
+  option (dal.v1.gorm) = {
+    source: "content.likes.v1.Like"
+    table: "likes"
+  };
+
+  string id = 1 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey"]
+  }];
+  string entity_type = 2 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_likes_entity,priority:1", "index:idx_likes_user_entity,priority:1"]
+  }];
+  string entity_id = 3 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_likes_entity,priority:2", "index:idx_likes_user_entity,priority:2"]
+  }];
+  string user_id = 4 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_likes_user", "index:idx_likes_user_entity,priority:3,unique"]
+  }];
+  string reaction_type = 5;
+}
+
+// LikeCountsGORM is the GORM model for denormalized like counts.
+message LikeCountsGORM {
+  option (dal.v1.gorm) = {
+    source: "content.likes.v1.LikeCounts"
+    table: "like_counts"
+  };
+
+  string entity_type = 1 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey"]
+  }];
+  string entity_id = 2 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey"]
+  }];
+  int64 total_count = 3;
+  // JSON-serialized map of reaction type to count
+  map<string, int64> by_reaction_type = 4 [(dal.v1.column) = {
+    gorm_tags: ["serializer:json", "type:text"]
+  }];
+}
