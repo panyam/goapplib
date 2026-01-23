@@ -1,0 +1,92 @@
+syntax = "proto3";
+package content.tags.v1;
+
+import "dal/v1/annotations.proto";
+import "tags/v1/models.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/datastore/tags/v1;tagsv1datastore";
+
+// TagDatastore is the Datastore model for Tag.
+message TagDatastore {
+  option (dal.v1.datastore_options) = {
+    source: "content.tags.v1.Tag"
+    kind: "Tag"
+  };
+
+  // ID stored in key, not as property
+  string id = 1 [(dal.v1.column) = {
+    datastore_tags: ["-"]
+  }];
+
+  // Key-value pair
+  string key = 2;
+  // Normalized key (computed by service, readonly)
+  string normalized_key = 3;
+  string value = 4;
+  // Normalized value (computed by service, readonly)
+  string normalized_value = 5;
+
+  // Type
+  int32 type = 6;
+
+  // Visual
+  string color = 7;
+  string description = 8 [(dal.v1.column) = {
+    datastore_tags: ["noindex"]
+  }];
+  int32 display_order = 9;
+
+  // Ownership
+  string owner_type = 10;
+  string owner_id = 11;
+  int32 scope = 12;
+
+  // Stats
+  int64 usage_count = 15;
+
+  // Lifecycle
+  int32 status = 16;
+  string redirect_to_tag_id = 17;
+
+  // creator_id - same type, auto-handled
+  string creator_id = 22;
+  // created_at, updated_at - same type (Timestamp), auto-handled
+}
+
+// EntityTagDatastore is the Datastore model for EntityTag.
+// Key is composite: tag_id + entity_type + entity_id + tagged_by
+// This allows multiple users to independently apply/remove the same shared tag.
+message EntityTagDatastore {
+  option (dal.v1.datastore_options) = {
+    source: "content.tags.v1.EntityTag"
+    kind: "EntityTag"
+  };
+
+  // All four fields form the logical composite key
+  string tag_id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+  string tagged_by = 4;
+
+  // Visibility of this application
+  int32 visibility = 5;
+  // created_at - same type (Timestamp), auto-handled
+}
+
+// TagUsageCountsDatastore is the Datastore model for denormalized tag counts.
+message TagUsageCountsDatastore {
+  option (dal.v1.datastore_options) = {
+    source: "content.tags.v1.TagUsageCounts"
+    kind: "TagUsageCounts"
+    implement_property_loader: true
+  };
+
+  string entity_type = 1;
+  string entity_id = 2;
+  int64 total_count = 3;
+
+  // JSON-serialized map
+  map<string, int64> by_key = 4 [(dal.v1.column) = {
+    datastore_tags: ["noindex"]
+  }];
+}

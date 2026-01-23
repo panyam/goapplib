@@ -1,0 +1,121 @@
+syntax = "proto3";
+package content.tags.v1;
+
+import "dal/v1/annotations.proto";
+import "tags/v1/models.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/gorm/tags/v1;tagsv1gorm";
+
+// TagGORM is the GORM model for Tag.
+message TagGORM {
+  option (dal.v1.gorm) = {
+    source: "content.tags.v1.Tag"
+    table: "tags"
+  };
+
+  string id = 1 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey"]
+  }];
+
+  // Key-value pair (key empty = pure tag)
+  string key = 2 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_tags_owner_norm,priority:3"]
+  }];
+  // Normalized key (computed by service, readonly)
+  string normalized_key = 3 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_tags_owner_norm,priority:4", "index:idx_tags_search,priority:1"]
+  }];
+  string value = 4;
+  // Normalized value (computed by service, readonly)
+  string normalized_value = 5 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_tags_owner_norm,priority:5", "index:idx_tags_search,priority:2"]
+  }];
+
+  // Type
+  int32 type = 6;
+
+  // Visual
+  string color = 7;
+  string description = 8;
+  int32 display_order = 9;
+
+  // Ownership - composite index for listing user's tags
+  string owner_type = 10 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_tags_owner_key_value,priority:1", "index:idx_tags_owner_scope,priority:1"]
+  }];
+  string owner_id = 11 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_tags_owner_key_value,priority:2", "index:idx_tags_owner_scope,priority:2"]
+  }];
+  int32 scope = 12 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_tags_owner_scope,priority:3"]
+  }];
+
+  // Stats
+  int64 usage_count = 15 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_tags_usage"]
+  }];
+
+  // Lifecycle
+  int32 status = 16 [(dal.v1.column) = {
+    gorm_tags: ["default:1"]
+  }];
+  string redirect_to_tag_id = 17;
+
+  // creator_id - same type, auto-handled
+  string creator_id = 22;
+  // created_at, updated_at - same type (Timestamp), auto-handled
+}
+
+// EntityTagGORM is the GORM model for EntityTag (join table).
+// Primary key includes tagged_by to allow multiple users to apply the same shared tag.
+message EntityTagGORM {
+  option (dal.v1.gorm) = {
+    source: "content.tags.v1.EntityTag"
+    table: "entity_tags"
+  };
+
+  // Composite primary key: (tag_id, entity_type, entity_id, tagged_by)
+  // This allows multiple users to independently apply/remove the same shared tag
+  string tag_id = 1 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey", "index:idx_entity_tags_tag,priority:1"]
+  }];
+  string entity_type = 2 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey", "index:idx_entity_tags_entity,priority:1", "index:idx_entity_tags_tag,priority:2"]
+  }];
+  string entity_id = 3 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey", "index:idx_entity_tags_entity,priority:2"]
+  }];
+  string tagged_by = 4 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey", "index:idx_entity_tags_user,priority:1"]
+  }];
+
+  // Visibility of this application
+  int32 visibility = 5 [(dal.v1.column) = {
+    gorm_tags: ["index:idx_entity_tags_user,priority:2", "default:3"]
+  }];
+  // created_at - same type (Timestamp), auto-handled
+}
+
+// TagUsageCountsGORM is the GORM model for denormalized tag counts per entity.
+message TagUsageCountsGORM {
+  option (dal.v1.gorm) = {
+    source: "content.tags.v1.TagUsageCounts"
+    table: "tag_usage_counts"
+  };
+
+  // Composite primary key
+  string entity_type = 1 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey"]
+  }];
+  string entity_id = 2 [(dal.v1.column) = {
+    gorm_tags: ["primaryKey"]
+  }];
+
+  int64 total_count = 3;
+
+  // JSON-serialized map of key to count
+  map<string, int64> by_key = 4 [(dal.v1.column) = {
+    gorm_tags: ["serializer:json", "type:text"]
+  }];
+  // updated_at - same type (Timestamp), auto-handled
+}

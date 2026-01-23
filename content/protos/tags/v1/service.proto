@@ -1,0 +1,451 @@
+syntax = "proto3";
+package content.tags.v1;
+
+import "google/api/annotations.proto";
+import "common/v1/types.proto";
+import "tags/v1/models.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/go/tags/v1;tagsv1";
+
+// TagsService provides tagging and metadata functionality for any entity.
+//
+// Supports two modes:
+// - Pure tags (key empty): Simple labels like "favorites", "rock"
+// - Metadata (key present): Key-value pairs like venue="Wembley", rating="5"
+service TagsService {
+  // === Tag CRUD ===
+
+  // CreateTag creates a new tag definition.
+  // The tag can then be applied to entities via TagEntity.
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse) {
+    option (google.api.http) = {
+      post: "/v1/tags"
+      body: "*"
+    };
+  }
+
+  // GetTag retrieves a tag by ID.
+  rpc GetTag(GetTagRequest) returns (GetTagResponse) {
+    option (google.api.http) = {
+      get: "/v1/tags/{id}"
+    };
+  }
+
+  // UpdateTag updates a tag's properties (color, description, etc.).
+  rpc UpdateTag(UpdateTagRequest) returns (UpdateTagResponse) {
+    option (google.api.http) = {
+      patch: "/v1/tags/{tag.id}"
+      body: "*"
+    };
+  }
+
+  // DeleteTag removes a tag and optionally untags all entities.
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse) {
+    option (google.api.http) = {
+      delete: "/v1/tags/{id}"
+    };
+  }
+
+  // ListTags lists tags for an owner with filtering.
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse) {
+    option (google.api.http) = {
+      get: "/v1/tags"
+    };
+  }
+
+  // === Entity Tagging ===
+
+  // TagEntity applies a tag to an entity.
+  // Creates the tag if it doesn't exist (inline creation).
+  rpc TagEntity(TagEntityRequest) returns (TagEntityResponse) {
+    option (google.api.http) = {
+      post: "/v1/tags/entity"
+      body: "*"
+    };
+  }
+
+  // UntagEntity removes a tag from an entity.
+  rpc UntagEntity(UntagEntityRequest) returns (UntagEntityResponse) {
+    option (google.api.http) = {
+      delete: "/v1/tags/entity"
+    };
+  }
+
+  // GetEntityTags returns all tags for a specific entity.
+  rpc GetEntityTags(GetEntityTagsRequest) returns (GetEntityTagsResponse) {
+    option (google.api.http) = {
+      get: "/v1/tags/entity/{entity_type}/{entity_id}"
+    };
+  }
+
+  // GetEntitiesWithTag returns all entities that have a specific tag.
+  rpc GetEntitiesWithTag(GetEntitiesWithTagRequest) returns (GetEntitiesWithTagResponse) {
+    option (google.api.http) = {
+      get: "/v1/tags/{tag_id}/entities"
+    };
+  }
+
+  // === Batch Operations ===
+
+  // BatchTagEntities applies a tag to multiple entities at once.
+  rpc BatchTagEntities(BatchTagEntitiesRequest) returns (BatchTagEntitiesResponse) {
+    option (google.api.http) = {
+      post: "/v1/tags/batch/tag"
+      body: "*"
+    };
+  }
+
+  // BatchGetEntityTags returns tags for multiple entities at once.
+  // Useful for hydrating lists of entities with their tags.
+  rpc BatchGetEntityTags(BatchGetEntityTagsRequest) returns (BatchGetEntityTagsResponse) {
+    option (google.api.http) = {
+      post: "/v1/tags/batch/entity-tags"
+      body: "*"
+    };
+  }
+
+  // === Discovery ===
+
+  // SearchTags searches for tags by name (autocomplete).
+  rpc SearchTags(SearchTagsRequest) returns (SearchTagsResponse) {
+    option (google.api.http) = {
+      get: "/v1/tags/search"
+    };
+  }
+
+  // GetPopularTags returns the most used tags.
+  rpc GetPopularTags(GetPopularTagsRequest) returns (GetPopularTagsResponse) {
+    option (google.api.http) = {
+      get: "/v1/tags/popular"
+    };
+  }
+
+  // MergeTags merges two tags into one (admin operation).
+  // All entities tagged with source tag will be retagged with target.
+  rpc MergeTags(MergeTagsRequest) returns (MergeTagsResponse) {
+    option (google.api.http) = {
+      post: "/v1/tags/merge"
+      body: "*"
+    };
+  }
+
+  // PromoteTag promotes a private tag to public (or shared to public).
+  // Uses a state machine to ensure consistency:
+  // 1. Marks source tag as MIGRATING (blocks new EntityTags)
+  // 2. Creates or finds target public tag
+  // 3. Migrates EntityTags to target tag
+  // 4. Marks source tag as REDIRECT
+  // 5. Background cleanup after grace period
+  rpc PromoteTag(PromoteTagRequest) returns (PromoteTagResponse) {
+    option (google.api.http) = {
+      post: "/v1/tags/promote"
+      body: "*"
+    };
+  }
+}
+
+// === Tag CRUD Messages ===
+
+message CreateTagRequest {
+  // Key for metadata tags (empty for pure tags)
+  string key = 1;
+  // Display value (required)
+  string value = 2;
+  // Value type (defaults to STRING)
+  TagType type = 3;
+  // Visual properties
+  string color = 4;
+  string description = 5;
+  int32 display_order = 6;
+  // Ownership
+  string owner_type = 7;
+  string owner_id = 8;
+  TagScope scope = 9;
+}
+
+message CreateTagResponse {
+  // The tag (new or existing). Includes both display values (key, value) and
+  // normalized values (normalized_key, normalized_value). If already_existed=true,
+  // the display values are from the original creator, and normalized values
+  // explain why the request matched the existing tag.
+  Tag tag = 1;
+  // True if tag already existed (returned existing).
+  // Client's input matched an existing tag via normalized key/value.
+  bool already_existed = 2;
+}
+
+message GetTagRequest {
+  string id = 1;
+}
+
+message GetTagResponse {
+  Tag tag = 1;
+}
+
+message UpdateTagRequest {
+  Tag tag = 1;
+  // Fields to update (if empty, updates all non-empty fields)
+  repeated string update_mask = 2;
+}
+
+message UpdateTagResponse {
+  Tag tag = 1;
+}
+
+message DeleteTagRequest {
+  string id = 1;
+  // If true, also removes tag from all entities
+  bool remove_from_entities = 2;
+}
+
+message DeleteTagResponse {
+  bool deleted = 1;
+  // Number of entities that were untagged
+  int64 entities_untagged = 2;
+}
+
+message ListTagsRequest {
+  // Filter by owner
+  string owner_type = 1;
+  string owner_id = 2;
+  // Filter by scope
+  TagScope scope = 3;
+  // Filter by key (empty = pure tags only, "*" = all, "venue" = specific key)
+  string key_filter = 4;
+  // Order by: "name", "usage_count", "created_at", "display_order"
+  string order_by = 5;
+  content.common.v1.PaginationRequest pagination = 10;
+}
+
+message ListTagsResponse {
+  repeated Tag tags = 1;
+  content.common.v1.PaginationResponse pagination = 10;
+}
+
+// === Entity Tagging Messages ===
+
+message TagEntityRequest {
+  // Entity to tag
+  string entity_type = 1;
+  string entity_id = 2;
+
+  // Option 1: Reference existing tag by ID
+  string tag_id = 3;
+
+  // Option 2: Create or find tag inline
+  // If tag_id is empty, these fields are used to find or create the tag
+  string key = 4;           // Empty for pure tag
+  string value = 5;         // Required if tag_id is empty
+  TagType type = 6;
+  string color = 7;
+
+  // Ownership for inline tag creation
+  string owner_type = 8;
+  string owner_id = 9;
+
+  // Who is applying the tag (defaults to owner)
+  string tagged_by = 10;
+
+  // Visibility of this application (not the tag itself).
+  // Allows using a public tag with private application.
+  // Defaults to match tag's scope if not specified.
+  EntityTagVisibility visibility = 11;
+}
+
+message TagEntityResponse {
+  // The tag that was applied
+  Tag tag = 1;
+  // The entity-tag association
+  EntityTag entity_tag = 2;
+  // True if this was a new tag application (false if already tagged)
+  bool newly_tagged = 3;
+}
+
+message UntagEntityRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+
+  // Option 1: By tag ID
+  string tag_id = 3;
+
+  // Option 2: By key/value (service normalizes these for lookup)
+  string key = 4;
+  string value = 5;
+
+  // Owner context (needed for option 2)
+  string owner_type = 6;
+  string owner_id = 7;
+
+  // Who applied the tag (required - part of uniqueness constraint)
+  // Each user removes only their own tag application
+  string tagged_by = 8;
+}
+
+message UntagEntityResponse {
+  bool removed = 1;
+}
+
+message GetEntityTagsRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+
+  // Optional: filter by key
+  // Empty = all tags, "" (explicit empty) = pure tags only, "venue" = specific key
+  string key_filter = 3;
+
+  // Optional: filter by owner
+  string owner_type = 4;
+  string owner_id = 5;
+}
+
+message GetEntityTagsResponse {
+  repeated Tag tags = 1;
+}
+
+message GetEntitiesWithTagRequest {
+  // Option 1: By tag ID
+  string tag_id = 1;
+
+  // Option 2: By key/value (service normalizes these for lookup)
+  string key = 2;
+  string value = 3;
+  string owner_type = 4;
+  string owner_id = 5;
+
+  // Optional: filter by entity type
+  string entity_type_filter = 6;
+
+  content.common.v1.PaginationRequest pagination = 10;
+}
+
+message GetEntitiesWithTagResponse {
+  repeated content.common.v1.EntityRef entities = 1;
+  content.common.v1.PaginationResponse pagination = 10;
+}
+
+// === Batch Operations Messages ===
+
+message BatchTagEntitiesRequest {
+  // Tag to apply (by ID)
+  string tag_id = 1;
+  // Or by key/value (for inline creation)
+  string key = 2;
+  string value = 3;
+  TagType type = 4;
+  string owner_type = 5;
+  string owner_id = 6;
+  TagScope scope = 7;
+
+  // Entities to tag
+  repeated content.common.v1.EntityRef entities = 10;
+
+  // Who is applying the tags
+  string tagged_by = 11;
+}
+
+message BatchTagEntitiesResponse {
+  Tag tag = 1;
+  int64 entities_tagged = 2;
+  int64 already_tagged = 3;
+}
+
+message BatchGetEntityTagsRequest {
+  repeated content.common.v1.EntityRef entities = 1;
+
+  // Optional: filter by owner
+  string owner_type = 2;
+  string owner_id = 3;
+}
+
+message BatchGetEntityTagsResponse {
+  // Map of "entity_type:entity_id" to list of tags
+  map<string, EntityTagList> entity_tags = 1;
+}
+
+// Helper message for batch response
+message EntityTagList {
+  repeated Tag tags = 1;
+}
+
+// === Discovery Messages ===
+
+message SearchTagsRequest {
+  // Search query (prefix match on value)
+  string query = 1;
+  // Filter by key (empty = search all, "" = pure tags, "venue" = specific key)
+  string key_filter = 2;
+  // Filter by owner
+  string owner_type = 3;
+  string owner_id = 4;
+  // Include shared/public tags from other owners
+  bool include_shared = 5;
+  // Maximum results
+  int32 limit = 6;
+}
+
+message SearchTagsResponse {
+  repeated Tag tags = 1;
+}
+
+message GetPopularTagsRequest {
+  // Filter by key
+  string key_filter = 1;
+  // Filter by owner
+  string owner_type = 2;
+  string owner_id = 3;
+  // Include shared/public tags
+  bool include_shared = 4;
+  // Maximum results
+  int32 limit = 5;
+}
+
+message GetPopularTagsResponse {
+  repeated Tag tags = 1;
+}
+
+message MergeTagsRequest {
+  // Tag to merge from (will be deleted)
+  string source_tag_id = 1;
+  // Tag to merge into (will remain)
+  string target_tag_id = 2;
+}
+
+message MergeTagsResponse {
+  // Updated target tag
+  Tag tag = 1;
+  // Number of entities that were retagged
+  int64 entities_retagged = 2;
+}
+
+// PromoteTagRequest promotes a private/shared tag to a more public scope.
+message PromoteTagRequest {
+  // Tag to promote (must be private or shared)
+  string source_tag_id = 1;
+
+  // Target scope: where to promote to
+  // - "org:{org_id}" to promote to org shared
+  // - "system" or empty to promote to public
+  string target_owner_type = 2;
+  string target_owner_id = 3;
+
+  // If true and target tag exists, merge into it.
+  // If false and target exists, return error.
+  bool merge_if_exists = 4;
+
+  // Visibility to set on migrated EntityTags (defaults to PUBLIC)
+  EntityTagVisibility new_visibility = 5;
+}
+
+message PromoteTagResponse {
+  // The new target tag (public or shared)
+  Tag tag = 1;
+
+  // Original tag now in REDIRECT status
+  Tag source_tag = 2;
+
+  // Number of EntityTags migrated
+  int64 entity_tags_migrated = 3;
+
+  // True if target already existed and was merged into
+  bool merged_into_existing = 4;
+}
