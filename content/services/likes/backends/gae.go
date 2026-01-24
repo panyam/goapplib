@@ -18,8 +18,9 @@ import (
 // DatastoreLikesService implements LikesService using Google Cloud Datastore.
 type DatastoreLikesService struct {
 	*likes.BaseLikesService
-	client    *datastore.Client
-	namespace string
+	client           *datastore.Client
+	namespace        string
+	indexesValidated bool
 }
 
 // NewDatastoreLikesService creates a new Datastore-backed likes service.
@@ -40,12 +41,28 @@ func NewDatastoreLikesService(client *datastore.Client, namespace string, option
 	// Apply options
 	opts := dsidx.ApplyOptions(options...)
 	if opts.ValidateCtx != nil {
-		if err := dsidx.ValidateAndWriteIndexes(opts.ValidateCtx, client, namespace, service); err != nil {
+		if err := service.EnsureIndexes(opts.ValidateCtx); err != nil {
 			return nil, err
 		}
 	}
 
 	return service, nil
+}
+
+// EnsureIndexes validates that required indexes exist (only runs once per instance).
+// Returns nil if indexes are valid or already validated.
+// Returns error with deployment instructions if indexes are missing.
+func (s *DatastoreLikesService) EnsureIndexes(ctx context.Context) error {
+	if s.indexesValidated {
+		return nil
+	}
+
+	if err := dsidx.ValidateAndWriteIndexes(ctx, s.client, s.namespace, s); err != nil {
+		return err
+	}
+
+	s.indexesValidated = true
+	return nil
 }
 
 // datastoreLikesStorageProvider implements LikesStorageProvider using Datastore.

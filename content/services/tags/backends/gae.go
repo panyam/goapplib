@@ -15,32 +15,69 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// Default kind names for tags service
+const (
+	DefaultTagKind            = "Tag"
+	DefaultEntityTagKind      = "EntityTag"
+	DefaultTagUsageCountsKind = "TagUsageCounts"
+)
+
 // DatastoreTagsService implements TagsService using Google Cloud Datastore.
 type DatastoreTagsService struct {
 	*tags.BaseTagsService
-	client    *datastore.Client
-	namespace string
+	client           *datastore.Client
+	namespace        string
+	indexesValidated bool
+
+	// Kind names (customizable via WithKindNames)
+	tagKind            string
+	entityTagKind      string
+	tagUsageCountsKind string
 }
 
 // NewDatastoreTagsService creates a new Datastore-backed tags service.
 // Options:
 //   - dsidx.WithValidation(ctx): Validate indexes exist, return error with deployment instructions if not
+//   - dsidx.WithKindNames(map[string]string{"Tag": "MyTag"}): Override kind names
 func NewDatastoreTagsService(client *datastore.Client, namespace string, options ...dsidx.ServiceOption) (*DatastoreTagsService, error) {
+	opts := dsidx.ApplyOptions(options...)
+
+	// Resolve kind names (use defaults if not overridden)
+	tagKind := DefaultTagKind
+	entityTagKind := DefaultEntityTagKind
+	tagUsageCountsKind := DefaultTagUsageCountsKind
+
+	if opts.KindNames != nil {
+		if name, ok := opts.KindNames["Tag"]; ok {
+			tagKind = name
+		}
+		if name, ok := opts.KindNames["EntityTag"]; ok {
+			entityTagKind = name
+		}
+		if name, ok := opts.KindNames["TagUsageCounts"]; ok {
+			tagUsageCountsKind = name
+		}
+	}
+
 	provider := &datastoreTagsStorageProvider{
-		client:    client,
-		namespace: namespace,
+		client:             client,
+		namespace:          namespace,
+		tagKind:            tagKind,
+		entityTagKind:      entityTagKind,
+		tagUsageCountsKind: tagUsageCountsKind,
 	}
 	base := tags.NewBaseTagsService(provider)
 	service := &DatastoreTagsService{
-		BaseTagsService: base,
-		client:          client,
-		namespace:       namespace,
+		BaseTagsService:    base,
+		client:             client,
+		namespace:          namespace,
+		tagKind:            tagKind,
+		entityTagKind:      entityTagKind,
+		tagUsageCountsKind: tagUsageCountsKind,
 	}
 
-	// Apply options
-	opts := dsidx.ApplyOptions(options...)
 	if opts.ValidateCtx != nil {
-		if err := dsidx.ValidateAndWriteIndexes(opts.ValidateCtx, client, namespace, service); err != nil {
+		if err := service.EnsureIndexes(opts.ValidateCtx); err != nil {
 			return nil, err
 		}
 	}
@@ -48,17 +85,30 @@ func NewDatastoreTagsService(client *datastore.Client, namespace string, options
 	return service, nil
 }
 
-// datastoreTagsStorageProvider implements TagsStorageProvider using Datastore.
-type datastoreTagsStorageProvider struct {
-	client    *datastore.Client
-	namespace string
+// EnsureIndexes validates that required indexes exist (only runs once per instance).
+// Returns nil if indexes are valid or already validated.
+// Returns error with deployment instructions if indexes are missing.
+func (s *DatastoreTagsService) EnsureIndexes(ctx context.Context) error {
+	if s.indexesValidated {
+		return nil
+	}
+
+	if err := dsidx.ValidateAndWriteIndexes(ctx, s.client, s.namespace, s); err != nil {
+		return err
+	}
+
+	s.indexesValidated = true
+	return nil
 }
 
-const (
-	tagKind            = "Tag"
-	entityTagKind      = "EntityTag"
-	tagUsageCountsKind = "TagUsageCounts"
-)
+// datastoreTagsStorageProvider implements TagsStorageProvider using Datastore.
+type datastoreTagsStorageProvider struct {
+	client             *datastore.Client
+	namespace          string
+	tagKind            string
+	entityTagKind      string
+	tagUsageCountsKind string
+}
 
 func (p *datastoreTagsStorageProvider) newKey(kind, id string) *datastore.Key {
 	key := datastore.NameKey(kind, id, nil)
@@ -71,14 +121,14 @@ func (p *datastoreTagsStorageProvider) newKey(kind, id string) *datastore.Key {
 // SaveTag saves a tag to Datastore.
 func (p *datastoreTagsStorageProvider) SaveTag(ctx context.Context, tag *v1.Tag) error {
 	dsTag := tagToDatastore(tag)
-	key := p.newKey(tagKind, tag.Id)
+	key := p.newKey(p.tagKind, tag.Id)
 	_, err := p.client.Put(ctx, key, dsTag)
 	return err
 }
 
 // GetTag retrieves a tag from Datastore.
 func (p *datastoreTagsStorageProvider) GetTag(ctx context.Context, id string) (*v1.Tag, error) {
-	key := p.newKey(tagKind, id)
+	key := p.newKey(p.tagKind, id)
 	var dsTag dsgen.TagDatastore
 	err := p.client.Get(ctx, key, &dsTag)
 	if err != nil {
@@ -93,13 +143,13 @@ func (p *datastoreTagsStorageProvider) GetTag(ctx context.Context, id string) (*
 
 // DeleteTag deletes a tag from Datastore.
 func (p *datastoreTagsStorageProvider) DeleteTag(ctx context.Context, id string) error {
-	key := p.newKey(tagKind, id)
+	key := p.newKey(p.tagKind, id)
 	return p.client.Delete(ctx, key)
 }
 
 // ListTags lists tags with filtering.
 func (p *datastoreTagsStorageProvider) ListTags(ctx context.Context, opts tags.ListTagsOptions) ([]*v1.Tag, int, error) {
-	query := datastore.NewQuery(tagKind)
+	query := datastore.NewQuery(p.tagKind)
 
 	if p.namespace != "" {
 		query = query.Namespace(p.namespace)
@@ -164,7 +214,7 @@ func (p *datastoreTagsStorageProvider) ListTags(ctx context.Context, opts tags.L
 
 // FindTagByNormalizedValues finds a tag by its normalized name and value.
 func (p *datastoreTagsStorageProvider) FindTagByNormalizedValues(ctx context.Context, ownerType, ownerID, normalizedName, normalizedValue string) (*v1.Tag, error) {
-	query := datastore.NewQuery(tagKind).
+	query := datastore.NewQuery(p.tagKind).
 		FilterField("owner_type", "=", ownerType).
 		FilterField("owner_id", "=", ownerID).
 		FilterField("normalized_name", "=", normalizedName).
@@ -193,7 +243,7 @@ func (p *datastoreTagsStorageProvider) FindTagByNormalizedValues(ctx context.Con
 // SearchTags searches for tags by query (prefix match).
 func (p *datastoreTagsStorageProvider) SearchTags(ctx context.Context, opts tags.SearchTagsOptions) ([]*v1.Tag, error) {
 	// Datastore doesn't support LIKE queries, so we use range queries for prefix matching
-	query := datastore.NewQuery(tagKind).
+	query := datastore.NewQuery(p.tagKind).
 		FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE))
 
 	if p.namespace != "" {
@@ -242,7 +292,7 @@ func (p *datastoreTagsStorageProvider) SearchTags(ctx context.Context, opts tags
 
 // GetPopularTags returns the most used tags.
 func (p *datastoreTagsStorageProvider) GetPopularTags(ctx context.Context, opts tags.PopularTagsOptions) ([]*v1.Tag, error) {
-	query := datastore.NewQuery(tagKind).
+	query := datastore.NewQuery(p.tagKind).
 		FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
 		FilterField("usage_count", ">", 0)
 
@@ -287,7 +337,7 @@ func (p *datastoreTagsStorageProvider) SaveEntityTag(ctx context.Context, entity
 	dsET := entityTagToDatastore(entityTag)
 	// Composite key: tag_id + entity_type + entity_id + tagged_by
 	keyStr := entityTagKey(entityTag.TagId, entityTag.EntityType, entityTag.EntityId, entityTag.TaggedBy)
-	key := p.newKey(entityTagKind, keyStr)
+	key := p.newKey(p.entityTagKind, keyStr)
 	_, err := p.client.Put(ctx, key, dsET)
 	return err
 }
@@ -295,14 +345,14 @@ func (p *datastoreTagsStorageProvider) SaveEntityTag(ctx context.Context, entity
 // DeleteEntityTag deletes an entity tag from Datastore.
 func (p *datastoreTagsStorageProvider) DeleteEntityTag(ctx context.Context, tagID, entityType, entityID, taggedBy string) error {
 	keyStr := entityTagKey(tagID, entityType, entityID, taggedBy)
-	key := p.newKey(entityTagKind, keyStr)
+	key := p.newKey(p.entityTagKind, keyStr)
 	return p.client.Delete(ctx, key)
 }
 
 // GetEntityTag retrieves an entity tag.
 func (p *datastoreTagsStorageProvider) GetEntityTag(ctx context.Context, tagID, entityType, entityID, taggedBy string) (*v1.EntityTag, error) {
 	keyStr := entityTagKey(tagID, entityType, entityID, taggedBy)
-	key := p.newKey(entityTagKind, keyStr)
+	key := p.newKey(p.entityTagKind, keyStr)
 
 	var dsET dsgen.EntityTagDatastore
 	err := p.client.Get(ctx, key, &dsET)
@@ -318,7 +368,7 @@ func (p *datastoreTagsStorageProvider) GetEntityTag(ctx context.Context, tagID, 
 
 // ListEntityTagsByEntity lists entity tags for an entity.
 func (p *datastoreTagsStorageProvider) ListEntityTagsByEntity(ctx context.Context, entityType, entityID string, opts tags.EntityTagsOptions) ([]*v1.EntityTag, error) {
-	query := datastore.NewQuery(entityTagKind).
+	query := datastore.NewQuery(p.entityTagKind).
 		FilterField("entity_type", "=", entityType).
 		FilterField("entity_id", "=", entityID)
 
@@ -367,7 +417,7 @@ func (p *datastoreTagsStorageProvider) ListEntityTagsByEntity(ctx context.Contex
 
 // ListEntityTagsByTag lists entity tags for a tag.
 func (p *datastoreTagsStorageProvider) ListEntityTagsByTag(ctx context.Context, tagID string, entityTypeFilter string, limit, offset int) ([]*v1.EntityTag, int, error) {
-	query := datastore.NewQuery(entityTagKind).
+	query := datastore.NewQuery(p.entityTagKind).
 		FilterField("tag_id", "=", tagID)
 
 	if p.namespace != "" {
@@ -405,7 +455,7 @@ func (p *datastoreTagsStorageProvider) ListEntityTagsByTag(ctx context.Context, 
 
 // DeleteEntityTagsByTag deletes all entity tags for a tag.
 func (p *datastoreTagsStorageProvider) DeleteEntityTagsByTag(ctx context.Context, tagID string) (int64, error) {
-	query := datastore.NewQuery(entityTagKind).
+	query := datastore.NewQuery(p.entityTagKind).
 		FilterField("tag_id", "=", tagID).
 		KeysOnly()
 
@@ -433,7 +483,7 @@ func (p *datastoreTagsStorageProvider) DeleteEntityTagsByTag(ctx context.Context
 // GetTagUsageCounts retrieves usage counts for an entity.
 func (p *datastoreTagsStorageProvider) GetTagUsageCounts(ctx context.Context, entityType, entityID string) (*v1.TagUsageCounts, error) {
 	keyStr := fmt.Sprintf("%s:%s", entityType, entityID)
-	key := p.newKey(tagUsageCountsKind, keyStr)
+	key := p.newKey(p.tagUsageCountsKind, keyStr)
 
 	var dsCounts dsgen.TagUsageCountsDatastore
 	err := p.client.Get(ctx, key, &dsCounts)
@@ -451,7 +501,7 @@ func (p *datastoreTagsStorageProvider) GetTagUsageCounts(ctx context.Context, en
 func (p *datastoreTagsStorageProvider) SaveTagUsageCounts(ctx context.Context, counts *v1.TagUsageCounts) error {
 	dsCounts := tagUsageCountsToDatastore(counts)
 	keyStr := fmt.Sprintf("%s:%s", counts.EntityType, counts.EntityId)
-	key := p.newKey(tagUsageCountsKind, keyStr)
+	key := p.newKey(p.tagUsageCountsKind, keyStr)
 	_, err := p.client.Put(ctx, key, dsCounts)
 	return err
 }
@@ -598,7 +648,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 	return []dsidx.DatastoreIndex{
 		// For ListEntityTagsByEntity - get all tags for an entity
 		{
-			Kind: entityTagKind,
+			Kind: s.entityTagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "entity_type"},
 				{Name: "entity_id"},
@@ -607,7 +657,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		},
 		// For ListEntityTagsByTag - get all entities with a tag
 		{
-			Kind: entityTagKind,
+			Kind: s.entityTagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "tag_id"},
 				{Name: "created_at", Direction: "desc"},
@@ -615,7 +665,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		},
 		// For ListEntityTagsByTag with entity type filter
 		{
-			Kind: entityTagKind,
+			Kind: s.entityTagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "tag_id"},
 				{Name: "entity_type"},
@@ -624,7 +674,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		},
 		// For ListTags - list tags for an owner (default order by created_at)
 		{
-			Kind: tagKind,
+			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "owner_type"},
 				{Name: "owner_id"},
@@ -634,7 +684,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		},
 		// For ListTags - list tags by usage count
 		{
-			Kind: tagKind,
+			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "owner_type"},
 				{Name: "owner_id"},
@@ -644,7 +694,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		},
 		// For ListTags with name filter
 		{
-			Kind: tagKind,
+			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "owner_type"},
 				{Name: "owner_id"},
@@ -655,7 +705,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		},
 		// For FindTagByNormalizedValues - find a specific tag
 		{
-			Kind: tagKind,
+			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "owner_type"},
 				{Name: "owner_id"},
@@ -666,7 +716,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		},
 		// For SearchTags - prefix search (note: ordered by normalized_value for range query)
 		{
-			Kind: tagKind,
+			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "owner_type"},
 				{Name: "owner_id"},
@@ -676,7 +726,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		},
 		// For GetPopularTags - popular tags with usage > 0
 		{
-			Kind: tagKind,
+			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "status"},
 				{Name: "usage_count", Direction: "desc"},
@@ -689,38 +739,38 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 	return []*datastore.Query{
 		// ListEntityTagsByEntity
-		datastore.NewQuery(entityTagKind).
+		datastore.NewQuery(s.entityTagKind).
 			FilterField("entity_type", "=", "__test__").
 			FilterField("entity_id", "=", "__test__").
 			Order("-created_at"),
 
 		// ListEntityTagsByTag
-		datastore.NewQuery(entityTagKind).
+		datastore.NewQuery(s.entityTagKind).
 			FilterField("tag_id", "=", "__test__").
 			Order("-created_at"),
 
 		// ListEntityTagsByTag with entity type filter
-		datastore.NewQuery(entityTagKind).
+		datastore.NewQuery(s.entityTagKind).
 			FilterField("tag_id", "=", "__test__").
 			FilterField("entity_type", "=", "__test__").
 			Order("-created_at"),
 
 		// ListTags by created_at
-		datastore.NewQuery(tagKind).
+		datastore.NewQuery(s.tagKind).
 			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
 			Order("-created_at"),
 
 		// ListTags by usage_count
-		datastore.NewQuery(tagKind).
+		datastore.NewQuery(s.tagKind).
 			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
 			Order("-usage_count"),
 
 		// ListTags with name filter
-		datastore.NewQuery(tagKind).
+		datastore.NewQuery(s.tagKind).
 			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("normalized_name", "=", "__test__").
@@ -728,7 +778,7 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 			Order("-created_at"),
 
 		// FindTagByNormalizedValues
-		datastore.NewQuery(tagKind).
+		datastore.NewQuery(s.tagKind).
 			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("normalized_name", "=", "__test__").
@@ -736,7 +786,7 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)),
 
 		// SearchTags (prefix search)
-		datastore.NewQuery(tagKind).
+		datastore.NewQuery(s.tagKind).
 			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
@@ -744,7 +794,7 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 			FilterField("normalized_value", "<", "b"),
 
 		// GetPopularTags
-		datastore.NewQuery(tagKind).
+		datastore.NewQuery(s.tagKind).
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
 			FilterField("usage_count", ">", int64(0)).
 			Order("-usage_count"),

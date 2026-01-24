@@ -6,9 +6,9 @@
 #   make test         - Run tests with SQLite (default)
 #   make testpg       - Run tests with PostgreSQL
 #   make testds       - Run tests with Datastore emulator
-#   make testrealDS   - Run tests with real Datastore
+#   make testgae   - Run tests with real Datastore
 
-.PHONY: all buf clean test testpg testds testrealDS testrealDS-force updb downdb dblogs upds downds dslogs testall
+.PHONY: all buf clean test testpg testds testgae testgae-force updb downdb dblogs upds downds dslogs testall
 
 # Default target: generate code and run tests
 all: buf
@@ -158,7 +158,7 @@ testds: downds
 # Real Datastore Integration Tests
 # ============================================================================
 
-# Override via command line: make testrealDS DS_REAL_PROJECT=other-project
+# Override via command line: make testgae DS_REAL_PROJECT=other-project
 DS_REAL_PROJECT ?= gappeng
 DS_REAL_CREDENTIALS ?= ~/dev-app-data/secrets/gappeng/gappeng-7bb71377bfa2.json
 DS_REAL_NAMESPACE ?= content-test
@@ -168,10 +168,10 @@ DS_REAL_NAMESPACE ?= content-test
 #   - DS_REAL_PROJECT: GCP project ID
 #   - DS_REAL_CREDENTIALS: Path to service account JSON (optional, uses ADC if not set)
 #   - DS_REAL_NAMESPACE: Namespace for test entities (default: content-test)
-testrealDS:
+testgae:
 	@if [ -z "$(DS_REAL_PROJECT)" ]; then \
 		echo "Error: DS_REAL_PROJECT must be set to your GCP project ID"; \
-		echo "Usage: make testrealDS DS_REAL_PROJECT=my-project DS_REAL_CREDENTIALS=~/path/to/creds.json"; \
+		echo "Usage: make testgae DS_REAL_PROJECT=my-project DS_REAL_CREDENTIALS=~/path/to/creds.json"; \
 		exit 1; \
 	fi
 	@echo "Running tests against real Datastore..."
@@ -191,10 +191,10 @@ testrealDS:
 
 # Run tests against real Datastore with force-delete-ns flag
 # This will delete any existing entities in the test namespace before running tests
-testrealDS-force:
+testgae-force:
 	@if [ -z "$(DS_REAL_PROJECT)" ]; then \
 		echo "Error: DS_REAL_PROJECT must be set to your GCP project ID"; \
-		echo "Usage: make testrealDS-force DS_REAL_PROJECT=my-project DS_REAL_CREDENTIALS=~/path/to/creds.json"; \
+		echo "Usage: make testgae-force DS_REAL_PROJECT=my-project DS_REAL_CREDENTIALS=~/path/to/creds.json"; \
 		exit 1; \
 	fi
 	@echo "Running tests against real Datastore (with force delete)..."

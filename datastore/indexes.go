@@ -228,18 +228,32 @@ then restart your application.
 // ServiceOptions configures a Datastore service.
 type ServiceOptions struct {
 	// ValidateCtx, if non-nil, triggers index validation during construction.
-	// If validation fails, the constructor will panic with deployment instructions.
+	// If validation fails, the constructor returns an error with deployment instructions.
 	ValidateCtx context.Context
+
+	// KindNames allows overriding default kind (table) names.
+	// Keys are default kind names, values are custom names.
+	// Example: {"Tag": "MyApp_Tag", "EntityTag": "MyApp_EntityTag"}
+	KindNames map[string]string
 }
 
 // ServiceOption is a functional option for configuring Datastore services.
 type ServiceOption func(*ServiceOptions)
 
 // WithValidation enables index validation during service construction.
-// If indexes are missing, the constructor will panic with helpful deployment instructions.
+// If indexes are missing, the constructor returns an error with deployment instructions.
 func WithValidation(ctx context.Context) ServiceOption {
 	return func(opts *ServiceOptions) {
 		opts.ValidateCtx = ctx
+	}
+}
+
+// WithKindNames allows overriding default Datastore kind (table) names.
+// Useful for multi-tenant scenarios or avoiding naming conflicts.
+// Example: WithKindNames(map[string]string{"Tag": "MyApp_Tag"})
+func WithKindNames(names map[string]string) ServiceOption {
+	return func(opts *ServiceOptions) {
+		opts.KindNames = names
 	}
 }
 

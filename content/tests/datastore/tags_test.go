@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"cloud.google.com/go/datastore"
-	dsidx "github.com/panyam/goapplib/datastore"
 	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
 	"github.com/panyam/goapplib/content/services/tags/backends"
 	"google.golang.org/api/option"
@@ -90,21 +89,12 @@ func cleanupTagsNamespace(ctx context.Context, client *datastore.Client, namespa
 }
 
 // setupTagsService creates a tags service for testing.
+// Index validation is done once in TestMain (in likes_test.go), not here.
 func setupTagsService(t *testing.T) *backends.DatastoreTagsService {
 	client := setupTagsTestClient(t)
 	namespace := getTestNamespace()
-	ctx := context.Background()
 
-	var service *backends.DatastoreTagsService
-	var err error
-
-	// For real Datastore, validate indexes
-	if isRealDatastoreConfigured() && !*skipIndexValidation {
-		service, err = backends.NewDatastoreTagsService(client, namespace, dsidx.WithValidation(ctx))
-	} else {
-		service, err = backends.NewDatastoreTagsService(client, namespace)
-	}
-
+	service, err := backends.NewDatastoreTagsService(client, namespace)
 	if err != nil {
 		t.Fatalf("Failed to create tags service: %v", err)
 	}

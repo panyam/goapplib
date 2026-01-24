@@ -15,6 +15,7 @@ import (
 	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
 	"github.com/panyam/goapplib/content/services/likes/backends"
+	tagsbackends "github.com/panyam/goapplib/content/services/tags/backends"
 	"google.golang.org/api/option"
 )
 
@@ -46,6 +47,65 @@ var testKinds = []string{
 	"ReactionType",
 }
 
+// TestMain validates indexes once before running any tests.
+func TestMain(m *testing.M) {
+	flag.Parse()
+
+	// Skip validation for emulator or if explicitly disabled
+	if !isEmulatorAvailable() && isRealDatastoreConfigured() && !*skipIndexValidation {
+		if err := validateAllIndexes(); err != nil {
+			fmt.Fprintf(os.Stderr, "\n%s\n", err)
+			os.Exit(1)
+		}
+	}
+
+	os.Exit(m.Run())
+}
+
+// validateAllIndexes validates indexes for all services once at startup.
+func validateAllIndexes() error {
+	ctx := context.Background()
+	projectID := getProjectID()
+	namespace := getTestNamespace()
+
+	client, err := createDatastoreClient(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("failed to create Datastore client: %w", err)
+	}
+	defer client.Close()
+
+	var allErrors []string
+
+	// Validate likes service
+	likesService, err := backends.NewDatastoreLikesService(client, namespace, dsidx.WithValidation(ctx))
+	if err != nil {
+		allErrors = append(allErrors, err.Error())
+	}
+	_ = likesService // unused, just for validation
+
+	// Validate tags service
+	tagsService, err := tagsbackends.NewDatastoreTagsService(client, namespace, dsidx.WithValidation(ctx))
+	if err != nil {
+		allErrors = append(allErrors, err.Error())
+	}
+	_ = tagsService // unused, just for validation
+
+	if len(allErrors) > 0 {
+		return fmt.Errorf("%s", strings.Join(allErrors, "\n\n"))
+	}
+
+	return nil
+}
+
+// createDatastoreClient creates a Datastore client for the given project.
+func createDatastoreClient(ctx context.Context, projectID string) (*datastore.Client, error) {
+	credFile := os.Getenv(envDatastoreCredentials)
+	if credFile != "" {
+		credFile = expandPath(credFile)
+		return datastore.NewClient(ctx, projectID, option.WithCredentialsFile(credFile))
+	}
+	return datastore.NewClient(ctx, projectID)
+}
 
 func isEmulatorAvailable() bool {
 	return os.Getenv("DATASTORE_EMULATOR_HOST") != ""
@@ -232,21 +292,12 @@ Option 3: Manually delete entities in the namespace first
 }
 
 // setupLikesService creates a likes service for testing.
+// Index validation is done once in TestMain, not here.
 func setupLikesService(t *testing.T) *backends.DatastoreLikesService {
 	client := setupTestClient(t)
 	namespace := getTestNamespace()
-	ctx := context.Background()
 
-	var service *backends.DatastoreLikesService
-	var err error
-
-	// For real Datastore, validate indexes
-	if isRealDatastoreConfigured() && !*skipIndexValidation {
-		service, err = backends.NewDatastoreLikesService(client, namespace, dsidx.WithValidation(ctx))
-	} else {
-		service, err = backends.NewDatastoreLikesService(client, namespace)
-	}
-
+	service, err := backends.NewDatastoreLikesService(client, namespace)
 	if err != nil {
 		t.Fatalf("Failed to create likes service: %v", err)
 	}
