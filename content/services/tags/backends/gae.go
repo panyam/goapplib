@@ -23,17 +23,29 @@ type DatastoreTagsService struct {
 }
 
 // NewDatastoreTagsService creates a new Datastore-backed tags service.
-func NewDatastoreTagsService(client *datastore.Client, namespace string) *DatastoreTagsService {
+// Options:
+//   - dsidx.WithValidation(ctx): Validate indexes exist, return error with deployment instructions if not
+func NewDatastoreTagsService(client *datastore.Client, namespace string, options ...dsidx.ServiceOption) (*DatastoreTagsService, error) {
 	provider := &datastoreTagsStorageProvider{
 		client:    client,
 		namespace: namespace,
 	}
 	base := tags.NewBaseTagsService(provider)
-	return &DatastoreTagsService{
+	service := &DatastoreTagsService{
 		BaseTagsService: base,
 		client:          client,
 		namespace:       namespace,
 	}
+
+	// Apply options
+	opts := dsidx.ApplyOptions(options...)
+	if opts.ValidateCtx != nil {
+		if err := dsidx.ValidateAndWriteIndexes(opts.ValidateCtx, client, namespace, service); err != nil {
+			return nil, err
+		}
+	}
+
+	return service, nil
 }
 
 // datastoreTagsStorageProvider implements TagsStorageProvider using Datastore.

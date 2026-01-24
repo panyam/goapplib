@@ -189,3 +189,66 @@ func WriteAllIndexFiles(outputDir string, providers ...IndexProvider) error {
 	}
 	return nil
 }
+
+// IndexFileName returns the default index file name for a service.
+func IndexFileName(serviceName string) string {
+	return serviceName + "_index.yaml"
+}
+
+// ValidateAndWriteIndexes validates indexes and writes the index file if validation fails.
+// Returns a user-friendly error with deployment instructions.
+func ValidateAndWriteIndexes(ctx context.Context, client *datastore.Client, namespace string, provider IndexProvider) error {
+	err := ValidateIndexes(ctx, client, namespace, provider)
+	if err == nil {
+		return nil
+	}
+
+	indexFile := IndexFileName(provider.ServiceName())
+
+	// Try to write the index file
+	var writeMsg string
+	if writeErr := WriteIndexFile(indexFile, provider.ServiceName(), provider.RequiredIndexes()); writeErr == nil {
+		writeMsg = fmt.Sprintf("Index file written: %s\n\n", indexFile)
+	} else {
+		writeMsg = fmt.Sprintf("(Failed to write index file: %v)\n\n", writeErr)
+	}
+
+	return fmt.Errorf(`%s
+======================================================================
+%sTo deploy the required indexes, run:
+
+  gcloud datastore indexes create %s
+
+Wait for indexes to build (check status in GCP Console),
+then restart your application.
+======================================================================
+`, err.Error(), writeMsg, indexFile)
+}
+
+// ServiceOptions configures a Datastore service.
+type ServiceOptions struct {
+	// ValidateCtx, if non-nil, triggers index validation during construction.
+	// If validation fails, the constructor will panic with deployment instructions.
+	ValidateCtx context.Context
+}
+
+// ServiceOption is a functional option for configuring Datastore services.
+type ServiceOption func(*ServiceOptions)
+
+// WithValidation enables index validation during service construction.
+// If indexes are missing, the constructor will panic with helpful deployment instructions.
+func WithValidation(ctx context.Context) ServiceOption {
+	return func(opts *ServiceOptions) {
+		opts.ValidateCtx = ctx
+	}
+}
+
+// ApplyOptions applies functional options and returns the resulting config.
+func ApplyOptions(options ...ServiceOption) *ServiceOptions {
+	opts := &ServiceOptions{}
+	for _, opt := range options {
+		opt(opts)
+	}
+	return opts
+}
+

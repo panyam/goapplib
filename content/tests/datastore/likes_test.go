@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"cloud.google.com/go/datastore"
+	dsidx "github.com/panyam/goapplib/datastore"
 	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
 	"github.com/panyam/goapplib/content/services/likes/backends"
@@ -36,11 +37,15 @@ const (
 var forceDeleteNamespace = flag.Bool("force-delete-ns", false,
 	"Force delete existing entities in test namespace before running tests")
 
+var skipIndexValidation = flag.Bool("skip-index-validation", false,
+	"Skip index validation (useful for emulator which doesn't require indexes)")
+
 var testKinds = []string{
 	"Like",
 	"LikeCounts",
 	"ReactionType",
 }
+
 
 func isEmulatorAvailable() bool {
 	return os.Getenv("DATASTORE_EMULATOR_HOST") != ""
@@ -230,7 +235,23 @@ Option 3: Manually delete entities in the namespace first
 func setupLikesService(t *testing.T) *backends.DatastoreLikesService {
 	client := setupTestClient(t)
 	namespace := getTestNamespace()
-	return backends.NewDatastoreLikesService(client, namespace)
+	ctx := context.Background()
+
+	var service *backends.DatastoreLikesService
+	var err error
+
+	// For real Datastore, validate indexes
+	if isRealDatastoreConfigured() && !*skipIndexValidation {
+		service, err = backends.NewDatastoreLikesService(client, namespace, dsidx.WithValidation(ctx))
+	} else {
+		service, err = backends.NewDatastoreLikesService(client, namespace)
+	}
+
+	if err != nil {
+		t.Fatalf("Failed to create likes service: %v", err)
+	}
+
+	return service
 }
 
 // TestLikesService_AddReaction tests adding reactions.

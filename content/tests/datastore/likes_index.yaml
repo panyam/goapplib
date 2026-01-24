@@ -1,0 +1,38 @@
+# Datastore indexes for likes service
+# Deploy with: gcloud datastore indexes create likes_index.yaml
+
+indexes:
+
+- kind: Like
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: user_id
+
+- kind: Like
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: created_at
+    direction: desc
+
+- kind: Like
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: reaction_type
+  - name: created_at
+    direction: desc
+
+- kind: Like
+  properties:
+  - name: user_id
+  - name: created_at
+    direction: desc
+
+- kind: Like
+  properties:
+  - name: user_id
+  - name: entity_type
+  - name: created_at
+    direction: desc

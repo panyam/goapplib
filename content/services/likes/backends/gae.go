@@ -23,17 +23,29 @@ type DatastoreLikesService struct {
 }
 
 // NewDatastoreLikesService creates a new Datastore-backed likes service.
-func NewDatastoreLikesService(client *datastore.Client, namespace string) *DatastoreLikesService {
+// Options:
+//   - dsidx.WithValidation(ctx): Validate indexes exist, return error with deployment instructions if not
+func NewDatastoreLikesService(client *datastore.Client, namespace string, options ...dsidx.ServiceOption) (*DatastoreLikesService, error) {
 	provider := &datastoreLikesStorageProvider{
 		client:    client,
 		namespace: namespace,
 	}
 	base := likes.NewBaseLikesService(provider)
-	return &DatastoreLikesService{
+	service := &DatastoreLikesService{
 		BaseLikesService: base,
 		client:           client,
 		namespace:        namespace,
 	}
+
+	// Apply options
+	opts := dsidx.ApplyOptions(options...)
+	if opts.ValidateCtx != nil {
+		if err := dsidx.ValidateAndWriteIndexes(opts.ValidateCtx, client, namespace, service); err != nil {
+			return nil, err
+		}
+	}
+
+	return service, nil
 }
 
 // datastoreLikesStorageProvider implements LikesStorageProvider using Datastore.

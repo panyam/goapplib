@@ -226,20 +226,27 @@ message EntityTag {
 
 ### Datastore Indexes
 
-The Datastore backend requires composite indexes for complex queries. Use the built-in index validation:
+The Datastore backend requires composite indexes for complex queries. Enable validation at construction:
 
 ```go
-service := backends.NewDatastoreTagsService(client, namespace)
+import dsidx "github.com/panyam/goapplib/datastore"
 
-// Validate indexes exist (fails fast with helpful error)
-if err := service.ValidateIndexes(ctx); err != nil {
-    // Prints missing indexes and gcloud command to fix
+// Validate indexes during construction (recommended for production)
+service, err := backends.NewDatastoreTagsService(client, namespace,
+    dsidx.WithValidation(ctx))
+if err != nil {
+    // Error includes missing indexes + gcloud command to fix
+    // Also writes tags_index.yaml automatically
     log.Fatal(err)
 }
 
-// Or export indexes to a file for deployment
-service.WriteIndexFile("tags_index.yaml")
-// Then deploy: gcloud datastore indexes create tags_index.yaml
+// Or skip validation (e.g., for emulator)
+service, err := backends.NewDatastoreTagsService(client, namespace)
+```
+
+To deploy indexes manually:
+```bash
+gcloud datastore indexes create tags_index.yaml
 ```
 
 ## Integration Testing
