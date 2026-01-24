@@ -26,8 +26,8 @@ const (
 
 type CreateTagRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Key for metadata tags (empty for pure tags)
-	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// Name for metadata tags (empty for pure tags)
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Display value (required)
 	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	// Value type (defaults to STRING)
@@ -74,9 +74,9 @@ func (*CreateTagRequest) Descriptor() ([]byte, []int) {
 	return file_tags_v1_service_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *CreateTagRequest) GetKey() string {
+func (x *CreateTagRequest) GetName() string {
 	if x != nil {
-		return x.Key
+		return x.Name
 	}
 	return ""
 }
@@ -139,13 +139,13 @@ func (x *CreateTagRequest) GetScope() TagScope {
 
 type CreateTagResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The tag (new or existing). Includes both display values (key, value) and
-	// normalized values (normalized_key, normalized_value). If already_existed=true,
+	// The tag (new or existing). Includes both display values (name, value) and
+	// normalized values (normalized_name, normalized_value). If already_existed=true,
 	// the display values are from the original creator, and normalized values
 	// explain why the request matched the existing tag.
 	Tag *Tag `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
 	// True if tag already existed (returned existing).
-	// Client's input matched an existing tag via normalized key/value.
+	// Client's input matched an existing tag via normalized name/value.
 	AlreadyExisted bool `protobuf:"varint,2,opt,name=already_existed,json=alreadyExisted,proto3" json:"already_existed,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -493,8 +493,8 @@ type ListTagsRequest struct {
 	OwnerId   string `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// Filter by scope
 	Scope TagScope `protobuf:"varint,3,opt,name=scope,proto3,enum=content.tags.v1.TagScope" json:"scope,omitempty"`
-	// Filter by key (empty = pure tags only, "*" = all, "venue" = specific key)
-	KeyFilter string `protobuf:"bytes,4,opt,name=key_filter,json=keyFilter,proto3" json:"key_filter,omitempty"`
+	// Filter by name (empty = pure tags only, "*" = all, "venue" = specific name)
+	NameFilter string `protobuf:"bytes,4,opt,name=name_filter,json=nameFilter,proto3" json:"name_filter,omitempty"`
 	// Order by: "name", "usage_count", "created_at", "display_order"
 	OrderBy       string                `protobuf:"bytes,5,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
 	Pagination    *v1.PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
@@ -553,9 +553,9 @@ func (x *ListTagsRequest) GetScope() TagScope {
 	return TagScope_TAG_SCOPE_UNSPECIFIED
 }
 
-func (x *ListTagsRequest) GetKeyFilter() string {
+func (x *ListTagsRequest) GetNameFilter() string {
 	if x != nil {
-		return x.KeyFilter
+		return x.NameFilter
 	}
 	return ""
 }
@@ -635,7 +635,7 @@ type TagEntityRequest struct {
 	TagId string `protobuf:"bytes,3,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
 	// Option 2: Create or find tag inline
 	// If tag_id is empty, these fields are used to find or create the tag
-	Key   string  `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`     // Empty for pure tag
+	Name  string  `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`   // Empty for pure tag
 	Value string  `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"` // Required if tag_id is empty
 	Type  TagType `protobuf:"varint,6,opt,name=type,proto3,enum=content.tags.v1.TagType" json:"type,omitempty"`
 	Color string  `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
@@ -703,9 +703,9 @@ func (x *TagEntityRequest) GetTagId() string {
 	return ""
 }
 
-func (x *TagEntityRequest) GetKey() string {
+func (x *TagEntityRequest) GetName() string {
 	if x != nil {
-		return x.Key
+		return x.Name
 	}
 	return ""
 }
@@ -828,8 +828,8 @@ type UntagEntityRequest struct {
 	EntityId   string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Option 1: By tag ID
 	TagId string `protobuf:"bytes,3,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
-	// Option 2: By key/value (service normalizes these for lookup)
-	Key   string `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`
+	// Option 2: By name/value (service normalizes these for lookup)
+	Name  string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 	Value string `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
 	// Owner context (needed for option 2)
 	OwnerType string `protobuf:"bytes,6,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
@@ -892,9 +892,9 @@ func (x *UntagEntityRequest) GetTagId() string {
 	return ""
 }
 
-func (x *UntagEntityRequest) GetKey() string {
+func (x *UntagEntityRequest) GetName() string {
 	if x != nil {
-		return x.Key
+		return x.Name
 	}
 	return ""
 }
@@ -975,9 +975,9 @@ type GetEntityTagsRequest struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	EntityType string                 `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
 	EntityId   string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	// Optional: filter by key
-	// Empty = all tags, "" (explicit empty) = pure tags only, "venue" = specific key
-	KeyFilter string `protobuf:"bytes,3,opt,name=key_filter,json=keyFilter,proto3" json:"key_filter,omitempty"`
+	// Optional: filter by name
+	// Empty = all tags, "" (explicit empty) = pure tags only, "venue" = specific name
+	NameFilter string `protobuf:"bytes,3,opt,name=name_filter,json=nameFilter,proto3" json:"name_filter,omitempty"`
 	// Optional: filter by owner
 	OwnerType     string `protobuf:"bytes,4,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
 	OwnerId       string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
@@ -1029,9 +1029,9 @@ func (x *GetEntityTagsRequest) GetEntityId() string {
 	return ""
 }
 
-func (x *GetEntityTagsRequest) GetKeyFilter() string {
+func (x *GetEntityTagsRequest) GetNameFilter() string {
 	if x != nil {
-		return x.KeyFilter
+		return x.NameFilter
 	}
 	return ""
 }
@@ -1098,8 +1098,8 @@ type GetEntitiesWithTagRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Option 1: By tag ID
 	TagId string `protobuf:"bytes,1,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
-	// Option 2: By key/value (service normalizes these for lookup)
-	Key       string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	// Option 2: By name/value (service normalizes these for lookup)
+	Name      string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Value     string `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	OwnerType string `protobuf:"bytes,4,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
 	OwnerId   string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
@@ -1147,9 +1147,9 @@ func (x *GetEntitiesWithTagRequest) GetTagId() string {
 	return ""
 }
 
-func (x *GetEntitiesWithTagRequest) GetKey() string {
+func (x *GetEntitiesWithTagRequest) GetName() string {
 	if x != nil {
-		return x.Key
+		return x.Name
 	}
 	return ""
 }
@@ -1245,8 +1245,8 @@ type BatchTagEntitiesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Tag to apply (by ID)
 	TagId string `protobuf:"bytes,1,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
-	// Or by key/value (for inline creation)
-	Key       string   `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	// Or by name/value (for inline creation)
+	Name      string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Value     string   `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	Type      TagType  `protobuf:"varint,4,opt,name=type,proto3,enum=content.tags.v1.TagType" json:"type,omitempty"`
 	OwnerType string   `protobuf:"bytes,5,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
@@ -1297,9 +1297,9 @@ func (x *BatchTagEntitiesRequest) GetTagId() string {
 	return ""
 }
 
-func (x *BatchTagEntitiesRequest) GetKey() string {
+func (x *BatchTagEntitiesRequest) GetName() string {
 	if x != nil {
-		return x.Key
+		return x.Name
 	}
 	return ""
 }
@@ -1568,8 +1568,8 @@ type SearchTagsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Search query (prefix match on value)
 	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	// Filter by key (empty = search all, "" = pure tags, "venue" = specific key)
-	KeyFilter string `protobuf:"bytes,2,opt,name=key_filter,json=keyFilter,proto3" json:"key_filter,omitempty"`
+	// Filter by name (empty = search all, "" = pure tags, "venue" = specific name)
+	NameFilter string `protobuf:"bytes,2,opt,name=name_filter,json=nameFilter,proto3" json:"name_filter,omitempty"`
 	// Filter by owner
 	OwnerType string `protobuf:"bytes,3,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
 	OwnerId   string `protobuf:"bytes,4,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
@@ -1618,9 +1618,9 @@ func (x *SearchTagsRequest) GetQuery() string {
 	return ""
 }
 
-func (x *SearchTagsRequest) GetKeyFilter() string {
+func (x *SearchTagsRequest) GetNameFilter() string {
 	if x != nil {
-		return x.KeyFilter
+		return x.NameFilter
 	}
 	return ""
 }
@@ -1699,8 +1699,8 @@ func (x *SearchTagsResponse) GetTags() []*Tag {
 
 type GetPopularTagsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Filter by key
-	KeyFilter string `protobuf:"bytes,1,opt,name=key_filter,json=keyFilter,proto3" json:"key_filter,omitempty"`
+	// Filter by name
+	NameFilter string `protobuf:"bytes,1,opt,name=name_filter,json=nameFilter,proto3" json:"name_filter,omitempty"`
 	// Filter by owner
 	OwnerType string `protobuf:"bytes,2,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
 	OwnerId   string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
@@ -1742,9 +1742,9 @@ func (*GetPopularTagsRequest) Descriptor() ([]byte, []int) {
 	return file_tags_v1_service_proto_rawDescGZIP(), []int{25}
 }
 
-func (x *GetPopularTagsRequest) GetKeyFilter() string {
+func (x *GetPopularTagsRequest) GetNameFilter() string {
 	if x != nil {
-		return x.KeyFilter
+		return x.NameFilter
 	}
 	return ""
 }
@@ -2089,9 +2089,9 @@ var File_tags_v1_service_proto protoreflect.FileDescriptor
 
 const file_tags_v1_service_proto_rawDesc = "" +
 	"\n" +
-	"\x15tags/v1/service.proto\x12\x0fcontent.tags.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x15common/v1/types.proto\x1a\x14tags/v1/models.proto\"\xb0\x02\n" +
-	"\x10CreateTagRequest\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x15tags/v1/service.proto\x12\x0fcontent.tags.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x15common/v1/types.proto\x1a\x14tags/v1/models.proto\"\xb2\x02\n" +
+	"\x10CreateTagRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12,\n" +
 	"\x04type\x18\x03 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x14\n" +
 	"\x05color\x18\x04 \x01(\tR\x05color\x12 \n" +
@@ -2119,14 +2119,14 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\x14remove_from_entities\x18\x02 \x01(\bR\x12removeFromEntities\"Z\n" +
 	"\x11DeleteTagResponse\x12\x18\n" +
 	"\adeleted\x18\x01 \x01(\bR\adeleted\x12+\n" +
-	"\x11entities_untagged\x18\x02 \x01(\x03R\x10entitiesUntagged\"\xfc\x01\n" +
+	"\x11entities_untagged\x18\x02 \x01(\x03R\x10entitiesUntagged\"\xfe\x01\n" +
 	"\x0fListTagsRequest\x12\x1d\n" +
 	"\n" +
 	"owner_type\x18\x01 \x01(\tR\townerType\x12\x19\n" +
 	"\bowner_id\x18\x02 \x01(\tR\aownerId\x12/\n" +
-	"\x05scope\x18\x03 \x01(\x0e2\x19.content.tags.v1.TagScopeR\x05scope\x12\x1d\n" +
-	"\n" +
-	"key_filter\x18\x04 \x01(\tR\tkeyFilter\x12\x19\n" +
+	"\x05scope\x18\x03 \x01(\x0e2\x19.content.tags.v1.TagScopeR\x05scope\x12\x1f\n" +
+	"\vname_filter\x18\x04 \x01(\tR\n" +
+	"nameFilter\x12\x19\n" +
 	"\border_by\x18\x05 \x01(\tR\aorderBy\x12D\n" +
 	"\n" +
 	"pagination\x18\n" +
@@ -2137,13 +2137,13 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\n" +
 	" \x01(\v2%.content.common.v1.PaginationResponseR\n" +
-	"pagination\"\xf0\x02\n" +
+	"pagination\"\xf2\x02\n" +
 	"\x10TagEntityRequest\x12\x1f\n" +
 	"\ventity_type\x18\x01 \x01(\tR\n" +
 	"entityType\x12\x1b\n" +
 	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x15\n" +
-	"\x06tag_id\x18\x03 \x01(\tR\x05tagId\x12\x10\n" +
-	"\x03key\x18\x04 \x01(\tR\x03key\x12\x14\n" +
+	"\x06tag_id\x18\x03 \x01(\tR\x05tagId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x14\n" +
 	"\x05value\x18\x05 \x01(\tR\x05value\x12,\n" +
 	"\x04type\x18\x06 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x14\n" +
 	"\x05color\x18\a \x01(\tR\x05color\x12\x1d\n" +
@@ -2159,34 +2159,34 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\x03tag\x18\x01 \x01(\v2\x14.content.tags.v1.TagR\x03tag\x129\n" +
 	"\n" +
 	"entity_tag\x18\x02 \x01(\v2\x1a.content.tags.v1.EntityTagR\tentityTag\x12!\n" +
-	"\fnewly_tagged\x18\x03 \x01(\bR\vnewlyTagged\"\xe8\x01\n" +
+	"\fnewly_tagged\x18\x03 \x01(\bR\vnewlyTagged\"\xea\x01\n" +
 	"\x12UntagEntityRequest\x12\x1f\n" +
 	"\ventity_type\x18\x01 \x01(\tR\n" +
 	"entityType\x12\x1b\n" +
 	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x15\n" +
-	"\x06tag_id\x18\x03 \x01(\tR\x05tagId\x12\x10\n" +
-	"\x03key\x18\x04 \x01(\tR\x03key\x12\x14\n" +
+	"\x06tag_id\x18\x03 \x01(\tR\x05tagId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x14\n" +
 	"\x05value\x18\x05 \x01(\tR\x05value\x12\x1d\n" +
 	"\n" +
 	"owner_type\x18\x06 \x01(\tR\townerType\x12\x19\n" +
 	"\bowner_id\x18\a \x01(\tR\aownerId\x12\x1b\n" +
 	"\ttagged_by\x18\b \x01(\tR\btaggedBy\"/\n" +
 	"\x13UntagEntityResponse\x12\x18\n" +
-	"\aremoved\x18\x01 \x01(\bR\aremoved\"\xad\x01\n" +
+	"\aremoved\x18\x01 \x01(\bR\aremoved\"\xaf\x01\n" +
 	"\x14GetEntityTagsRequest\x12\x1f\n" +
 	"\ventity_type\x18\x01 \x01(\tR\n" +
 	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1d\n" +
-	"\n" +
-	"key_filter\x18\x03 \x01(\tR\tkeyFilter\x12\x1d\n" +
+	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1f\n" +
+	"\vname_filter\x18\x03 \x01(\tR\n" +
+	"nameFilter\x12\x1d\n" +
 	"\n" +
 	"owner_type\x18\x04 \x01(\tR\townerType\x12\x19\n" +
 	"\bowner_id\x18\x05 \x01(\tR\aownerId\"A\n" +
 	"\x15GetEntityTagsResponse\x12(\n" +
-	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\x88\x02\n" +
+	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\x8a\x02\n" +
 	"\x19GetEntitiesWithTagRequest\x12\x15\n" +
-	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +
+	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05value\x18\x03 \x01(\tR\x05value\x12\x1d\n" +
 	"\n" +
 	"owner_type\x18\x04 \x01(\tR\townerType\x12\x19\n" +
@@ -2201,10 +2201,10 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\n" +
 	" \x01(\v2%.content.common.v1.PaginationResponseR\n" +
-	"pagination\"\xc8\x02\n" +
+	"pagination\"\xca\x02\n" +
 	"\x17BatchTagEntitiesRequest\x12\x15\n" +
-	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +
+	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05value\x18\x03 \x01(\tR\x05value\x12,\n" +
 	"\x04type\x18\x04 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x1d\n" +
 	"\n" +
@@ -2230,21 +2230,21 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
 	"\x05value\x18\x02 \x01(\v2\x1e.content.tags.v1.EntityTagListR\x05value:\x028\x01\"9\n" +
 	"\rEntityTagList\x12(\n" +
-	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\xbf\x01\n" +
+	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\xc1\x01\n" +
 	"\x11SearchTagsRequest\x12\x14\n" +
-	"\x05query\x18\x01 \x01(\tR\x05query\x12\x1d\n" +
-	"\n" +
-	"key_filter\x18\x02 \x01(\tR\tkeyFilter\x12\x1d\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12\x1f\n" +
+	"\vname_filter\x18\x02 \x01(\tR\n" +
+	"nameFilter\x12\x1d\n" +
 	"\n" +
 	"owner_type\x18\x03 \x01(\tR\townerType\x12\x19\n" +
 	"\bowner_id\x18\x04 \x01(\tR\aownerId\x12%\n" +
 	"\x0einclude_shared\x18\x05 \x01(\bR\rincludeShared\x12\x14\n" +
 	"\x05limit\x18\x06 \x01(\x05R\x05limit\">\n" +
 	"\x12SearchTagsResponse\x12(\n" +
-	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\xad\x01\n" +
-	"\x15GetPopularTagsRequest\x12\x1d\n" +
-	"\n" +
-	"key_filter\x18\x01 \x01(\tR\tkeyFilter\x12\x1d\n" +
+	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\xaf\x01\n" +
+	"\x15GetPopularTagsRequest\x12\x1f\n" +
+	"\vname_filter\x18\x01 \x01(\tR\n" +
+	"nameFilter\x12\x1d\n" +
 	"\n" +
 	"owner_type\x18\x02 \x01(\tR\townerType\x12\x19\n" +
 	"\bowner_id\x18\x03 \x01(\tR\aownerId\x12%\n" +

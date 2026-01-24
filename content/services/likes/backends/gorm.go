@@ -8,7 +8,7 @@ import (
 	"github.com/panyam/goapplib/content/services/likes"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
-	gormgen "github.com/panyam/goapplib/content/gen/gorm"
+	gormgen "github.com/panyam/goapplib/content/gen/gorm/likes/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 )

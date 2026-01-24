@@ -44,8 +44,8 @@ const (
 // TagsService provides tagging and metadata functionality for any entity.
 //
 // Supports two modes:
-// - Pure tags (key empty): Simple labels like "favorites", "rock"
-// - Metadata (key present): Key-value pairs like venue="Wembley", rating="5"
+// - Pure tags (name empty): Simple labels like "favorites", "rock"
+// - Metadata (name present): Name-value pairs like venue="Wembley", rating="5"
 type TagsServiceClient interface {
 	// CreateTag creates a new tag definition.
 	// The tag can then be applied to entities via TagEntity.
@@ -254,8 +254,8 @@ func (c *tagsServiceClient) PromoteTag(ctx context.Context, in *PromoteTagReques
 // TagsService provides tagging and metadata functionality for any entity.
 //
 // Supports two modes:
-// - Pure tags (key empty): Simple labels like "favorites", "rock"
-// - Metadata (key present): Key-value pairs like venue="Wembley", rating="5"
+// - Pure tags (name empty): Simple labels like "favorites", "rock"
+// - Metadata (name present): Name-value pairs like venue="Wembley", rating="5"
 type TagsServiceServer interface {
 	// CreateTag creates a new tag definition.
 	// The tag can then be applied to entities via TagEntity.

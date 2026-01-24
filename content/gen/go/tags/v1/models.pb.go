@@ -257,14 +257,14 @@ type Tag struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Unique identifier
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Key-Value pair
-	// If key is empty, this is a pure tag (label only).
-	// If key is present, this is metadata (key-value pair).
-	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	// Normalized key (readonly - computed by service, e.g., lowercase/trimmed).
-	// Used for uniqueness checks. "Venue" and "venue" become same normalized_key.
+	// Name-Value pair
+	// If name is empty, this is a pure tag (label only).
+	// If name is present, this is metadata (name-value pair, e.g., name="venue", value="Wembley").
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Normalized name (readonly - computed by service, e.g., lowercase/trimmed).
+	// Used for uniqueness checks. "Venue" and "venue" become same normalized_name.
 	// Clients can read this to understand matching behavior, but cannot set it.
-	NormalizedKey string `protobuf:"bytes,3,opt,name=normalized_key,json=normalizedKey,proto3" json:"normalized_key,omitempty"`
+	NormalizedName string `protobuf:"bytes,3,opt,name=normalized_name,json=normalizedName,proto3" json:"normalized_name,omitempty"`
 	// The display value. Always required.
 	// For pure tags: "Rock", "Favorites", "To Read"
 	// For metadata: "Wembley Stadium", "1985", "5"
@@ -337,16 +337,16 @@ func (x *Tag) GetId() string {
 	return ""
 }
 
-func (x *Tag) GetKey() string {
+func (x *Tag) GetName() string {
 	if x != nil {
-		return x.Key
+		return x.Name
 	}
 	return ""
 }
 
-func (x *Tag) GetNormalizedKey() string {
+func (x *Tag) GetNormalizedName() string {
 	if x != nil {
-		return x.NormalizedKey
+		return x.NormalizedName
 	}
 	return ""
 }
@@ -561,9 +561,9 @@ type TagUsageCounts struct {
 	EntityId   string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Total number of tags on this entity
 	TotalCount int64 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// Count by key (for metadata grouping)
+	// Count by name (for metadata grouping)
 	// e.g., {"": 5, "venue": 2, "year": 1} means 5 pure tags, 2 venues, 1 year
-	ByKey         map[string]int64       `protobuf:"bytes,4,rep,name=by_key,json=byKey,proto3" json:"by_key,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	ByName        map[string]int64       `protobuf:"bytes,4,rep,name=by_name,json=byName,proto3" json:"by_name,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -620,9 +620,9 @@ func (x *TagUsageCounts) GetTotalCount() int64 {
 	return 0
 }
 
-func (x *TagUsageCounts) GetByKey() map[string]int64 {
+func (x *TagUsageCounts) GetByName() map[string]int64 {
 	if x != nil {
-		return x.ByKey
+		return x.ByName
 	}
 	return nil
 }
@@ -638,11 +638,11 @@ var File_tags_v1_models_proto protoreflect.FileDescriptor
 
 const file_tags_v1_models_proto_rawDesc = "" +
 	"\n" +
-	"\x14tags/v1/models.proto\x12\x0fcontent.tags.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x05\n" +
+	"\x14tags/v1/models.proto\x12\x0fcontent.tags.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa0\x05\n" +
 	"\x03Tag\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\x12%\n" +
-	"\x0enormalized_key\x18\x03 \x01(\tR\rnormalizedKey\x12\x14\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
+	"\x0fnormalized_name\x18\x03 \x01(\tR\x0enormalizedName\x12\x14\n" +
 	"\x05value\x18\x04 \x01(\tR\x05value\x12)\n" +
 	"\x10normalized_value\x18\x05 \x01(\tR\x0fnormalizedValue\x12,\n" +
 	"\x04type\x18\x06 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x14\n" +
@@ -675,18 +675,17 @@ const file_tags_v1_models_proto_rawDesc = "" +
 	"visibility\x129\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xa7\x02\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xab\x02\n" +
 	"\x0eTagUsageCounts\x12\x1f\n" +
 	"\ventity_type\x18\x01 \x01(\tR\n" +
 	"entityType\x12\x1b\n" +
 	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x03R\n" +
-	"totalCount\x12A\n" +
-	"\x06by_key\x18\x04 \x03(\v2*.content.tags.v1.TagUsageCounts.ByKeyEntryR\x05byKey\x129\n" +
+	"totalCount\x12D\n" +
+	"\aby_name\x18\x04 \x03(\v2+.content.tags.v1.TagUsageCounts.ByNameEntryR\x06byName\x129\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a8\n" +
-	"\n" +
-	"ByKeyEntry\x12\x10\n" +
+	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a9\n" +
+	"\vByNameEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01*h\n" +
 	"\bTagScope\x12\x19\n" +
@@ -735,7 +734,7 @@ var file_tags_v1_models_proto_goTypes = []any{
 	(*Tag)(nil),                   // 4: content.tags.v1.Tag
 	(*EntityTag)(nil),             // 5: content.tags.v1.EntityTag
 	(*TagUsageCounts)(nil),        // 6: content.tags.v1.TagUsageCounts
-	nil,                           // 7: content.tags.v1.TagUsageCounts.ByKeyEntry
+	nil,                           // 7: content.tags.v1.TagUsageCounts.ByNameEntry
 	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
 }
 var file_tags_v1_models_proto_depIdxs = []int32{
@@ -746,7 +745,7 @@ var file_tags_v1_models_proto_depIdxs = []int32{
 	8, // 4: content.tags.v1.Tag.updated_at:type_name -> google.protobuf.Timestamp
 	3, // 5: content.tags.v1.EntityTag.visibility:type_name -> content.tags.v1.EntityTagVisibility
 	8, // 6: content.tags.v1.EntityTag.created_at:type_name -> google.protobuf.Timestamp
-	7, // 7: content.tags.v1.TagUsageCounts.by_key:type_name -> content.tags.v1.TagUsageCounts.ByKeyEntry
+	7, // 7: content.tags.v1.TagUsageCounts.by_name:type_name -> content.tags.v1.TagUsageCounts.ByNameEntry
 	8, // 8: content.tags.v1.TagUsageCounts.updated_at:type_name -> google.protobuf.Timestamp
 	9, // [9:9] is the sub-list for method output_type
 	9, // [9:9] is the sub-list for method input_type

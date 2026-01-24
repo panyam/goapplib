@@ -23,8 +23,8 @@ func TagToTagGORM(
 	// Initialize struct with inline values
 	*dest = TagGORM{
 		Id:              src.Id,
-		Key:             src.Key,
-		NormalizedKey:   src.NormalizedKey,
+		Name:            src.Name,
+		NormalizedName:  src.NormalizedName,
 		Value:           src.Value,
 		NormalizedValue: src.NormalizedValue,
 		Type:            src.Type,
@@ -76,8 +76,8 @@ func TagFromTagGORM(
 	// Initialize struct with inline values
 	*dest = v1.Tag{
 		Id:              src.Id,
-		Key:             src.Key,
-		NormalizedKey:   src.NormalizedKey,
+		Name:            src.Name,
+		NormalizedName:  src.NormalizedName,
 		Value:           src.Value,
 		NormalizedValue: src.NormalizedValue,
 		Type:            src.Type,
@@ -201,8 +201,8 @@ func TagUsageCountsToTagUsageCountsGORM(
 	}
 	out = dest
 
-	if src.ByKey != nil {
-		out.ByKey = src.ByKey
+	if src.ByName != nil {
+		out.ByName = src.ByName
 	}
 
 	if src.UpdatedAt != nil {
@@ -238,7 +238,7 @@ func TagUsageCountsFromTagUsageCountsGORM(
 		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TotalCount: src.TotalCount,
-		ByKey:      src.ByKey,
+		ByName:     src.ByName,
 		UpdatedAt:  converters.TimeToTimestamp(src.UpdatedAt),
 	}
 	out = dest

@@ -55,15 +55,15 @@ message Tag {
   // Unique identifier
   string id = 1;
 
-  // Key-Value pair
-  // If key is empty, this is a pure tag (label only).
-  // If key is present, this is metadata (key-value pair).
-  string key = 2;
+  // Name-Value pair
+  // If name is empty, this is a pure tag (label only).
+  // If name is present, this is metadata (name-value pair, e.g., name="venue", value="Wembley").
+  string name = 2;
 
-  // Normalized key (readonly - computed by service, e.g., lowercase/trimmed).
-  // Used for uniqueness checks. "Venue" and "venue" become same normalized_key.
+  // Normalized name (readonly - computed by service, e.g., lowercase/trimmed).
+  // Used for uniqueness checks. "Venue" and "venue" become same normalized_name.
   // Clients can read this to understand matching behavior, but cannot set it.
-  string normalized_key = 3;
+  string normalized_name = 3;
 
   // The display value. Always required.
   // For pure tags: "Rock", "Favorites", "To Read"
@@ -140,9 +140,9 @@ message TagUsageCounts {
   // Total number of tags on this entity
   int64 total_count = 3;
 
-  // Count by key (for metadata grouping)
+  // Count by name (for metadata grouping)
   // e.g., {"": 5, "venue": 2, "year": 1} means 5 pure tags, 2 venues, 1 year
-  map<string, int64> by_key = 4;
+  map<string, int64> by_name = 4;
 
   google.protobuf.Timestamp updated_at = 5;
 }

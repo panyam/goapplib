@@ -10,7 +10,7 @@ import (
 	"github.com/panyam/goapplib/content/services/likes"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
-	dsgen "github.com/panyam/goapplib/content/gen/datastore"
+	dsgen "github.com/panyam/goapplib/content/gen/datastore/likes/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

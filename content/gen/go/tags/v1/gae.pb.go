@@ -28,11 +28,11 @@ type TagDatastore struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ID stored in key, not as property
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Key-value pair
-	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	// Normalized key (computed by service, readonly)
-	NormalizedKey string `protobuf:"bytes,3,opt,name=normalized_key,json=normalizedKey,proto3" json:"normalized_key,omitempty"`
-	Value         string `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	// Name-value pair - for metadata tags (e.g., name="venue", value="Wembley")
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Normalized name (computed by service, readonly)
+	NormalizedName string `protobuf:"bytes,3,opt,name=normalized_name,json=normalizedName,proto3" json:"normalized_name,omitempty"`
+	Value          string `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
 	// Normalized value (computed by service, readonly)
 	NormalizedValue string `protobuf:"bytes,5,opt,name=normalized_value,json=normalizedValue,proto3" json:"normalized_value,omitempty"`
 	// Visual
@@ -89,16 +89,16 @@ func (x *TagDatastore) GetId() string {
 	return ""
 }
 
-func (x *TagDatastore) GetKey() string {
+func (x *TagDatastore) GetName() string {
 	if x != nil {
-		return x.Key
+		return x.Name
 	}
 	return ""
 }
 
-func (x *TagDatastore) GetNormalizedKey() string {
+func (x *TagDatastore) GetNormalizedName() string {
 	if x != nil {
-		return x.NormalizedKey
+		return x.NormalizedName
 	}
 	return ""
 }
@@ -251,8 +251,8 @@ type TagUsageCountsDatastore struct {
 	EntityType string                 `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
 	EntityId   string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	TotalCount int64                  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// JSON-serialized map
-	ByKey         map[string]int64 `protobuf:"bytes,4,rep,name=by_key,json=byKey,proto3" json:"by_key,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	// JSON-serialized map of name to count
+	ByName        map[string]int64 `protobuf:"bytes,4,rep,name=by_name,json=byName,proto3" json:"by_name,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -308,9 +308,9 @@ func (x *TagUsageCountsDatastore) GetTotalCount() int64 {
 	return 0
 }
 
-func (x *TagUsageCountsDatastore) GetByKey() map[string]int64 {
+func (x *TagUsageCountsDatastore) GetByName() map[string]int64 {
 	if x != nil {
-		return x.ByKey
+		return x.ByName
 	}
 	return nil
 }
@@ -319,11 +319,11 @@ var File_tags_v1_gae_proto protoreflect.FileDescriptor
 
 const file_tags_v1_gae_proto_rawDesc = "" +
 	"\n" +
-	"\x11tags/v1/gae.proto\x12\x0fcontent.tags.v1\x1a\x18dal/v1/annotations.proto\x1a\x14tags/v1/models.proto\"\xd4\x03\n" +
+	"\x11tags/v1/gae.proto\x12\x0fcontent.tags.v1\x1a\x18dal/v1/annotations.proto\x1a\x14tags/v1/models.proto\"\xd8\x03\n" +
 	"\fTagDatastore\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\x92\xa6\x1d\x03r\x01-R\x02id\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\x12%\n" +
-	"\x0enormalized_key\x18\x03 \x01(\tR\rnormalizedKey\x12\x14\n" +
+	"\x02id\x18\x01 \x01(\tB\a\x92\xa6\x1d\x03r\x01-R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
+	"\x0fnormalized_name\x18\x03 \x01(\tR\x0enormalizedName\x12\x14\n" +
 	"\x05value\x18\x04 \x01(\tR\x05value\x12)\n" +
 	"\x10normalized_value\x18\x05 \x01(\tR\x0fnormalizedValue\x12\x14\n" +
 	"\x05color\x18\a \x01(\tR\x05color\x12/\n" +
@@ -345,16 +345,15 @@ const file_tags_v1_gae_proto_rawDesc = "" +
 	"entityType\x12\x1b\n" +
 	"\tentity_id\x18\x03 \x01(\tR\bentityId\x12\x1b\n" +
 	"\ttagged_by\x18\x04 \x01(\tR\btaggedBy:*Ҧ\x1d&\n" +
-	"\tEntityTag*\x19content.tags.v1.EntityTag\"\xc5\x02\n" +
+	"\tEntityTag*\x19content.tags.v1.EntityTag\"\xc9\x02\n" +
 	"\x17TagUsageCountsDatastore\x12\x1f\n" +
 	"\ventity_type\x18\x01 \x01(\tR\n" +
 	"entityType\x12\x1b\n" +
 	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x03R\n" +
-	"totalCount\x12Y\n" +
-	"\x06by_key\x18\x04 \x03(\v23.content.tags.v1.TagUsageCountsDatastore.ByKeyEntryB\r\x92\xa6\x1d\tr\anoindexR\x05byKey\x1a8\n" +
-	"\n" +
-	"ByKeyEntry\x12\x10\n" +
+	"totalCount\x12\\\n" +
+	"\aby_name\x18\x04 \x03(\v24.content.tags.v1.TagUsageCountsDatastore.ByNameEntryB\r\x92\xa6\x1d\tr\anoindexR\x06byName\x1a9\n" +
+	"\vByNameEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01:6Ҧ\x1d2\n" +
 	"\x0eTagUsageCounts*\x1econtent.tags.v1.TagUsageCounts8\x01B\xb7\x01\n" +
@@ -377,10 +376,10 @@ var file_tags_v1_gae_proto_goTypes = []any{
 	(*TagDatastore)(nil),            // 0: content.tags.v1.TagDatastore
 	(*EntityTagDatastore)(nil),      // 1: content.tags.v1.EntityTagDatastore
 	(*TagUsageCountsDatastore)(nil), // 2: content.tags.v1.TagUsageCountsDatastore
-	nil,                             // 3: content.tags.v1.TagUsageCountsDatastore.ByKeyEntry
+	nil,                             // 3: content.tags.v1.TagUsageCountsDatastore.ByNameEntry
 }
 var file_tags_v1_gae_proto_depIdxs = []int32{
-	3, // 0: content.tags.v1.TagUsageCountsDatastore.by_key:type_name -> content.tags.v1.TagUsageCountsDatastore.ByKeyEntry
+	3, // 0: content.tags.v1.TagUsageCountsDatastore.by_name:type_name -> content.tags.v1.TagUsageCountsDatastore.ByNameEntry
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

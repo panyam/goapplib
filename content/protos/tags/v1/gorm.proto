@@ -17,12 +17,12 @@ message TagGORM {
     gorm_tags: ["primaryKey"]
   }];
 
-  // Key-value pair (key empty = pure tag)
-  string key = 2 [(dal.v1.column) = {
+  // Name-value pair (name empty = pure tag, name present = metadata like name="venue")
+  string name = 2 [(dal.v1.column) = {
     gorm_tags: ["index:idx_tags_owner_norm,priority:3"]
   }];
-  // Normalized key (computed by service, readonly)
-  string normalized_key = 3 [(dal.v1.column) = {
+  // Normalized name (computed by service, readonly)
+  string normalized_name = 3 [(dal.v1.column) = {
     gorm_tags: ["index:idx_tags_owner_norm,priority:4", "index:idx_tags_search,priority:1"]
   }];
   string value = 4;
@@ -113,8 +113,8 @@ message TagUsageCountsGORM {
 
   int64 total_count = 3;
 
-  // JSON-serialized map of key to count
-  map<string, int64> by_key = 4 [(dal.v1.column) = {
+  // JSON-serialized map of name to count
+  map<string, int64> by_name = 4 [(dal.v1.column) = {
     gorm_tags: ["serializer:json", "type:text"]
   }];
   // updated_at - same type (Timestamp), auto-handled

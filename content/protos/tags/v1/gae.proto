@@ -18,10 +18,10 @@ message TagDatastore {
     datastore_tags: ["-"]
   }];
 
-  // Key-value pair
-  string key = 2;
-  // Normalized key (computed by service, readonly)
-  string normalized_key = 3;
+  // Name-value pair - for metadata tags (e.g., name="venue", value="Wembley")
+  string name = 2;
+  // Normalized name (computed by service, readonly)
+  string normalized_name = 3;
   string value = 4;
   // Normalized value (computed by service, readonly)
   string normalized_value = 5;
@@ -76,8 +76,8 @@ message TagUsageCountsDatastore {
   string entity_id = 2;
   int64 total_count = 3;
 
-  // JSON-serialized map
-  map<string, int64> by_key = 4 [(dal.v1.column) = {
+  // JSON-serialized map of name to count
+  map<string, int64> by_name = 4 [(dal.v1.column) = {
     datastore_tags: ["noindex"]
   }];
 }

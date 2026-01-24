@@ -5,10 +5,10 @@ import (
 	"context"
 
 	dslib "cloud.google.com/go/datastore"
-	datastore "github.com/panyam/goapplib/content/gen/datastore"
+	v1 "github.com/panyam/goapplib/content/gen/datastore/likes/v1"
 )
 
-// ReactionTypeDatastoreDAL provides database access helper methods for datastore.ReactionTypeDatastore.
+// ReactionTypeDatastoreDAL provides database access helper methods for v1.ReactionTypeDatastore.
 type ReactionTypeDatastoreDAL struct {
 	// Kind overrides the Datastore kind for all operations.
 	// If empty, uses the struct's Kind() method (if any).
@@ -20,7 +20,7 @@ type ReactionTypeDatastoreDAL struct {
 
 	// WillPut hook is called before Put operations.
 	// Return an error to prevent the put.
-	WillPut func(context.Context, *datastore.ReactionTypeDatastore) error
+	WillPut func(context.Context, *v1.ReactionTypeDatastore) error
 }
 
 // NewReactionTypeDatastoreDAL creates a new ReactionTypeDatastoreDAL instance.
@@ -36,7 +36,7 @@ func (d *ReactionTypeDatastoreDAL) getKind() string {
 		return d.Kind
 	}
 	// Fall back to struct's Kind() method
-	var entity datastore.ReactionTypeDatastore
+	var entity v1.ReactionTypeDatastore
 	return entity.Kind()
 }
 
@@ -58,10 +58,10 @@ func (d *ReactionTypeDatastoreDAL) newIncompleteKey() *dslib.Key {
 	return key
 }
 
-// Put saves a datastore.ReactionTypeDatastore entity to Datastore.
+// Put saves a v1.ReactionTypeDatastore entity to Datastore.
 // If the entity's Key field is set, uses that key; otherwise creates a key from the ID field.
 // Returns the key used to store the entity.
-func (d *ReactionTypeDatastoreDAL) Put(ctx context.Context, client *dslib.Client, obj *datastore.ReactionTypeDatastore) (*dslib.Key, error) {
+func (d *ReactionTypeDatastoreDAL) Put(ctx context.Context, client *dslib.Client, obj *v1.ReactionTypeDatastore) (*dslib.Key, error) {
 	// Call WillPut hook if set
 	if d.WillPut != nil {
 		if err := d.WillPut(ctx, obj); err != nil {
@@ -95,10 +95,10 @@ func (d *ReactionTypeDatastoreDAL) Put(ctx context.Context, client *dslib.Client
 	return resultKey, nil
 }
 
-// Get retrieves a datastore.ReactionTypeDatastore entity by key.
+// Get retrieves a v1.ReactionTypeDatastore entity by key.
 // Returns (nil, nil) if the entity is not found.
-func (d *ReactionTypeDatastoreDAL) Get(ctx context.Context, client *dslib.Client, key *dslib.Key) (*datastore.ReactionTypeDatastore, error) {
-	var entity datastore.ReactionTypeDatastore
+func (d *ReactionTypeDatastoreDAL) Get(ctx context.Context, client *dslib.Client, key *dslib.Key) (*v1.ReactionTypeDatastore, error) {
+	var entity v1.ReactionTypeDatastore
 	err := client.Get(ctx, key, &entity)
 	if err != nil {
 		if err == dslib.ErrNoSuchEntity {
@@ -110,24 +110,24 @@ func (d *ReactionTypeDatastoreDAL) Get(ctx context.Context, client *dslib.Client
 	return &entity, nil
 }
 
-// Delete removes a datastore.ReactionTypeDatastore entity by key.
+// Delete removes a v1.ReactionTypeDatastore entity by key.
 func (d *ReactionTypeDatastoreDAL) Delete(ctx context.Context, client *dslib.Client, key *dslib.Key) error {
 	return client.Delete(ctx, key)
 }
 
-// GetMulti retrieves multiple datastore.ReactionTypeDatastore entities by keys.
+// GetMulti retrieves multiple v1.ReactionTypeDatastore entities by keys.
 // Returns entities in the same order as the keys. Missing entities are nil in the result slice.
-func (d *ReactionTypeDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Client, keys []*dslib.Key) ([]*datastore.ReactionTypeDatastore, error) {
+func (d *ReactionTypeDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Client, keys []*dslib.Key) ([]*v1.ReactionTypeDatastore, error) {
 	if len(keys) == 0 {
-		return []*datastore.ReactionTypeDatastore{}, nil
+		return []*v1.ReactionTypeDatastore{}, nil
 	}
 
-	entities := make([]datastore.ReactionTypeDatastore, len(keys))
+	entities := make([]v1.ReactionTypeDatastore, len(keys))
 	err := client.GetMulti(ctx, keys, entities)
 	if err != nil {
 		// Handle partial errors (some entities not found)
 		if multiErr, ok := err.(dslib.MultiError); ok {
-			result := make([]*datastore.ReactionTypeDatastore, len(keys))
+			result := make([]*v1.ReactionTypeDatastore, len(keys))
 			for i, e := range multiErr {
 				if e == nil {
 					entities[i].Key = keys[i]
@@ -143,7 +143,7 @@ func (d *ReactionTypeDatastoreDAL) GetMulti(ctx context.Context, client *dslib.C
 	}
 
 	// All entities found
-	result := make([]*datastore.ReactionTypeDatastore, len(keys))
+	result := make([]*v1.ReactionTypeDatastore, len(keys))
 	for i := range entities {
 		entities[i].Key = keys[i]
 		result[i] = &entities[i]
@@ -151,9 +151,9 @@ func (d *ReactionTypeDatastoreDAL) GetMulti(ctx context.Context, client *dslib.C
 	return result, nil
 }
 
-// PutMulti saves multiple datastore.ReactionTypeDatastore entities to Datastore.
+// PutMulti saves multiple v1.ReactionTypeDatastore entities to Datastore.
 // Returns the keys used to store the entities.
-func (d *ReactionTypeDatastoreDAL) PutMulti(ctx context.Context, client *dslib.Client, objs []*datastore.ReactionTypeDatastore) ([]*dslib.Key, error) {
+func (d *ReactionTypeDatastoreDAL) PutMulti(ctx context.Context, client *dslib.Client, objs []*v1.ReactionTypeDatastore) ([]*dslib.Key, error) {
 	if len(objs) == 0 {
 		return []*dslib.Key{}, nil
 	}
@@ -196,7 +196,7 @@ func (d *ReactionTypeDatastoreDAL) PutMulti(ctx context.Context, client *dslib.C
 	return resultKeys, nil
 }
 
-// DeleteMulti removes multiple datastore.ReactionTypeDatastore entities by keys.
+// DeleteMulti removes multiple v1.ReactionTypeDatastore entities by keys.
 func (d *ReactionTypeDatastoreDAL) DeleteMulti(ctx context.Context, client *dslib.Client, keys []*dslib.Key) error {
 	if len(keys) == 0 {
 		return nil
@@ -204,10 +204,10 @@ func (d *ReactionTypeDatastoreDAL) DeleteMulti(ctx context.Context, client *dsli
 	return client.DeleteMulti(ctx, keys)
 }
 
-// Query retrieves datastore.ReactionTypeDatastore entities matching the query.
+// Query retrieves v1.ReactionTypeDatastore entities matching the query.
 // The caller should create a query using dslib.NewQuery(dal.getKind()).
-func (d *ReactionTypeDatastoreDAL) Query(ctx context.Context, client *dslib.Client, q *dslib.Query) ([]*datastore.ReactionTypeDatastore, error) {
-	var entities []*datastore.ReactionTypeDatastore
+func (d *ReactionTypeDatastoreDAL) Query(ctx context.Context, client *dslib.Client, q *dslib.Query) ([]*v1.ReactionTypeDatastore, error) {
+	var entities []*v1.ReactionTypeDatastore
 	keys, err := client.GetAll(ctx, q, &entities)
 	if err != nil {
 		return nil, err
@@ -226,27 +226,27 @@ func (d *ReactionTypeDatastoreDAL) Count(ctx context.Context, client *dslib.Clie
 	return client.Count(ctx, q)
 }
 
-// GetByID retrieves a datastore.ReactionTypeDatastore entity by ID.
+// GetByID retrieves a v1.ReactionTypeDatastore entity by ID.
 // This is a convenience method that creates a key from the ID.
 // Returns (nil, nil) if the entity is not found.
-func (d *ReactionTypeDatastoreDAL) GetByID(ctx context.Context, client *dslib.Client, id string) (*datastore.ReactionTypeDatastore, error) {
+func (d *ReactionTypeDatastoreDAL) GetByID(ctx context.Context, client *dslib.Client, id string) (*v1.ReactionTypeDatastore, error) {
 	key := d.newKey(id)
 	return d.Get(ctx, client, key)
 }
 
-// DeleteByID removes a datastore.ReactionTypeDatastore entity by ID.
+// DeleteByID removes a v1.ReactionTypeDatastore entity by ID.
 // This is a convenience method that creates a key from the ID.
 func (d *ReactionTypeDatastoreDAL) DeleteByID(ctx context.Context, client *dslib.Client, id string) error {
 	key := d.newKey(id)
 	return d.Delete(ctx, client, key)
 }
 
-// GetMultiByIDs retrieves multiple datastore.ReactionTypeDatastore entities by IDs.
+// GetMultiByIDs retrieves multiple v1.ReactionTypeDatastore entities by IDs.
 // This is a convenience method that creates keys from the IDs.
 // Returns entities in the same order as the IDs. Missing entities are nil in the result slice.
-func (d *ReactionTypeDatastoreDAL) GetMultiByIDs(ctx context.Context, client *dslib.Client, ids []string) ([]*datastore.ReactionTypeDatastore, error) {
+func (d *ReactionTypeDatastoreDAL) GetMultiByIDs(ctx context.Context, client *dslib.Client, ids []string) ([]*v1.ReactionTypeDatastore, error) {
 	if len(ids) == 0 {
-		return []*datastore.ReactionTypeDatastore{}, nil
+		return []*v1.ReactionTypeDatastore{}, nil
 	}
 
 	keys := make([]*dslib.Key, len(ids))
@@ -257,7 +257,7 @@ func (d *ReactionTypeDatastoreDAL) GetMultiByIDs(ctx context.Context, client *ds
 	return d.GetMulti(ctx, client, keys)
 }
 
-// LikeDatastoreDAL provides database access helper methods for datastore.LikeDatastore.
+// LikeDatastoreDAL provides database access helper methods for v1.LikeDatastore.
 type LikeDatastoreDAL struct {
 	// Kind overrides the Datastore kind for all operations.
 	// If empty, uses the struct's Kind() method (if any).
@@ -269,7 +269,7 @@ type LikeDatastoreDAL struct {
 
 	// WillPut hook is called before Put operations.
 	// Return an error to prevent the put.
-	WillPut func(context.Context, *datastore.LikeDatastore) error
+	WillPut func(context.Context, *v1.LikeDatastore) error
 }
 
 // NewLikeDatastoreDAL creates a new LikeDatastoreDAL instance.
@@ -285,7 +285,7 @@ func (d *LikeDatastoreDAL) getKind() string {
 		return d.Kind
 	}
 	// Fall back to struct's Kind() method
-	var entity datastore.LikeDatastore
+	var entity v1.LikeDatastore
 	return entity.Kind()
 }
 
@@ -307,10 +307,10 @@ func (d *LikeDatastoreDAL) newIncompleteKey() *dslib.Key {
 	return key
 }
 
-// Put saves a datastore.LikeDatastore entity to Datastore.
+// Put saves a v1.LikeDatastore entity to Datastore.
 // If the entity's Key field is set, uses that key; otherwise creates a key from the ID field.
 // Returns the key used to store the entity.
-func (d *LikeDatastoreDAL) Put(ctx context.Context, client *dslib.Client, obj *datastore.LikeDatastore) (*dslib.Key, error) {
+func (d *LikeDatastoreDAL) Put(ctx context.Context, client *dslib.Client, obj *v1.LikeDatastore) (*dslib.Key, error) {
 	// Call WillPut hook if set
 	if d.WillPut != nil {
 		if err := d.WillPut(ctx, obj); err != nil {
@@ -344,10 +344,10 @@ func (d *LikeDatastoreDAL) Put(ctx context.Context, client *dslib.Client, obj *d
 	return resultKey, nil
 }
 
-// Get retrieves a datastore.LikeDatastore entity by key.
+// Get retrieves a v1.LikeDatastore entity by key.
 // Returns (nil, nil) if the entity is not found.
-func (d *LikeDatastoreDAL) Get(ctx context.Context, client *dslib.Client, key *dslib.Key) (*datastore.LikeDatastore, error) {
-	var entity datastore.LikeDatastore
+func (d *LikeDatastoreDAL) Get(ctx context.Context, client *dslib.Client, key *dslib.Key) (*v1.LikeDatastore, error) {
+	var entity v1.LikeDatastore
 	err := client.Get(ctx, key, &entity)
 	if err != nil {
 		if err == dslib.ErrNoSuchEntity {
@@ -359,24 +359,24 @@ func (d *LikeDatastoreDAL) Get(ctx context.Context, client *dslib.Client, key *d
 	return &entity, nil
 }
 
-// Delete removes a datastore.LikeDatastore entity by key.
+// Delete removes a v1.LikeDatastore entity by key.
 func (d *LikeDatastoreDAL) Delete(ctx context.Context, client *dslib.Client, key *dslib.Key) error {
 	return client.Delete(ctx, key)
 }
 
-// GetMulti retrieves multiple datastore.LikeDatastore entities by keys.
+// GetMulti retrieves multiple v1.LikeDatastore entities by keys.
 // Returns entities in the same order as the keys. Missing entities are nil in the result slice.
-func (d *LikeDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Client, keys []*dslib.Key) ([]*datastore.LikeDatastore, error) {
+func (d *LikeDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Client, keys []*dslib.Key) ([]*v1.LikeDatastore, error) {
 	if len(keys) == 0 {
-		return []*datastore.LikeDatastore{}, nil
+		return []*v1.LikeDatastore{}, nil
 	}
 
-	entities := make([]datastore.LikeDatastore, len(keys))
+	entities := make([]v1.LikeDatastore, len(keys))
 	err := client.GetMulti(ctx, keys, entities)
 	if err != nil {
 		// Handle partial errors (some entities not found)
 		if multiErr, ok := err.(dslib.MultiError); ok {
-			result := make([]*datastore.LikeDatastore, len(keys))
+			result := make([]*v1.LikeDatastore, len(keys))
 			for i, e := range multiErr {
 				if e == nil {
 					entities[i].Key = keys[i]
@@ -392,7 +392,7 @@ func (d *LikeDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Client, k
 	}
 
 	// All entities found
-	result := make([]*datastore.LikeDatastore, len(keys))
+	result := make([]*v1.LikeDatastore, len(keys))
 	for i := range entities {
 		entities[i].Key = keys[i]
 		result[i] = &entities[i]
@@ -400,9 +400,9 @@ func (d *LikeDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Client, k
 	return result, nil
 }
 
-// PutMulti saves multiple datastore.LikeDatastore entities to Datastore.
+// PutMulti saves multiple v1.LikeDatastore entities to Datastore.
 // Returns the keys used to store the entities.
-func (d *LikeDatastoreDAL) PutMulti(ctx context.Context, client *dslib.Client, objs []*datastore.LikeDatastore) ([]*dslib.Key, error) {
+func (d *LikeDatastoreDAL) PutMulti(ctx context.Context, client *dslib.Client, objs []*v1.LikeDatastore) ([]*dslib.Key, error) {
 	if len(objs) == 0 {
 		return []*dslib.Key{}, nil
 	}
@@ -445,7 +445,7 @@ func (d *LikeDatastoreDAL) PutMulti(ctx context.Context, client *dslib.Client, o
 	return resultKeys, nil
 }
 
-// DeleteMulti removes multiple datastore.LikeDatastore entities by keys.
+// DeleteMulti removes multiple v1.LikeDatastore entities by keys.
 func (d *LikeDatastoreDAL) DeleteMulti(ctx context.Context, client *dslib.Client, keys []*dslib.Key) error {
 	if len(keys) == 0 {
 		return nil
@@ -453,10 +453,10 @@ func (d *LikeDatastoreDAL) DeleteMulti(ctx context.Context, client *dslib.Client
 	return client.DeleteMulti(ctx, keys)
 }
 
-// Query retrieves datastore.LikeDatastore entities matching the query.
+// Query retrieves v1.LikeDatastore entities matching the query.
 // The caller should create a query using dslib.NewQuery(dal.getKind()).
-func (d *LikeDatastoreDAL) Query(ctx context.Context, client *dslib.Client, q *dslib.Query) ([]*datastore.LikeDatastore, error) {
-	var entities []*datastore.LikeDatastore
+func (d *LikeDatastoreDAL) Query(ctx context.Context, client *dslib.Client, q *dslib.Query) ([]*v1.LikeDatastore, error) {
+	var entities []*v1.LikeDatastore
 	keys, err := client.GetAll(ctx, q, &entities)
 	if err != nil {
 		return nil, err
@@ -475,27 +475,27 @@ func (d *LikeDatastoreDAL) Count(ctx context.Context, client *dslib.Client, q *d
 	return client.Count(ctx, q)
 }
 
-// GetByID retrieves a datastore.LikeDatastore entity by ID.
+// GetByID retrieves a v1.LikeDatastore entity by ID.
 // This is a convenience method that creates a key from the ID.
 // Returns (nil, nil) if the entity is not found.
-func (d *LikeDatastoreDAL) GetByID(ctx context.Context, client *dslib.Client, id string) (*datastore.LikeDatastore, error) {
+func (d *LikeDatastoreDAL) GetByID(ctx context.Context, client *dslib.Client, id string) (*v1.LikeDatastore, error) {
 	key := d.newKey(id)
 	return d.Get(ctx, client, key)
 }
 
-// DeleteByID removes a datastore.LikeDatastore entity by ID.
+// DeleteByID removes a v1.LikeDatastore entity by ID.
 // This is a convenience method that creates a key from the ID.
 func (d *LikeDatastoreDAL) DeleteByID(ctx context.Context, client *dslib.Client, id string) error {
 	key := d.newKey(id)
 	return d.Delete(ctx, client, key)
 }
 
-// GetMultiByIDs retrieves multiple datastore.LikeDatastore entities by IDs.
+// GetMultiByIDs retrieves multiple v1.LikeDatastore entities by IDs.
 // This is a convenience method that creates keys from the IDs.
 // Returns entities in the same order as the IDs. Missing entities are nil in the result slice.
-func (d *LikeDatastoreDAL) GetMultiByIDs(ctx context.Context, client *dslib.Client, ids []string) ([]*datastore.LikeDatastore, error) {
+func (d *LikeDatastoreDAL) GetMultiByIDs(ctx context.Context, client *dslib.Client, ids []string) ([]*v1.LikeDatastore, error) {
 	if len(ids) == 0 {
-		return []*datastore.LikeDatastore{}, nil
+		return []*v1.LikeDatastore{}, nil
 	}
 
 	keys := make([]*dslib.Key, len(ids))
@@ -506,7 +506,7 @@ func (d *LikeDatastoreDAL) GetMultiByIDs(ctx context.Context, client *dslib.Clie
 	return d.GetMulti(ctx, client, keys)
 }
 
-// LikeCountsDatastoreDAL provides database access helper methods for datastore.LikeCountsDatastore.
+// LikeCountsDatastoreDAL provides database access helper methods for v1.LikeCountsDatastore.
 type LikeCountsDatastoreDAL struct {
 	// Kind overrides the Datastore kind for all operations.
 	// If empty, uses the struct's Kind() method (if any).
@@ -518,7 +518,7 @@ type LikeCountsDatastoreDAL struct {
 
 	// WillPut hook is called before Put operations.
 	// Return an error to prevent the put.
-	WillPut func(context.Context, *datastore.LikeCountsDatastore) error
+	WillPut func(context.Context, *v1.LikeCountsDatastore) error
 }
 
 // NewLikeCountsDatastoreDAL creates a new LikeCountsDatastoreDAL instance.
@@ -534,7 +534,7 @@ func (d *LikeCountsDatastoreDAL) getKind() string {
 		return d.Kind
 	}
 	// Fall back to struct's Kind() method
-	var entity datastore.LikeCountsDatastore
+	var entity v1.LikeCountsDatastore
 	return entity.Kind()
 }
 
@@ -556,10 +556,10 @@ func (d *LikeCountsDatastoreDAL) newIncompleteKey() *dslib.Key {
 	return key
 }
 
-// Put saves a datastore.LikeCountsDatastore entity to Datastore.
+// Put saves a v1.LikeCountsDatastore entity to Datastore.
 // If the entity's Key field is set, uses that key; otherwise creates a key from the ID field.
 // Returns the key used to store the entity.
-func (d *LikeCountsDatastoreDAL) Put(ctx context.Context, client *dslib.Client, obj *datastore.LikeCountsDatastore) (*dslib.Key, error) {
+func (d *LikeCountsDatastoreDAL) Put(ctx context.Context, client *dslib.Client, obj *v1.LikeCountsDatastore) (*dslib.Key, error) {
 	// Call WillPut hook if set
 	if d.WillPut != nil {
 		if err := d.WillPut(ctx, obj); err != nil {
@@ -591,10 +591,10 @@ func (d *LikeCountsDatastoreDAL) Put(ctx context.Context, client *dslib.Client, 
 	return resultKey, nil
 }
 
-// Get retrieves a datastore.LikeCountsDatastore entity by key.
+// Get retrieves a v1.LikeCountsDatastore entity by key.
 // Returns (nil, nil) if the entity is not found.
-func (d *LikeCountsDatastoreDAL) Get(ctx context.Context, client *dslib.Client, key *dslib.Key) (*datastore.LikeCountsDatastore, error) {
-	var entity datastore.LikeCountsDatastore
+func (d *LikeCountsDatastoreDAL) Get(ctx context.Context, client *dslib.Client, key *dslib.Key) (*v1.LikeCountsDatastore, error) {
+	var entity v1.LikeCountsDatastore
 	err := client.Get(ctx, key, &entity)
 	if err != nil {
 		if err == dslib.ErrNoSuchEntity {
@@ -606,24 +606,24 @@ func (d *LikeCountsDatastoreDAL) Get(ctx context.Context, client *dslib.Client, 
 	return &entity, nil
 }
 
-// Delete removes a datastore.LikeCountsDatastore entity by key.
+// Delete removes a v1.LikeCountsDatastore entity by key.
 func (d *LikeCountsDatastoreDAL) Delete(ctx context.Context, client *dslib.Client, key *dslib.Key) error {
 	return client.Delete(ctx, key)
 }
 
-// GetMulti retrieves multiple datastore.LikeCountsDatastore entities by keys.
+// GetMulti retrieves multiple v1.LikeCountsDatastore entities by keys.
 // Returns entities in the same order as the keys. Missing entities are nil in the result slice.
-func (d *LikeCountsDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Client, keys []*dslib.Key) ([]*datastore.LikeCountsDatastore, error) {
+func (d *LikeCountsDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Client, keys []*dslib.Key) ([]*v1.LikeCountsDatastore, error) {
 	if len(keys) == 0 {
-		return []*datastore.LikeCountsDatastore{}, nil
+		return []*v1.LikeCountsDatastore{}, nil
 	}
 
-	entities := make([]datastore.LikeCountsDatastore, len(keys))
+	entities := make([]v1.LikeCountsDatastore, len(keys))
 	err := client.GetMulti(ctx, keys, entities)
 	if err != nil {
 		// Handle partial errors (some entities not found)
 		if multiErr, ok := err.(dslib.MultiError); ok {
-			result := make([]*datastore.LikeCountsDatastore, len(keys))
+			result := make([]*v1.LikeCountsDatastore, len(keys))
 			for i, e := range multiErr {
 				if e == nil {
 					entities[i].Key = keys[i]
@@ -639,7 +639,7 @@ func (d *LikeCountsDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Cli
 	}
 
 	// All entities found
-	result := make([]*datastore.LikeCountsDatastore, len(keys))
+	result := make([]*v1.LikeCountsDatastore, len(keys))
 	for i := range entities {
 		entities[i].Key = keys[i]
 		result[i] = &entities[i]
@@ -647,9 +647,9 @@ func (d *LikeCountsDatastoreDAL) GetMulti(ctx context.Context, client *dslib.Cli
 	return result, nil
 }
 
-// PutMulti saves multiple datastore.LikeCountsDatastore entities to Datastore.
+// PutMulti saves multiple v1.LikeCountsDatastore entities to Datastore.
 // Returns the keys used to store the entities.
-func (d *LikeCountsDatastoreDAL) PutMulti(ctx context.Context, client *dslib.Client, objs []*datastore.LikeCountsDatastore) ([]*dslib.Key, error) {
+func (d *LikeCountsDatastoreDAL) PutMulti(ctx context.Context, client *dslib.Client, objs []*v1.LikeCountsDatastore) ([]*dslib.Key, error) {
 	if len(objs) == 0 {
 		return []*dslib.Key{}, nil
 	}
@@ -690,7 +690,7 @@ func (d *LikeCountsDatastoreDAL) PutMulti(ctx context.Context, client *dslib.Cli
 	return resultKeys, nil
 }
 
-// DeleteMulti removes multiple datastore.LikeCountsDatastore entities by keys.
+// DeleteMulti removes multiple v1.LikeCountsDatastore entities by keys.
 func (d *LikeCountsDatastoreDAL) DeleteMulti(ctx context.Context, client *dslib.Client, keys []*dslib.Key) error {
 	if len(keys) == 0 {
 		return nil
@@ -698,10 +698,10 @@ func (d *LikeCountsDatastoreDAL) DeleteMulti(ctx context.Context, client *dslib.
 	return client.DeleteMulti(ctx, keys)
 }
 
-// Query retrieves datastore.LikeCountsDatastore entities matching the query.
+// Query retrieves v1.LikeCountsDatastore entities matching the query.
 // The caller should create a query using dslib.NewQuery(dal.getKind()).
-func (d *LikeCountsDatastoreDAL) Query(ctx context.Context, client *dslib.Client, q *dslib.Query) ([]*datastore.LikeCountsDatastore, error) {
-	var entities []*datastore.LikeCountsDatastore
+func (d *LikeCountsDatastoreDAL) Query(ctx context.Context, client *dslib.Client, q *dslib.Query) ([]*v1.LikeCountsDatastore, error) {
+	var entities []*v1.LikeCountsDatastore
 	keys, err := client.GetAll(ctx, q, &entities)
 	if err != nil {
 		return nil, err

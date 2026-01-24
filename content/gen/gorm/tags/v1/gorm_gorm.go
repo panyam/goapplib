@@ -10,8 +10,8 @@ import (
 // TagGORM is the GORM model for content.tags.v1.Tag
 type TagGORM struct {
 	Id              string `gorm:"primaryKey"`
-	Key             string `gorm:"index:idx_tags_owner_norm,priority:3"`
-	NormalizedKey   string `gorm:"index:idx_tags_owner_norm,priority:4;index:idx_tags_search,priority:1"`
+	Name            string `gorm:"index:idx_tags_owner_norm,priority:3"`
+	NormalizedName  string `gorm:"index:idx_tags_owner_norm,priority:4;index:idx_tags_search,priority:1"`
 	Value           string
 	NormalizedValue string `gorm:"index:idx_tags_owner_norm,priority:5;index:idx_tags_search,priority:2"`
 	Type            v1.TagType
@@ -54,7 +54,7 @@ type TagUsageCountsGORM struct {
 	EntityType string `gorm:"primaryKey"`
 	EntityId   string `gorm:"primaryKey"`
 	TotalCount int64
-	ByKey      map[string]int64 `gorm:"serializer:json;type:text"`
+	ByName     map[string]int64 `gorm:"serializer:json;type:text"`
 	UpdatedAt  time.Time
 }
 

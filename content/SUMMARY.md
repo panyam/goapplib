@@ -97,11 +97,19 @@ make testrealDS
 | Service | Protos | GORM Backend | Datastore Backend | Tests | Docs |
 |---------|--------|--------------|-------------------|-------|------|
 | LikesService | ✅ | ✅ | ✅ | ✅ | ✅ |
-| TagsService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+| TagsService | ✅ | ⏳ | ⏳ | ⏳ | ⏳ |
 | CollectionsService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
 | NotesService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
 | CommentsService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
 | UserActivityService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+
+### Tags Service Notes
+
+The Tag model uses `name` instead of `key` for the metadata identifier field (e.g., `name="venue"`, `value="Wembley Stadium"`). This avoids a naming collision in the Datastore generator where proto field `key` becomes Go field `Key`, conflicting with the auto-generated `Key *datastore.Key` field. The `key` → `name` rename was applied to:
+- models.proto: `Tag.name`, `Tag.normalized_name`, `TagUsageCounts.by_name`
+- gae.proto: `TagDatastore.name`, `TagDatastore.normalized_name`
+- gorm.proto: `TagGORM.name`, `TagGORM.normalized_name`, `TagUsageCountsGORM.by_name`
+- service.proto: All API fields (`name`, `name_filter` instead of `key`, `key_filter`)
 
 ## See Also
 

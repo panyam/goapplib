@@ -27,11 +27,11 @@ const (
 type TagGORM struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Key-value pair (key empty = pure tag)
-	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	// Normalized key (computed by service, readonly)
-	NormalizedKey string `protobuf:"bytes,3,opt,name=normalized_key,json=normalizedKey,proto3" json:"normalized_key,omitempty"`
-	Value         string `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	// Name-value pair (name empty = pure tag, name present = metadata like name="venue")
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Normalized name (computed by service, readonly)
+	NormalizedName string `protobuf:"bytes,3,opt,name=normalized_name,json=normalizedName,proto3" json:"normalized_name,omitempty"`
+	Value          string `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
 	// Normalized value (computed by service, readonly)
 	NormalizedValue string `protobuf:"bytes,5,opt,name=normalized_value,json=normalizedValue,proto3" json:"normalized_value,omitempty"`
 	// Visual
@@ -91,16 +91,16 @@ func (x *TagGORM) GetId() string {
 	return ""
 }
 
-func (x *TagGORM) GetKey() string {
+func (x *TagGORM) GetName() string {
 	if x != nil {
-		return x.Key
+		return x.Name
 	}
 	return ""
 }
 
-func (x *TagGORM) GetNormalizedKey() string {
+func (x *TagGORM) GetNormalizedName() string {
 	if x != nil {
-		return x.NormalizedKey
+		return x.NormalizedName
 	}
 	return ""
 }
@@ -277,8 +277,8 @@ type TagUsageCountsGORM struct {
 	EntityType string `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
 	EntityId   string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	TotalCount int64  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// JSON-serialized map of key to count
-	ByKey         map[string]int64 `protobuf:"bytes,4,rep,name=by_key,json=byKey,proto3" json:"by_key,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // updated_at - same type (Timestamp), auto-handled
+	// JSON-serialized map of name to count
+	ByName        map[string]int64 `protobuf:"bytes,4,rep,name=by_name,json=byName,proto3" json:"by_name,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // updated_at - same type (Timestamp), auto-handled
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -334,9 +334,9 @@ func (x *TagUsageCountsGORM) GetTotalCount() int64 {
 	return 0
 }
 
-func (x *TagUsageCountsGORM) GetByKey() map[string]int64 {
+func (x *TagUsageCountsGORM) GetByName() map[string]int64 {
 	if x != nil {
-		return x.ByKey
+		return x.ByName
 	}
 	return nil
 }
@@ -345,12 +345,12 @@ var File_tags_v1_gorm_proto protoreflect.FileDescriptor
 
 const file_tags_v1_gorm_proto_rawDesc = "" +
 	"\n" +
-	"\x12tags/v1/gorm.proto\x12\x0fcontent.tags.v1\x1a\x18dal/v1/annotations.proto\x1a\x14tags/v1/models.proto\"\x81\b\n" +
+	"\x12tags/v1/gorm.proto\x12\x0fcontent.tags.v1\x1a\x18dal/v1/annotations.proto\x1a\x14tags/v1/models.proto\"\x85\b\n" +
 	"\aTagGORM\x12 \n" +
 	"\x02id\x18\x01 \x01(\tB\x10\x92\xa6\x1d\fR\n" +
-	"primaryKeyR\x02id\x12<\n" +
-	"\x03key\x18\x02 \x01(\tB*\x92\xa6\x1d&R$index:idx_tags_owner_norm,priority:3R\x03key\x12s\n" +
-	"\x0enormalized_key\x18\x03 \x01(\tBL\x92\xa6\x1dHR$index:idx_tags_owner_norm,priority:4R index:idx_tags_search,priority:1R\rnormalizedKey\x12\x14\n" +
+	"primaryKeyR\x02id\x12>\n" +
+	"\x04name\x18\x02 \x01(\tB*\x92\xa6\x1d&R$index:idx_tags_owner_norm,priority:3R\x04name\x12u\n" +
+	"\x0fnormalized_name\x18\x03 \x01(\tBL\x92\xa6\x1dHR$index:idx_tags_owner_norm,priority:4R index:idx_tags_search,priority:1R\x0enormalizedName\x12\x14\n" +
 	"\x05value\x18\x04 \x01(\tR\x05value\x12w\n" +
 	"\x10normalized_value\x18\x05 \x01(\tBL\x92\xa6\x1dHR$index:idx_tags_owner_norm,priority:5R index:idx_tags_search,priority:2R\x0fnormalizedValue\x12\x14\n" +
 	"\x05color\x18\a \x01(\tR\x05color\x12 \n" +
@@ -381,7 +381,7 @@ const file_tags_v1_gorm_proto_rawDesc = "" +
 	"\n" +
 	"visibility\x18\x05 \x01(\x0e2$.content.tags.v1.EntityTagVisibilityB6\x92\xa6\x1d2R%index:idx_entity_tags_user,priority:2R\tdefault:3R\n" +
 	"visibility:,ʦ\x1d(\n" +
-	"\x19content.tags.v1.EntityTag\x12\ventity_tags\"\xf2\x02\n" +
+	"\x19content.tags.v1.EntityTag\x12\ventity_tags\"\xf6\x02\n" +
 	"\x12TagUsageCountsGORM\x121\n" +
 	"\ventity_type\x18\x01 \x01(\tB\x10\x92\xa6\x1d\fR\n" +
 	"primaryKeyR\n" +
@@ -389,10 +389,9 @@ const file_tags_v1_gorm_proto_rawDesc = "" +
 	"\tentity_id\x18\x02 \x01(\tB\x10\x92\xa6\x1d\fR\n" +
 	"primaryKeyR\bentityId\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x03R\n" +
-	"totalCount\x12g\n" +
-	"\x06by_key\x18\x04 \x03(\v2..content.tags.v1.TagUsageCountsGORM.ByKeyEntryB \x92\xa6\x1d\x1cR\x0fserializer:jsonR\ttype:textR\x05byKey\x1a8\n" +
-	"\n" +
-	"ByKeyEntry\x12\x10\n" +
+	"totalCount\x12j\n" +
+	"\aby_name\x18\x04 \x03(\v2/.content.tags.v1.TagUsageCountsGORM.ByNameEntryB \x92\xa6\x1d\x1cR\x0fserializer:jsonR\ttype:textR\x06byName\x1a9\n" +
+	"\vByNameEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01:6ʦ\x1d2\n" +
 	"\x1econtent.tags.v1.TagUsageCounts\x12\x10tag_usage_countsB\xb8\x01\n" +
@@ -415,7 +414,7 @@ var file_tags_v1_gorm_proto_goTypes = []any{
 	(*TagGORM)(nil),            // 0: content.tags.v1.TagGORM
 	(*EntityTagGORM)(nil),      // 1: content.tags.v1.EntityTagGORM
 	(*TagUsageCountsGORM)(nil), // 2: content.tags.v1.TagUsageCountsGORM
-	nil,                        // 3: content.tags.v1.TagUsageCountsGORM.ByKeyEntry
+	nil,                        // 3: content.tags.v1.TagUsageCountsGORM.ByNameEntry
 	(TagScope)(0),              // 4: content.tags.v1.TagScope
 	(TagStatus)(0),             // 5: content.tags.v1.TagStatus
 	(EntityTagVisibility)(0),   // 6: content.tags.v1.EntityTagVisibility
@@ -424,7 +423,7 @@ var file_tags_v1_gorm_proto_depIdxs = []int32{
 	4, // 0: content.tags.v1.TagGORM.scope:type_name -> content.tags.v1.TagScope
 	5, // 1: content.tags.v1.TagGORM.status:type_name -> content.tags.v1.TagStatus
 	6, // 2: content.tags.v1.EntityTagGORM.visibility:type_name -> content.tags.v1.EntityTagVisibility
-	3, // 3: content.tags.v1.TagUsageCountsGORM.by_key:type_name -> content.tags.v1.TagUsageCountsGORM.ByKeyEntry
+	3, // 3: content.tags.v1.TagUsageCountsGORM.by_name:type_name -> content.tags.v1.TagUsageCountsGORM.ByNameEntry
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
