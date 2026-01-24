@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
+	dsidx "github.com/panyam/goapplib/datastore"
 	"github.com/panyam/goapplib/content/services/tags"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
@@ -571,4 +572,184 @@ func tagUsageCountsFromDatastore(dsCounts *dsgen.TagUsageCountsDatastore) *v1.Ta
 		ByName:     byName,
 		UpdatedAt:  updatedAt,
 	}
+}
+
+// IndexProvider implementation for DatastoreTagsService
+
+// ServiceName returns the service name for index file naming.
+func (s *DatastoreTagsService) ServiceName() string {
+	return "tags"
+}
+
+// RequiredIndexes returns the composite indexes required by the tags service.
+func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
+	return []dsidx.DatastoreIndex{
+		// For ListEntityTagsByEntity - get all tags for an entity
+		{
+			Kind: entityTagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "entity_type"},
+				{Name: "entity_id"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListEntityTagsByTag - get all entities with a tag
+		{
+			Kind: entityTagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "tag_id"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListEntityTagsByTag with entity type filter
+		{
+			Kind: entityTagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "tag_id"},
+				{Name: "entity_type"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListTags - list tags for an owner (default order by created_at)
+		{
+			Kind: tagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "owner_type"},
+				{Name: "owner_id"},
+				{Name: "status"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListTags - list tags by usage count
+		{
+			Kind: tagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "owner_type"},
+				{Name: "owner_id"},
+				{Name: "status"},
+				{Name: "usage_count", Direction: "desc"},
+			},
+		},
+		// For ListTags with name filter
+		{
+			Kind: tagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "owner_type"},
+				{Name: "owner_id"},
+				{Name: "normalized_name"},
+				{Name: "status"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For FindTagByNormalizedValues - find a specific tag
+		{
+			Kind: tagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "owner_type"},
+				{Name: "owner_id"},
+				{Name: "normalized_name"},
+				{Name: "normalized_value"},
+				{Name: "status"},
+			},
+		},
+		// For SearchTags - prefix search (note: ordered by normalized_value for range query)
+		{
+			Kind: tagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "owner_type"},
+				{Name: "owner_id"},
+				{Name: "status"},
+				{Name: "normalized_value"},
+			},
+		},
+		// For GetPopularTags - popular tags with usage > 0
+		{
+			Kind: tagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "status"},
+				{Name: "usage_count", Direction: "desc"},
+			},
+		},
+	}
+}
+
+// TestQueries returns queries that exercise each required index.
+func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
+	return []*datastore.Query{
+		// ListEntityTagsByEntity
+		datastore.NewQuery(entityTagKind).
+			FilterField("entity_type", "=", "__test__").
+			FilterField("entity_id", "=", "__test__").
+			Order("-created_at"),
+
+		// ListEntityTagsByTag
+		datastore.NewQuery(entityTagKind).
+			FilterField("tag_id", "=", "__test__").
+			Order("-created_at"),
+
+		// ListEntityTagsByTag with entity type filter
+		datastore.NewQuery(entityTagKind).
+			FilterField("tag_id", "=", "__test__").
+			FilterField("entity_type", "=", "__test__").
+			Order("-created_at"),
+
+		// ListTags by created_at
+		datastore.NewQuery(tagKind).
+			FilterField("owner_type", "=", "__test__").
+			FilterField("owner_id", "=", "__test__").
+			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
+			Order("-created_at"),
+
+		// ListTags by usage_count
+		datastore.NewQuery(tagKind).
+			FilterField("owner_type", "=", "__test__").
+			FilterField("owner_id", "=", "__test__").
+			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
+			Order("-usage_count"),
+
+		// ListTags with name filter
+		datastore.NewQuery(tagKind).
+			FilterField("owner_type", "=", "__test__").
+			FilterField("owner_id", "=", "__test__").
+			FilterField("normalized_name", "=", "__test__").
+			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
+			Order("-created_at"),
+
+		// FindTagByNormalizedValues
+		datastore.NewQuery(tagKind).
+			FilterField("owner_type", "=", "__test__").
+			FilterField("owner_id", "=", "__test__").
+			FilterField("normalized_name", "=", "__test__").
+			FilterField("normalized_value", "=", "__test__").
+			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)),
+
+		// SearchTags (prefix search)
+		datastore.NewQuery(tagKind).
+			FilterField("owner_type", "=", "__test__").
+			FilterField("owner_id", "=", "__test__").
+			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
+			FilterField("normalized_value", ">=", "a").
+			FilterField("normalized_value", "<", "b"),
+
+		// GetPopularTags
+		datastore.NewQuery(tagKind).
+			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
+			FilterField("usage_count", ">", int64(0)).
+			Order("-usage_count"),
+	}
+}
+
+// ValidateIndexes checks if all required indexes exist.
+func (s *DatastoreTagsService) ValidateIndexes(ctx context.Context) error {
+	return dsidx.ValidateIndexes(ctx, s.client, s.namespace, s)
+}
+
+// WriteIndexFile writes the required indexes to a YAML file.
+func (s *DatastoreTagsService) WriteIndexFile(path string) error {
+	return dsidx.WriteIndexFile(path, s.ServiceName(), s.RequiredIndexes())
+}
+
+// IndexesYAML returns the indexes as a YAML string.
+func (s *DatastoreTagsService) IndexesYAML() string {
+	return dsidx.IndexesToYAML(s.ServiceName(), s.RequiredIndexes())
 }

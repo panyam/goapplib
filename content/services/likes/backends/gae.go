@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
+	dsidx "github.com/panyam/goapplib/datastore"
 	"github.com/panyam/goapplib/content/services/likes"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
@@ -373,4 +374,112 @@ func reactionTypeFromDatastore(dsRT *dsgen.ReactionTypeDatastore) *v1.ReactionTy
 		UpdatedAt:    updatedAt,
 		CreatorId:    dsRT.CreatorId,
 	}
+}
+
+// IndexProvider implementation for DatastoreLikesService
+
+// ServiceName returns the service name for index file naming.
+func (s *DatastoreLikesService) ServiceName() string {
+	return "likes"
+}
+
+// RequiredIndexes returns the composite indexes required by the likes service.
+func (s *DatastoreLikesService) RequiredIndexes() []dsidx.DatastoreIndex {
+	return []dsidx.DatastoreIndex{
+		// For GetLike - find a user's reaction on an entity
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "entity_type"},
+				{Name: "entity_id"},
+				{Name: "user_id"},
+			},
+		},
+		// For ListLikesByEntity - list all reactions on an entity
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "entity_type"},
+				{Name: "entity_id"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListLikesByEntity with reaction type filter
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "entity_type"},
+				{Name: "entity_id"},
+				{Name: "reaction_type"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListLikesByUser - list all reactions by a user
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "user_id"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListLikesByUser with entity type filter
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "user_id"},
+				{Name: "entity_type"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+	}
+}
+
+// TestQueries returns queries that exercise each required index.
+func (s *DatastoreLikesService) TestQueries() []*datastore.Query {
+	return []*datastore.Query{
+		// GetLike
+		datastore.NewQuery(likeKind).
+			FilterField("entity_type", "=", "__test__").
+			FilterField("entity_id", "=", "__test__").
+			FilterField("user_id", "=", "__test__"),
+
+		// ListLikesByEntity
+		datastore.NewQuery(likeKind).
+			FilterField("entity_type", "=", "__test__").
+			FilterField("entity_id", "=", "__test__").
+			Order("-created_at"),
+
+		// ListLikesByEntity with reaction type
+		datastore.NewQuery(likeKind).
+			FilterField("entity_type", "=", "__test__").
+			FilterField("entity_id", "=", "__test__").
+			FilterField("reaction_type", "=", "__test__").
+			Order("-created_at"),
+
+		// ListLikesByUser
+		datastore.NewQuery(likeKind).
+			FilterField("user_id", "=", "__test__").
+			Order("-created_at"),
+
+		// ListLikesByUser with entity type
+		datastore.NewQuery(likeKind).
+			FilterField("user_id", "=", "__test__").
+			FilterField("entity_type", "=", "__test__").
+			Order("-created_at"),
+	}
+}
+
+// ValidateIndexes checks if all required indexes exist.
+func (s *DatastoreLikesService) ValidateIndexes(ctx context.Context) error {
+	return dsidx.ValidateIndexes(ctx, s.client, s.namespace, s)
+}
+
+// WriteIndexFile writes the required indexes to a YAML file.
+func (s *DatastoreLikesService) WriteIndexFile(path string) error {
+	return dsidx.WriteIndexFile(path, s.ServiceName(), s.RequiredIndexes())
+}
+
+// IndexesYAML returns the indexes as a YAML string.
+func (s *DatastoreLikesService) IndexesYAML() string {
+	return dsidx.IndexesToYAML(s.ServiceName(), s.RequiredIndexes())
 }
