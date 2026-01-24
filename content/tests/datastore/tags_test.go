@@ -1,97 +1,25 @@
-// Package datastore provides integration tests for content services using Google Cloud Datastore.
 package datastore
 
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 
-	"cloud.google.com/go/datastore"
 	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
 	"github.com/panyam/goapplib/content/services/tags/backends"
-	"google.golang.org/api/option"
 )
 
+// tagsTestKinds are the Datastore kinds used by the tags service.
 var tagsTestKinds = []string{
 	"Tag",
 	"EntityTag",
-}
-
-// setupTagsTestClient creates a Datastore client for tags testing.
-func setupTagsTestClient(t *testing.T) *datastore.Client {
-	skipIfNoDatastore(t)
-
-	ctx := context.Background()
-	projectID := getProjectID()
-
-	if isRealDatastoreConfigured() {
-		return setupRealTagsDatastoreClient(t, ctx, projectID)
-	}
-
-	// Emulator mode
-	client, err := datastore.NewClient(ctx, projectID)
-	if err != nil {
-		t.Fatalf("Failed to create Datastore client: %v", err)
-	}
-
-	t.Cleanup(func() {
-		// Clean up test entities
-		for _, kind := range tagsTestKinds {
-			cleanupKind(ctx, client, kind)
-		}
-		client.Close()
-	})
-
-	return client
-}
-
-func setupRealTagsDatastoreClient(t *testing.T, ctx context.Context, projectID string) *datastore.Client {
-	namespace := getTestNamespace()
-
-	if projectID == "" || projectID == "test-project" {
-		t.Fatal("DATASTORE_PROJECT_ID must be set to a real GCP project ID for real Datastore tests")
-	}
-
-	var client *datastore.Client
-	var err error
-
-	credFile := os.Getenv(envDatastoreCredentials)
-	if credFile != "" {
-		credFile = expandPath(credFile)
-		client, err = datastore.NewClient(ctx, projectID, option.WithCredentialsFile(credFile))
-	} else {
-		client, err = datastore.NewClient(ctx, projectID)
-	}
-
-	if err != nil {
-		t.Fatalf("Failed to create Datastore client: %v", err)
-	}
-
-	// Ensure namespace is empty for tags kinds
-	ensureNamespaceEmpty(t, ctx, client, namespace, tagsTestKinds)
-
-	t.Cleanup(func() {
-		cleanupTagsNamespace(ctx, client, namespace)
-		client.Close()
-	})
-
-	return client
-}
-
-func cleanupTagsNamespace(ctx context.Context, client *datastore.Client, namespace string) error {
-	for _, kind := range tagsTestKinds {
-		if err := cleanupKindInNamespace(ctx, client, kind, namespace); err != nil {
-			return fmt.Errorf("failed to cleanup kind %q: %w", kind, err)
-		}
-	}
-	return nil
+	"TagUsageCounts",
 }
 
 // setupTagsService creates a tags service for testing.
-// Index validation is done once in TestMain (in likes_test.go), not here.
+// Index validation is done once in TestMain, not here.
 func setupTagsService(t *testing.T) *backends.DatastoreTagsService {
-	client := setupTagsTestClient(t)
+	client := setupTestClient(t, tagsTestKinds)
 	namespace := getTestNamespace()
 
 	service, err := backends.NewDatastoreTagsService(client, namespace)

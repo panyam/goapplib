@@ -61,6 +61,8 @@ indexes:
   - name: owner_type
   - name: owner_id
   - name: status
+  - name: usage_count
+    direction: desc
   - name: normalized_value
 
 - kind: Tag

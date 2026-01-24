@@ -63,6 +63,9 @@ content/
 ├── tests/                      # Integration tests
 │   ├── gorm/                  # GORM backend tests
 │   └── datastore/             # Datastore backend tests
+│       ├── main_test.go       # Shared TestMain, index validation, utilities
+│       ├── likes_test.go      # LikesService tests only
+│       └── tags_test.go       # TagsService tests only
 │
 └── Makefile                    # Build and test commands
 ```
@@ -91,6 +94,21 @@ make upds && make testds && make downds
 # Real Google Cloud Datastore
 make testrealDS
 ```
+
+### Datastore Index Management
+
+The Datastore tests validate indexes once at startup in `TestMain` (shared via `main_test.go`). If indexes are missing, the test run will fail with instructions to deploy them:
+
+```bash
+# Generate index files
+cd content/tests/datastore
+go test -run TestMain -args -generate-indexes
+
+# Deploy indexes (note: gcloud requires file to be named index.yaml)
+cp tags_index.yaml /tmp/index.yaml && gcloud --project=YOUR_PROJECT datastore indexes create /tmp/index.yaml
+```
+
+Indexes are project-wide (not namespace-specific). Wait for indexes to build in GCP Console > Datastore > Indexes before running tests.
 
 ## Implementation Status
 

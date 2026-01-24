@@ -60,7 +60,7 @@ func (e *IndexValidationError) Error() string {
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(fmt.Sprintf("\nTo fix, run:\n  gcloud datastore indexes create %s_index.yaml\n", e.ServiceName))
+	sb.WriteString(fmt.Sprintf("\nTo fix, run:\n  %s\n", PrintIndexCommand(e.ServiceName)))
 	return sb.String()
 }
 
@@ -136,9 +136,17 @@ func WriteIndexFile(path string, serviceName string, indexes []DatastoreIndex) e
 	return os.WriteFile(path, []byte(yaml), 0644)
 }
 
-// PrintIndexCommand prints the gcloud command to create indexes.
+// PrintIndexCommand returns the gcloud command to create indexes.
+// Includes --project flag if DATASTORE_PROJECT_ID is set.
+// Note: Datastore indexes are project-wide (not namespace-specific).
+// The file is copied to /tmp/index.yaml because gcloud requires the file to be named index.yaml.
 func PrintIndexCommand(serviceName string) string {
-	return fmt.Sprintf("gcloud datastore indexes create %s_index.yaml", serviceName)
+	projectID := os.Getenv("DATASTORE_PROJECT_ID")
+	indexFile := IndexFileName(serviceName)
+	if projectID != "" {
+		return fmt.Sprintf("cp %s /tmp/index.yaml && gcloud --project=%s datastore indexes create /tmp/index.yaml", indexFile, projectID)
+	}
+	return fmt.Sprintf("cp %s /tmp/index.yaml && gcloud datastore indexes create /tmp/index.yaml", indexFile)
 }
 
 // ValidateMultipleServices validates indexes for multiple services and collects all errors.
@@ -171,8 +179,10 @@ func ValidateMultipleServices(ctx context.Context, client *datastore.Client, nam
 	sb.WriteString("=" + strings.Repeat("=", 60) + "\n")
 	sb.WriteString("\nTo fix all, run these commands:\n")
 	for _, err := range allErrors {
-		sb.WriteString(fmt.Sprintf("  gcloud datastore indexes create %s_index.yaml\n", err.ServiceName))
+		sb.WriteString(fmt.Sprintf("  %s\n", PrintIndexCommand(err.ServiceName)))
 	}
+	sb.WriteString("\nNote: Indexes are project-wide (not namespace-specific).\n")
+	sb.WriteString("Wait for indexes to build (check GCP Console > Datastore > Indexes).\n")
 
 	return fmt.Errorf("%s", sb.String())
 }
@@ -193,6 +203,39 @@ func WriteAllIndexFiles(outputDir string, providers ...IndexProvider) error {
 // IndexFileName returns the default index file name for a service.
 func IndexFileName(serviceName string) string {
 	return serviceName + "_index.yaml"
+}
+
+// CombinedIndexFileName is the standard name expected by gcloud.
+const CombinedIndexFileName = "index.yaml"
+
+// CombineIndexesToYAML combines indexes from multiple providers into one YAML.
+func CombineIndexesToYAML(providers ...IndexProvider) string {
+	var sb strings.Builder
+	sb.WriteString("# Combined Datastore indexes\n")
+	sb.WriteString("# Deploy with: gcloud datastore indexes create index.yaml\n\n")
+	sb.WriteString("indexes:\n")
+
+	for _, provider := range providers {
+		sb.WriteString(fmt.Sprintf("\n# %s service\n", provider.ServiceName()))
+		for _, idx := range provider.RequiredIndexes() {
+			sb.WriteString(fmt.Sprintf("\n- kind: %s\n", idx.Kind))
+			sb.WriteString("  properties:\n")
+			for _, prop := range idx.Properties {
+				sb.WriteString(fmt.Sprintf("  - name: %s\n", prop.Name))
+				if prop.Direction == "desc" {
+					sb.WriteString("    direction: desc\n")
+				}
+			}
+		}
+	}
+
+	return sb.String()
+}
+
+// WriteCombinedIndexFile writes a combined index.yaml for multiple services.
+func WriteCombinedIndexFile(path string, providers ...IndexProvider) error {
+	yaml := CombineIndexesToYAML(providers...)
+	return os.WriteFile(path, []byte(yaml), 0644)
 }
 
 // ValidateAndWriteIndexes validates indexes and writes the index file if validation fails.
@@ -217,12 +260,13 @@ func ValidateAndWriteIndexes(ctx context.Context, client *datastore.Client, name
 ======================================================================
 %sTo deploy the required indexes, run:
 
-  gcloud datastore indexes create %s
+  %s
 
-Wait for indexes to build (check status in GCP Console),
+Note: Indexes are project-wide (not namespace-specific).
+Wait for indexes to build (check status in GCP Console > Datastore > Indexes),
 then restart your application.
 ======================================================================
-`, err.Error(), writeMsg, indexFile)
+`, err.Error(), writeMsg, PrintIndexCommand(provider.ServiceName()))
 }
 
 // ServiceOptions configures a Datastore service.
@@ -265,4 +309,3 @@ func ApplyOptions(options ...ServiceOption) *ServiceOptions {
 	}
 	return opts
 }
-

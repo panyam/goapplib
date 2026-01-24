@@ -714,13 +714,14 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 				{Name: "status"},
 			},
 		},
-		// For SearchTags - prefix search (note: ordered by normalized_value for range query)
+		// For SearchTags - prefix search with owner filter, ordered by usage_count
 		{
 			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "status"},
+				{Name: "usage_count", Direction: "desc"},
 				{Name: "normalized_value"},
 			},
 		},
@@ -785,13 +786,14 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 			FilterField("normalized_value", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)),
 
-		// SearchTags (prefix search)
+		// SearchTags (prefix search with owner filter, ordered by usage_count)
 		datastore.NewQuery(s.tagKind).
 			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
 			FilterField("normalized_value", ">=", "a").
-			FilterField("normalized_value", "<", "b"),
+			FilterField("normalized_value", "<", "b").
+			Order("-usage_count"),
 
 		// GetPopularTags
 		datastore.NewQuery(s.tagKind).
