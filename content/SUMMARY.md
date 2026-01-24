@@ -97,7 +97,7 @@ make testrealDS
 | Service | Protos | GORM Backend | Datastore Backend | Tests | Docs |
 |---------|--------|--------------|-------------------|-------|------|
 | LikesService | ✅ | ✅ | ✅ | ✅ | ✅ |
-| TagsService | ✅ | ⏳ | ⏳ | ⏳ | ⏳ |
+| TagsService | ✅ | ✅ | ✅ | ✅ | ✅ |
 | CollectionsService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
 | NotesService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
 | CommentsService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
