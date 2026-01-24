@@ -224,6 +224,24 @@ message EntityTag {
 - `Tag` - Tag definition entities
 - `EntityTag` - Tag application entities with composite key
 
+### Datastore Indexes
+
+The Datastore backend requires composite indexes for complex queries. Use the built-in index validation:
+
+```go
+service := backends.NewDatastoreTagsService(client, namespace)
+
+// Validate indexes exist (fails fast with helpful error)
+if err := service.ValidateIndexes(ctx); err != nil {
+    // Prints missing indexes and gcloud command to fix
+    log.Fatal(err)
+}
+
+// Or export indexes to a file for deployment
+service.WriteIndexFile("tags_index.yaml")
+// Then deploy: gcloud datastore indexes create tags_index.yaml
+```
+
 ## Integration Testing
 
 ### Running Tests with SQLite (Default)

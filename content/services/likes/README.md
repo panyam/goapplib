@@ -163,6 +163,24 @@ message ReactionType {
 
 Note: The `LikeCounts` entity uses `implement_property_loader: true` in the proto to generate PropertyLoadSaver methods that serialize the `map<string, int64>` field as JSON, since Datastore doesn't natively support Go maps.
 
+### Datastore Indexes
+
+The Datastore backend requires composite indexes for complex queries. Use the built-in index validation:
+
+```go
+service := backends.NewDatastoreLikesService(client, namespace)
+
+// Validate indexes exist (fails fast with helpful error)
+if err := service.ValidateIndexes(ctx); err != nil {
+    // Prints missing indexes and gcloud command to fix
+    log.Fatal(err)
+}
+
+// Or export indexes to a file for deployment
+service.WriteIndexFile("likes_index.yaml")
+// Then deploy: gcloud datastore indexes create likes_index.yaml
+```
+
 ## Integration Testing
 
 ### Running Tests with SQLite (Default)
