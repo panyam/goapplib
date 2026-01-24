@@ -31,8 +31,7 @@ message TagGORM {
     gorm_tags: ["index:idx_tags_owner_norm,priority:5", "index:idx_tags_search,priority:2"]
   }];
 
-  // Type
-  int32 type = 6;
+  // Type - enum auto-inherited, no override needed
 
   // Visual
   string color = 7;
@@ -46,7 +45,8 @@ message TagGORM {
   string owner_id = 11 [(dal.v1.column) = {
     gorm_tags: ["index:idx_tags_owner_key_value,priority:2", "index:idx_tags_owner_scope,priority:2"]
   }];
-  int32 scope = 12 [(dal.v1.column) = {
+  // Scope - enum with index override
+  TagScope scope = 12 [(dal.v1.column) = {
     gorm_tags: ["index:idx_tags_owner_scope,priority:3"]
   }];
 
@@ -55,8 +55,8 @@ message TagGORM {
     gorm_tags: ["index:idx_tags_usage"]
   }];
 
-  // Lifecycle
-  int32 status = 16 [(dal.v1.column) = {
+  // Lifecycle - enum with default override
+  TagStatus status = 16 [(dal.v1.column) = {
     gorm_tags: ["default:1"]
   }];
   string redirect_to_tag_id = 17;
@@ -89,8 +89,8 @@ message EntityTagGORM {
     gorm_tags: ["primaryKey", "index:idx_entity_tags_user,priority:1"]
   }];
 
-  // Visibility of this application
-  int32 visibility = 5 [(dal.v1.column) = {
+  // Visibility - enum with index and default override
+  EntityTagVisibility visibility = 5 [(dal.v1.column) = {
     gorm_tags: ["index:idx_entity_tags_user,priority:2", "default:3"]
   }];
   // created_at - same type (Timestamp), auto-handled

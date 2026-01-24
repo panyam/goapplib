@@ -2,33 +2,42 @@
 package v1
 
 import (
-	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
+	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
 	"github.com/panyam/protoc-gen-dal/pkg/converters"
 )
 
-// ReactionTypeToReactionTypeGORM converts a v1.ReactionType to ReactionTypeGORM.
+// TagToTagGORM converts a v1.Tag to TagGORM.
 // The optional decorator function allows custom field transformations.
-func ReactionTypeToReactionTypeGORM(
-	src *v1.ReactionType,
-	dest *ReactionTypeGORM,
-	decorator func(*v1.ReactionType, *ReactionTypeGORM) error,
-) (out *ReactionTypeGORM, err error) {
+func TagToTagGORM(
+	src *v1.Tag,
+	dest *TagGORM,
+	decorator func(*v1.Tag, *TagGORM) error,
+) (out *TagGORM, err error) {
 	if src == nil {
 		return nil, nil
 	}
 	if dest == nil {
-		dest = &ReactionTypeGORM{}
+		dest = &TagGORM{}
 	}
 
 	// Initialize struct with inline values
-	*dest = ReactionTypeGORM{
-		Id:           src.Id,
-		Name:         src.Name,
-		Emoji:        src.Emoji,
-		IconUrl:      src.IconUrl,
-		DisplayOrder: src.DisplayOrder,
-		IsDefault:    src.IsDefault,
-		CreatorId:    src.CreatorId,
+	*dest = TagGORM{
+		Id:              src.Id,
+		Key:             src.Key,
+		NormalizedKey:   src.NormalizedKey,
+		Value:           src.Value,
+		NormalizedValue: src.NormalizedValue,
+		Type:            src.Type,
+		Color:           src.Color,
+		Description:     src.Description,
+		DisplayOrder:    src.DisplayOrder,
+		OwnerType:       src.OwnerType,
+		OwnerId:         src.OwnerId,
+		Scope:           src.Scope,
+		UsageCount:      src.UsageCount,
+		Status:          src.Status,
+		RedirectToTagId: src.RedirectToTagId,
+		CreatorId:       src.CreatorId,
 	}
 	out = dest
 
@@ -50,31 +59,40 @@ func ReactionTypeToReactionTypeGORM(
 	return dest, nil
 }
 
-// ReactionTypeFromReactionTypeGORM converts a ReactionTypeGORM back to v1.ReactionType.
+// TagFromTagGORM converts a TagGORM back to v1.Tag.
 // The optional decorator function allows custom field transformations.
-func ReactionTypeFromReactionTypeGORM(
-	dest *v1.ReactionType,
-	src *ReactionTypeGORM,
-	decorator func(dest *v1.ReactionType, src *ReactionTypeGORM) error,
-) (out *v1.ReactionType, err error) {
+func TagFromTagGORM(
+	dest *v1.Tag,
+	src *TagGORM,
+	decorator func(dest *v1.Tag, src *TagGORM) error,
+) (out *v1.Tag, err error) {
 	if src == nil {
 		return nil, nil
 	}
 	if dest == nil {
-		dest = &v1.ReactionType{}
+		dest = &v1.Tag{}
 	}
 
 	// Initialize struct with inline values
-	*dest = v1.ReactionType{
-		Id:           src.Id,
-		Name:         src.Name,
-		Emoji:        src.Emoji,
-		IconUrl:      src.IconUrl,
-		DisplayOrder: src.DisplayOrder,
-		IsDefault:    src.IsDefault,
-		CreatedAt:    converters.TimeToTimestamp(src.CreatedAt),
-		UpdatedAt:    converters.TimeToTimestamp(src.UpdatedAt),
-		CreatorId:    src.CreatorId,
+	*dest = v1.Tag{
+		Id:              src.Id,
+		Key:             src.Key,
+		NormalizedKey:   src.NormalizedKey,
+		Value:           src.Value,
+		NormalizedValue: src.NormalizedValue,
+		Type:            src.Type,
+		Color:           src.Color,
+		Description:     src.Description,
+		DisplayOrder:    src.DisplayOrder,
+		OwnerType:       src.OwnerType,
+		OwnerId:         src.OwnerId,
+		Scope:           src.Scope,
+		UsageCount:      src.UsageCount,
+		Status:          src.Status,
+		RedirectToTagId: src.RedirectToTagId,
+		CreatedAt:       converters.TimeToTimestamp(src.CreatedAt),
+		UpdatedAt:       converters.TimeToTimestamp(src.UpdatedAt),
+		CreatorId:       src.CreatorId,
 	}
 	out = dest
 
@@ -88,37 +106,32 @@ func ReactionTypeFromReactionTypeGORM(
 	return out, nil
 }
 
-// LikeToLikeGORM converts a v1.Like to LikeGORM.
+// EntityTagToEntityTagGORM converts a v1.EntityTag to EntityTagGORM.
 // The optional decorator function allows custom field transformations.
-func LikeToLikeGORM(
-	src *v1.Like,
-	dest *LikeGORM,
-	decorator func(*v1.Like, *LikeGORM) error,
-) (out *LikeGORM, err error) {
+func EntityTagToEntityTagGORM(
+	src *v1.EntityTag,
+	dest *EntityTagGORM,
+	decorator func(*v1.EntityTag, *EntityTagGORM) error,
+) (out *EntityTagGORM, err error) {
 	if src == nil {
 		return nil, nil
 	}
 	if dest == nil {
-		dest = &LikeGORM{}
+		dest = &EntityTagGORM{}
 	}
 
 	// Initialize struct with inline values
-	*dest = LikeGORM{
-		Id:           src.Id,
-		EntityType:   src.EntityType,
-		EntityId:     src.EntityId,
-		UserId:       src.UserId,
-		ReactionType: src.ReactionType,
-		CreatorId:    src.CreatorId,
+	*dest = EntityTagGORM{
+		TagId:      src.TagId,
+		EntityType: src.EntityType,
+		EntityId:   src.EntityId,
+		TaggedBy:   src.TaggedBy,
+		Visibility: src.Visibility,
 	}
 	out = dest
 
 	if src.CreatedAt != nil {
 		out.CreatedAt = converters.TimestampToTime(src.CreatedAt)
-	}
-
-	if src.UpdatedAt != nil {
-		out.UpdatedAt = converters.TimestampToTime(src.UpdatedAt)
 	}
 
 	// Apply decorator if provided
@@ -131,30 +144,28 @@ func LikeToLikeGORM(
 	return dest, nil
 }
 
-// LikeFromLikeGORM converts a LikeGORM back to v1.Like.
+// EntityTagFromEntityTagGORM converts a EntityTagGORM back to v1.EntityTag.
 // The optional decorator function allows custom field transformations.
-func LikeFromLikeGORM(
-	dest *v1.Like,
-	src *LikeGORM,
-	decorator func(dest *v1.Like, src *LikeGORM) error,
-) (out *v1.Like, err error) {
+func EntityTagFromEntityTagGORM(
+	dest *v1.EntityTag,
+	src *EntityTagGORM,
+	decorator func(dest *v1.EntityTag, src *EntityTagGORM) error,
+) (out *v1.EntityTag, err error) {
 	if src == nil {
 		return nil, nil
 	}
 	if dest == nil {
-		dest = &v1.Like{}
+		dest = &v1.EntityTag{}
 	}
 
 	// Initialize struct with inline values
-	*dest = v1.Like{
-		Id:           src.Id,
-		EntityType:   src.EntityType,
-		EntityId:     src.EntityId,
-		UserId:       src.UserId,
-		ReactionType: src.ReactionType,
-		CreatedAt:    converters.TimeToTimestamp(src.CreatedAt),
-		UpdatedAt:    converters.TimeToTimestamp(src.UpdatedAt),
-		CreatorId:    src.CreatorId,
+	*dest = v1.EntityTag{
+		TagId:      src.TagId,
+		EntityType: src.EntityType,
+		EntityId:   src.EntityId,
+		TaggedBy:   src.TaggedBy,
+		Visibility: src.Visibility,
+		CreatedAt:  converters.TimeToTimestamp(src.CreatedAt),
 	}
 	out = dest
 
@@ -168,30 +179,30 @@ func LikeFromLikeGORM(
 	return out, nil
 }
 
-// LikeCountsToLikeCountsGORM converts a v1.LikeCounts to LikeCountsGORM.
+// TagUsageCountsToTagUsageCountsGORM converts a v1.TagUsageCounts to TagUsageCountsGORM.
 // The optional decorator function allows custom field transformations.
-func LikeCountsToLikeCountsGORM(
-	src *v1.LikeCounts,
-	dest *LikeCountsGORM,
-	decorator func(*v1.LikeCounts, *LikeCountsGORM) error,
-) (out *LikeCountsGORM, err error) {
+func TagUsageCountsToTagUsageCountsGORM(
+	src *v1.TagUsageCounts,
+	dest *TagUsageCountsGORM,
+	decorator func(*v1.TagUsageCounts, *TagUsageCountsGORM) error,
+) (out *TagUsageCountsGORM, err error) {
 	if src == nil {
 		return nil, nil
 	}
 	if dest == nil {
-		dest = &LikeCountsGORM{}
+		dest = &TagUsageCountsGORM{}
 	}
 
 	// Initialize struct with inline values
-	*dest = LikeCountsGORM{
+	*dest = TagUsageCountsGORM{
 		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TotalCount: src.TotalCount,
 	}
 	out = dest
 
-	if src.ByReactionType != nil {
-		out.ByReactionType = src.ByReactionType
+	if src.ByKey != nil {
+		out.ByKey = src.ByKey
 	}
 
 	if src.UpdatedAt != nil {
@@ -208,27 +219,27 @@ func LikeCountsToLikeCountsGORM(
 	return dest, nil
 }
 
-// LikeCountsFromLikeCountsGORM converts a LikeCountsGORM back to v1.LikeCounts.
+// TagUsageCountsFromTagUsageCountsGORM converts a TagUsageCountsGORM back to v1.TagUsageCounts.
 // The optional decorator function allows custom field transformations.
-func LikeCountsFromLikeCountsGORM(
-	dest *v1.LikeCounts,
-	src *LikeCountsGORM,
-	decorator func(dest *v1.LikeCounts, src *LikeCountsGORM) error,
-) (out *v1.LikeCounts, err error) {
+func TagUsageCountsFromTagUsageCountsGORM(
+	dest *v1.TagUsageCounts,
+	src *TagUsageCountsGORM,
+	decorator func(dest *v1.TagUsageCounts, src *TagUsageCountsGORM) error,
+) (out *v1.TagUsageCounts, err error) {
 	if src == nil {
 		return nil, nil
 	}
 	if dest == nil {
-		dest = &v1.LikeCounts{}
+		dest = &v1.TagUsageCounts{}
 	}
 
 	// Initialize struct with inline values
-	*dest = v1.LikeCounts{
-		EntityType:     src.EntityType,
-		EntityId:       src.EntityId,
-		TotalCount:     src.TotalCount,
-		ByReactionType: src.ByReactionType,
-		UpdatedAt:      converters.TimeToTimestamp(src.UpdatedAt),
+	*dest = v1.TagUsageCounts{
+		EntityType: src.EntityType,
+		EntityId:   src.EntityId,
+		TotalCount: src.TotalCount,
+		ByKey:      src.ByKey,
+		UpdatedAt:  converters.TimeToTimestamp(src.UpdatedAt),
 	}
 	out = dest
 

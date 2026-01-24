@@ -9,46 +9,46 @@ import (
 	gormlib "gorm.io/gorm"
 )
 
-// ReactionTypeGORMDAL provides database access helper methods for gorm.ReactionTypeGORM.
-type ReactionTypeGORMDAL struct {
+// TagGORMDAL provides database access helper methods for gorm.TagGORM.
+type TagGORMDAL struct {
 	// TableName overrides the table for all operations.
 	// If empty, uses the struct's TableName() method (if any) or GORM's default.
 	TableName string
 
 	// WillCreate hook is called when Save detects the record doesn't exist and will create it.
 	// Return an error to prevent creation.
-	WillCreate func(context.Context, *gorm.ReactionTypeGORM) error
+	WillCreate func(context.Context, *gorm.TagGORM) error
 }
 
-// NewReactionTypeGORMDAL creates a new ReactionTypeGORMDAL instance.
+// NewTagGORMDAL creates a new TagGORMDAL instance.
 // If tableName is empty, operations will use the struct's TableName() method
 // or GORM's default table naming convention.
-func NewReactionTypeGORMDAL(tableName string) *ReactionTypeGORMDAL {
-	return &ReactionTypeGORMDAL{TableName: tableName}
+func NewTagGORMDAL(tableName string) *TagGORMDAL {
+	return &TagGORMDAL{TableName: tableName}
 }
 
 // db returns a *gorm.DB scoped to the correct table.
 // If TableName is set, uses db.Table(); otherwise returns db unchanged
 // to let GORM resolve the table name from the struct's TableName() method.
-func (d *ReactionTypeGORMDAL) db(db *gormlib.DB) *gormlib.DB {
+func (d *TagGORMDAL) db(db *gormlib.DB) *gormlib.DB {
 	if d.TableName != "" {
 		return db.Table(d.TableName)
 	}
 	return db
 }
 
-// Create creates a new gorm.ReactionTypeGORM record.
+// Create creates a new gorm.TagGORM record.
 // Returns an error if the record already exists.
-func (d *ReactionTypeGORMDAL) Create(ctx context.Context, db *gormlib.DB, obj *gorm.ReactionTypeGORM) error {
+func (d *TagGORMDAL) Create(ctx context.Context, db *gormlib.DB, obj *gorm.TagGORM) error {
 	return d.db(db).Create(obj).Error
 }
 
-// Update updates an existing gorm.ReactionTypeGORM record.
+// Update updates an existing gorm.TagGORM record.
 // Returns ErrRecordNotFound if the record doesn't exist.
 // For conditional updates (optimistic locking), pass a db with WHERE conditions:
 //
 //	dal.Update(ctx, db.Where("version = ?", oldVersion), obj)
-func (d *ReactionTypeGORMDAL) Update(ctx context.Context, db *gormlib.DB, obj *gorm.ReactionTypeGORM) error {
+func (d *TagGORMDAL) Update(ctx context.Context, db *gormlib.DB, obj *gorm.TagGORM) error {
 	result := d.db(db).Updates(obj)
 	if result.Error != nil {
 		return result.Error
@@ -62,19 +62,19 @@ func (d *ReactionTypeGORMDAL) Update(ctx context.Context, db *gormlib.DB, obj *g
 	return nil
 }
 
-// Save creates or updates a gorm.ReactionTypeGORM record (upsert).
+// Save creates or updates a gorm.TagGORM record (upsert).
 // If the record doesn't exist, it will call WillCreate hook before saving.
 // For conditional updates (optimistic locking), pass a db with WHERE conditions:
 //
 //	dal.Save(ctx, db.Where("version = ?", oldVersion), obj)
-func (d *ReactionTypeGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gorm.ReactionTypeGORM) error {
+func (d *TagGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gorm.TagGORM) error {
 	// Validate primary key(s)
 	if obj.Id == "" {
 		return errors.New("primary key 'Id' cannot be empty")
 	}
 
 	// Check if record exists by trying to fetch it
-	var existing gorm.ReactionTypeGORM
+	var existing gorm.TagGORM
 	err := d.db(db).First(&existing, "id = ?", obj.Id).Error
 
 	if err != nil {
@@ -95,10 +95,10 @@ func (d *ReactionTypeGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gor
 	return d.db(db).Save(obj).Error
 }
 
-// Get retrieves a gorm.ReactionTypeGORM record by primary key.
+// Get retrieves a gorm.TagGORM record by primary key.
 // Returns (nil, nil) if the record is not found (not an error).
-func (d *ReactionTypeGORMDAL) Get(ctx context.Context, db *gormlib.DB, id string) (*gorm.ReactionTypeGORM, error) {
-	var out gorm.ReactionTypeGORM
+func (d *TagGORMDAL) Get(ctx context.Context, db *gormlib.DB, id string) (*gorm.TagGORM, error) {
+	var out gorm.TagGORM
 	err := d.db(db).First(&out, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gormlib.ErrRecordNotFound) {
@@ -109,71 +109,79 @@ func (d *ReactionTypeGORMDAL) Get(ctx context.Context, db *gormlib.DB, id string
 	return &out, nil
 }
 
-// Delete removes a gorm.ReactionTypeGORM record by primary key.
-func (d *ReactionTypeGORMDAL) Delete(ctx context.Context, db *gormlib.DB, id string) error {
-	return d.db(db).Where("id = ?", id).Delete(&gorm.ReactionTypeGORM{}).Error
+// Delete removes a gorm.TagGORM record by primary key.
+func (d *TagGORMDAL) Delete(ctx context.Context, db *gormlib.DB, id string) error {
+	return d.db(db).Where("id = ?", id).Delete(&gorm.TagGORM{}).Error
 }
 
-// List retrieves multiple gorm.ReactionTypeGORM records using the provided query.
+// List retrieves multiple gorm.TagGORM records using the provided query.
 // The caller is responsible for adding filters, ordering, and pagination to the query.
-func (d *ReactionTypeGORMDAL) List(ctx context.Context, query *gormlib.DB) ([]*gorm.ReactionTypeGORM, error) {
-	var out []*gorm.ReactionTypeGORM
+func (d *TagGORMDAL) List(ctx context.Context, query *gormlib.DB) ([]*gorm.TagGORM, error) {
+	var out []*gorm.TagGORM
 	err := d.db(query).Find(&out).Error
 	return out, err
 }
 
-// BatchGet retrieves multiple gorm.ReactionTypeGORM records by primary key.
+// BatchGet retrieves multiple gorm.TagGORM records by primary key.
 // Results are returned in the order provided by the database (not necessarily the input order).
-func (d *ReactionTypeGORMDAL) BatchGet(ctx context.Context, db *gormlib.DB, ids []string) ([]*gorm.ReactionTypeGORM, error) {
+func (d *TagGORMDAL) BatchGet(ctx context.Context, db *gormlib.DB, ids []string) ([]*gorm.TagGORM, error) {
 	if len(ids) == 0 {
-		return []*gorm.ReactionTypeGORM{}, nil
+		return []*gorm.TagGORM{}, nil
 	}
 
-	var out []*gorm.ReactionTypeGORM
+	var out []*gorm.TagGORM
 	err := d.db(db).Where("id IN ?", ids).Find(&out).Error
 	return out, err
 }
 
-// LikeGORMDAL provides database access helper methods for gorm.LikeGORM.
-type LikeGORMDAL struct {
+// EntityTagKey represents the composite primary key for gorm.EntityTagGORM
+type EntityTagKey struct {
+	TagId      string
+	EntityType string
+	EntityId   string
+	TaggedBy   string
+}
+
+// EntityTagGORMDAL provides database access helper methods for gorm.EntityTagGORM.
+type EntityTagGORMDAL struct {
 	// TableName overrides the table for all operations.
 	// If empty, uses the struct's TableName() method (if any) or GORM's default.
 	TableName string
 
 	// WillCreate hook is called when Save detects the record doesn't exist and will create it.
 	// Return an error to prevent creation.
-	WillCreate func(context.Context, *gorm.LikeGORM) error
+	WillCreate func(context.Context, *gorm.EntityTagGORM) error
 }
 
-// NewLikeGORMDAL creates a new LikeGORMDAL instance.
+// NewEntityTagGORMDAL creates a new EntityTagGORMDAL instance.
 // If tableName is empty, operations will use the struct's TableName() method
 // or GORM's default table naming convention.
-func NewLikeGORMDAL(tableName string) *LikeGORMDAL {
-	return &LikeGORMDAL{TableName: tableName}
+func NewEntityTagGORMDAL(tableName string) *EntityTagGORMDAL {
+	return &EntityTagGORMDAL{TableName: tableName}
 }
 
 // db returns a *gorm.DB scoped to the correct table.
 // If TableName is set, uses db.Table(); otherwise returns db unchanged
 // to let GORM resolve the table name from the struct's TableName() method.
-func (d *LikeGORMDAL) db(db *gormlib.DB) *gormlib.DB {
+func (d *EntityTagGORMDAL) db(db *gormlib.DB) *gormlib.DB {
 	if d.TableName != "" {
 		return db.Table(d.TableName)
 	}
 	return db
 }
 
-// Create creates a new gorm.LikeGORM record.
+// Create creates a new gorm.EntityTagGORM record.
 // Returns an error if the record already exists.
-func (d *LikeGORMDAL) Create(ctx context.Context, db *gormlib.DB, obj *gorm.LikeGORM) error {
+func (d *EntityTagGORMDAL) Create(ctx context.Context, db *gormlib.DB, obj *gorm.EntityTagGORM) error {
 	return d.db(db).Create(obj).Error
 }
 
-// Update updates an existing gorm.LikeGORM record.
+// Update updates an existing gorm.EntityTagGORM record.
 // Returns ErrRecordNotFound if the record doesn't exist.
 // For conditional updates (optimistic locking), pass a db with WHERE conditions:
 //
 //	dal.Update(ctx, db.Where("version = ?", oldVersion), obj)
-func (d *LikeGORMDAL) Update(ctx context.Context, db *gormlib.DB, obj *gorm.LikeGORM) error {
+func (d *EntityTagGORMDAL) Update(ctx context.Context, db *gormlib.DB, obj *gorm.EntityTagGORM) error {
 	result := d.db(db).Updates(obj)
 	if result.Error != nil {
 		return result.Error
@@ -187,20 +195,29 @@ func (d *LikeGORMDAL) Update(ctx context.Context, db *gormlib.DB, obj *gorm.Like
 	return nil
 }
 
-// Save creates or updates a gorm.LikeGORM record (upsert).
+// Save creates or updates a gorm.EntityTagGORM record (upsert).
 // If the record doesn't exist, it will call WillCreate hook before saving.
 // For conditional updates (optimistic locking), pass a db with WHERE conditions:
 //
 //	dal.Save(ctx, db.Where("version = ?", oldVersion), obj)
-func (d *LikeGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gorm.LikeGORM) error {
+func (d *EntityTagGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gorm.EntityTagGORM) error {
 	// Validate primary key(s)
-	if obj.Id == "" {
-		return errors.New("primary key 'Id' cannot be empty")
+	if obj.TagId == "" {
+		return errors.New("primary key 'TagId' cannot be empty")
+	}
+	if obj.EntityType == "" {
+		return errors.New("primary key 'EntityType' cannot be empty")
+	}
+	if obj.EntityId == "" {
+		return errors.New("primary key 'EntityId' cannot be empty")
+	}
+	if obj.TaggedBy == "" {
+		return errors.New("primary key 'TaggedBy' cannot be empty")
 	}
 
 	// Check if record exists by trying to fetch it
-	var existing gorm.LikeGORM
-	err := d.db(db).First(&existing, "id = ?", obj.Id).Error
+	var existing gorm.EntityTagGORM
+	err := d.db(db).First(&existing, "tag_id = ?", "entity_type = ?", "entity_id = ?", "tagged_by = ?", obj.TagId, obj.EntityType, obj.EntityId, obj.TaggedBy).Error
 
 	if err != nil {
 		if errors.Is(err, gormlib.ErrRecordNotFound) {
@@ -220,11 +237,11 @@ func (d *LikeGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gorm.LikeGO
 	return d.db(db).Save(obj).Error
 }
 
-// Get retrieves a gorm.LikeGORM record by primary key.
+// Get retrieves a gorm.EntityTagGORM record by primary keys.
 // Returns (nil, nil) if the record is not found (not an error).
-func (d *LikeGORMDAL) Get(ctx context.Context, db *gormlib.DB, id string) (*gorm.LikeGORM, error) {
-	var out gorm.LikeGORM
-	err := d.db(db).First(&out, "id = ?", id).Error
+func (d *EntityTagGORMDAL) Get(ctx context.Context, db *gormlib.DB, tagId string, entityType string, entityId string, taggedBy string) (*gorm.EntityTagGORM, error) {
+	var out gorm.EntityTagGORM
+	err := d.db(db).First(&out, "tag_id = ? AND entity_type = ? AND entity_id = ? AND tagged_by = ?", tagId, entityType, entityId, taggedBy).Error
 	if err != nil {
 		if errors.Is(err, gormlib.ErrRecordNotFound) {
 			return nil, nil
@@ -234,77 +251,83 @@ func (d *LikeGORMDAL) Get(ctx context.Context, db *gormlib.DB, id string) (*gorm
 	return &out, nil
 }
 
-// Delete removes a gorm.LikeGORM record by primary key.
-func (d *LikeGORMDAL) Delete(ctx context.Context, db *gormlib.DB, id string) error {
-	return d.db(db).Where("id = ?", id).Delete(&gorm.LikeGORM{}).Error
+// Delete removes a gorm.EntityTagGORM record by primary keys.
+func (d *EntityTagGORMDAL) Delete(ctx context.Context, db *gormlib.DB, tagId string, entityType string, entityId string, taggedBy string) error {
+	return d.db(db).Where("tag_id = ? AND entity_type = ? AND entity_id = ? AND tagged_by = ?", tagId, entityType, entityId, taggedBy).Delete(&gorm.EntityTagGORM{}).Error
 }
 
-// List retrieves multiple gorm.LikeGORM records using the provided query.
+// List retrieves multiple gorm.EntityTagGORM records using the provided query.
 // The caller is responsible for adding filters, ordering, and pagination to the query.
-func (d *LikeGORMDAL) List(ctx context.Context, query *gormlib.DB) ([]*gorm.LikeGORM, error) {
-	var out []*gorm.LikeGORM
+func (d *EntityTagGORMDAL) List(ctx context.Context, query *gormlib.DB) ([]*gorm.EntityTagGORM, error) {
+	var out []*gorm.EntityTagGORM
 	err := d.db(query).Find(&out).Error
 	return out, err
 }
 
-// BatchGet retrieves multiple gorm.LikeGORM records by primary key.
+// BatchGet retrieves multiple gorm.EntityTagGORM records by primary keys.
 // Results are returned in the order provided by the database (not necessarily the input order).
-func (d *LikeGORMDAL) BatchGet(ctx context.Context, db *gormlib.DB, ids []string) ([]*gorm.LikeGORM, error) {
-	if len(ids) == 0 {
-		return []*gorm.LikeGORM{}, nil
+func (d *EntityTagGORMDAL) BatchGet(ctx context.Context, db *gormlib.DB, keys []EntityTagKey) ([]*gorm.EntityTagGORM, error) {
+	if len(keys) == 0 {
+		return []*gorm.EntityTagGORM{}, nil
 	}
 
-	var out []*gorm.LikeGORM
-	err := d.db(db).Where("id IN ?", ids).Find(&out).Error
+	// Build OR query for each key combination
+	query := d.db(db).Where("1 = 0") // Start with false condition
+	for _, key := range keys {
+		query = query.Or("tag_id = ? AND entity_type = ? AND entity_id = ? AND tagged_by = ?", key.TagId, key.EntityType, key.EntityId, key.TaggedBy)
+	}
+
+	var out []*gorm.EntityTagGORM
+	err := query.Find(&out).Error
 	return out, err
 }
 
-// LikeCountsKey represents the composite primary key for gorm.LikeCountsGORM
-type LikeCountsKey struct {
+// TagUsageCountsKey represents the composite primary key for gorm.TagUsageCountsGORM
+type TagUsageCountsKey struct {
 	EntityType string
 	EntityId   string
 }
 
-// LikeCountsGORMDAL provides database access helper methods for gorm.LikeCountsGORM.
-type LikeCountsGORMDAL struct {
+// TagUsageCountsGORMDAL provides database access helper methods for gorm.TagUsageCountsGORM.
+type TagUsageCountsGORMDAL struct {
 	// TableName overrides the table for all operations.
 	// If empty, uses the struct's TableName() method (if any) or GORM's default.
 	TableName string
 
 	// WillCreate hook is called when Save detects the record doesn't exist and will create it.
 	// Return an error to prevent creation.
-	WillCreate func(context.Context, *gorm.LikeCountsGORM) error
+	WillCreate func(context.Context, *gorm.TagUsageCountsGORM) error
 }
 
-// NewLikeCountsGORMDAL creates a new LikeCountsGORMDAL instance.
+// NewTagUsageCountsGORMDAL creates a new TagUsageCountsGORMDAL instance.
 // If tableName is empty, operations will use the struct's TableName() method
 // or GORM's default table naming convention.
-func NewLikeCountsGORMDAL(tableName string) *LikeCountsGORMDAL {
-	return &LikeCountsGORMDAL{TableName: tableName}
+func NewTagUsageCountsGORMDAL(tableName string) *TagUsageCountsGORMDAL {
+	return &TagUsageCountsGORMDAL{TableName: tableName}
 }
 
 // db returns a *gorm.DB scoped to the correct table.
 // If TableName is set, uses db.Table(); otherwise returns db unchanged
 // to let GORM resolve the table name from the struct's TableName() method.
-func (d *LikeCountsGORMDAL) db(db *gormlib.DB) *gormlib.DB {
+func (d *TagUsageCountsGORMDAL) db(db *gormlib.DB) *gormlib.DB {
 	if d.TableName != "" {
 		return db.Table(d.TableName)
 	}
 	return db
 }
 
-// Create creates a new gorm.LikeCountsGORM record.
+// Create creates a new gorm.TagUsageCountsGORM record.
 // Returns an error if the record already exists.
-func (d *LikeCountsGORMDAL) Create(ctx context.Context, db *gormlib.DB, obj *gorm.LikeCountsGORM) error {
+func (d *TagUsageCountsGORMDAL) Create(ctx context.Context, db *gormlib.DB, obj *gorm.TagUsageCountsGORM) error {
 	return d.db(db).Create(obj).Error
 }
 
-// Update updates an existing gorm.LikeCountsGORM record.
+// Update updates an existing gorm.TagUsageCountsGORM record.
 // Returns ErrRecordNotFound if the record doesn't exist.
 // For conditional updates (optimistic locking), pass a db with WHERE conditions:
 //
 //	dal.Update(ctx, db.Where("version = ?", oldVersion), obj)
-func (d *LikeCountsGORMDAL) Update(ctx context.Context, db *gormlib.DB, obj *gorm.LikeCountsGORM) error {
+func (d *TagUsageCountsGORMDAL) Update(ctx context.Context, db *gormlib.DB, obj *gorm.TagUsageCountsGORM) error {
 	result := d.db(db).Updates(obj)
 	if result.Error != nil {
 		return result.Error
@@ -318,12 +341,12 @@ func (d *LikeCountsGORMDAL) Update(ctx context.Context, db *gormlib.DB, obj *gor
 	return nil
 }
 
-// Save creates or updates a gorm.LikeCountsGORM record (upsert).
+// Save creates or updates a gorm.TagUsageCountsGORM record (upsert).
 // If the record doesn't exist, it will call WillCreate hook before saving.
 // For conditional updates (optimistic locking), pass a db with WHERE conditions:
 //
 //	dal.Save(ctx, db.Where("version = ?", oldVersion), obj)
-func (d *LikeCountsGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gorm.LikeCountsGORM) error {
+func (d *TagUsageCountsGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gorm.TagUsageCountsGORM) error {
 	// Validate primary key(s)
 	if obj.EntityType == "" {
 		return errors.New("primary key 'EntityType' cannot be empty")
@@ -333,7 +356,7 @@ func (d *LikeCountsGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gorm.
 	}
 
 	// Check if record exists by trying to fetch it
-	var existing gorm.LikeCountsGORM
+	var existing gorm.TagUsageCountsGORM
 	err := d.db(db).First(&existing, "entity_type = ?", "entity_id = ?", obj.EntityType, obj.EntityId).Error
 
 	if err != nil {
@@ -354,10 +377,10 @@ func (d *LikeCountsGORMDAL) Save(ctx context.Context, db *gormlib.DB, obj *gorm.
 	return d.db(db).Save(obj).Error
 }
 
-// Get retrieves a gorm.LikeCountsGORM record by primary keys.
+// Get retrieves a gorm.TagUsageCountsGORM record by primary keys.
 // Returns (nil, nil) if the record is not found (not an error).
-func (d *LikeCountsGORMDAL) Get(ctx context.Context, db *gormlib.DB, entityType string, entityId string) (*gorm.LikeCountsGORM, error) {
-	var out gorm.LikeCountsGORM
+func (d *TagUsageCountsGORMDAL) Get(ctx context.Context, db *gormlib.DB, entityType string, entityId string) (*gorm.TagUsageCountsGORM, error) {
+	var out gorm.TagUsageCountsGORM
 	err := d.db(db).First(&out, "entity_type = ? AND entity_id = ?", entityType, entityId).Error
 	if err != nil {
 		if errors.Is(err, gormlib.ErrRecordNotFound) {
@@ -368,24 +391,24 @@ func (d *LikeCountsGORMDAL) Get(ctx context.Context, db *gormlib.DB, entityType 
 	return &out, nil
 }
 
-// Delete removes a gorm.LikeCountsGORM record by primary keys.
-func (d *LikeCountsGORMDAL) Delete(ctx context.Context, db *gormlib.DB, entityType string, entityId string) error {
-	return d.db(db).Where("entity_type = ? AND entity_id = ?", entityType, entityId).Delete(&gorm.LikeCountsGORM{}).Error
+// Delete removes a gorm.TagUsageCountsGORM record by primary keys.
+func (d *TagUsageCountsGORMDAL) Delete(ctx context.Context, db *gormlib.DB, entityType string, entityId string) error {
+	return d.db(db).Where("entity_type = ? AND entity_id = ?", entityType, entityId).Delete(&gorm.TagUsageCountsGORM{}).Error
 }
 
-// List retrieves multiple gorm.LikeCountsGORM records using the provided query.
+// List retrieves multiple gorm.TagUsageCountsGORM records using the provided query.
 // The caller is responsible for adding filters, ordering, and pagination to the query.
-func (d *LikeCountsGORMDAL) List(ctx context.Context, query *gormlib.DB) ([]*gorm.LikeCountsGORM, error) {
-	var out []*gorm.LikeCountsGORM
+func (d *TagUsageCountsGORMDAL) List(ctx context.Context, query *gormlib.DB) ([]*gorm.TagUsageCountsGORM, error) {
+	var out []*gorm.TagUsageCountsGORM
 	err := d.db(query).Find(&out).Error
 	return out, err
 }
 
-// BatchGet retrieves multiple gorm.LikeCountsGORM records by primary keys.
+// BatchGet retrieves multiple gorm.TagUsageCountsGORM records by primary keys.
 // Results are returned in the order provided by the database (not necessarily the input order).
-func (d *LikeCountsGORMDAL) BatchGet(ctx context.Context, db *gormlib.DB, keys []LikeCountsKey) ([]*gorm.LikeCountsGORM, error) {
+func (d *TagUsageCountsGORMDAL) BatchGet(ctx context.Context, db *gormlib.DB, keys []TagUsageCountsKey) ([]*gorm.TagUsageCountsGORM, error) {
 	if len(keys) == 0 {
-		return []*gorm.LikeCountsGORM{}, nil
+		return []*gorm.TagUsageCountsGORM{}, nil
 	}
 
 	// Build OR query for each key combination
@@ -394,7 +417,7 @@ func (d *LikeCountsGORMDAL) BatchGet(ctx context.Context, db *gormlib.DB, keys [
 		query = query.Or("entity_type = ? AND entity_id = ?", key.EntityType, key.EntityId)
 	}
 
-	var out []*gorm.LikeCountsGORM
+	var out []*gorm.TagUsageCountsGORM
 	err := query.Find(&out).Error
 	return out, err
 }

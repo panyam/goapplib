@@ -26,9 +26,6 @@ message TagDatastore {
   // Normalized value (computed by service, readonly)
   string normalized_value = 5;
 
-  // Type
-  int32 type = 6;
-
   // Visual
   string color = 7;
   string description = 8 [(dal.v1.column) = {
@@ -39,13 +36,11 @@ message TagDatastore {
   // Ownership
   string owner_type = 10;
   string owner_id = 11;
-  int32 scope = 12;
 
   // Stats
   int64 usage_count = 15;
 
   // Lifecycle
-  int32 status = 16;
   string redirect_to_tag_id = 17;
 
   // creator_id - same type, auto-handled
@@ -67,10 +62,6 @@ message EntityTagDatastore {
   string entity_type = 2;
   string entity_id = 3;
   string tagged_by = 4;
-
-  // Visibility of this application
-  int32 visibility = 5;
-  // created_at - same type (Timestamp), auto-handled
 }
 
 // TagUsageCountsDatastore is the Datastore model for denormalized tag counts.

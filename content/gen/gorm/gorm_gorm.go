@@ -3,53 +3,62 @@ package v1
 
 import (
 	"time"
+
+	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
 )
 
-// ReactionTypeGORM is the GORM model for content.likes.v1.ReactionType
-type ReactionTypeGORM struct {
-	Id           string `gorm:"primaryKey"`
-	Name         string
-	Emoji        string
-	IconUrl      string
-	DisplayOrder int32
-	IsDefault    bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	CreatorId    string
+// TagGORM is the GORM model for content.tags.v1.Tag
+type TagGORM struct {
+	Id              string `gorm:"primaryKey"`
+	Key             string `gorm:"index:idx_tags_owner_norm,priority:3"`
+	NormalizedKey   string `gorm:"index:idx_tags_owner_norm,priority:4;index:idx_tags_search,priority:1"`
+	Value           string
+	NormalizedValue string `gorm:"index:idx_tags_owner_norm,priority:5;index:idx_tags_search,priority:2"`
+	Type            v1.TagType
+	Color           string
+	Description     string
+	DisplayOrder    int32
+	OwnerType       string       `gorm:"index:idx_tags_owner_key_value,priority:1;index:idx_tags_owner_scope,priority:1"`
+	OwnerId         string       `gorm:"index:idx_tags_owner_key_value,priority:2;index:idx_tags_owner_scope,priority:2"`
+	Scope           v1.TagScope  `gorm:"index:idx_tags_owner_scope,priority:3"`
+	UsageCount      int64        `gorm:"index:idx_tags_usage"`
+	Status          v1.TagStatus `gorm:"default:1"`
+	RedirectToTagId string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	CreatorId       string
 }
 
-// TableName returns the table name for ReactionTypeGORM
-func (*ReactionTypeGORM) TableName() string {
-	return "reaction_types"
+// TableName returns the table name for TagGORM
+func (*TagGORM) TableName() string {
+	return "tags"
 }
 
-// LikeGORM is the GORM model for content.likes.v1.Like
-type LikeGORM struct {
-	Id           string `gorm:"primaryKey"`
-	EntityType   string `gorm:"index:idx_likes_entity,priority:1;index:idx_likes_user_entity,priority:1"`
-	EntityId     string `gorm:"index:idx_likes_entity,priority:2;index:idx_likes_user_entity,priority:2"`
-	UserId       string `gorm:"index:idx_likes_user;index:idx_likes_user_entity,priority:3,unique"`
-	ReactionType string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	CreatorId    string
+// EntityTagGORM is the GORM model for content.tags.v1.EntityTag
+type EntityTagGORM struct {
+	TagId      string                 `gorm:"primaryKey;index:idx_entity_tags_tag,priority:1"`
+	EntityType string                 `gorm:"primaryKey;index:idx_entity_tags_entity,priority:1;index:idx_entity_tags_tag,priority:2"`
+	EntityId   string                 `gorm:"primaryKey;index:idx_entity_tags_entity,priority:2"`
+	TaggedBy   string                 `gorm:"primaryKey;index:idx_entity_tags_user,priority:1"`
+	Visibility v1.EntityTagVisibility `gorm:"index:idx_entity_tags_user,priority:2;default:3"`
+	CreatedAt  time.Time
 }
 
-// TableName returns the table name for LikeGORM
-func (*LikeGORM) TableName() string {
-	return "likes"
+// TableName returns the table name for EntityTagGORM
+func (*EntityTagGORM) TableName() string {
+	return "entity_tags"
 }
 
-// LikeCountsGORM is the GORM model for content.likes.v1.LikeCounts
-type LikeCountsGORM struct {
-	EntityType     string `gorm:"primaryKey"`
-	EntityId       string `gorm:"primaryKey"`
-	TotalCount     int64
-	ByReactionType map[string]int64 `gorm:"serializer:json;type:text"`
-	UpdatedAt      time.Time
+// TagUsageCountsGORM is the GORM model for content.tags.v1.TagUsageCounts
+type TagUsageCountsGORM struct {
+	EntityType string `gorm:"primaryKey"`
+	EntityId   string `gorm:"primaryKey"`
+	TotalCount int64
+	ByKey      map[string]int64 `gorm:"serializer:json;type:text"`
+	UpdatedAt  time.Time
 }
 
-// TableName returns the table name for LikeCountsGORM
-func (*LikeCountsGORM) TableName() string {
-	return "like_counts"
+// TableName returns the table name for TagUsageCountsGORM
+func (*TagUsageCountsGORM) TableName() string {
+	return "tag_usage_counts"
 }
