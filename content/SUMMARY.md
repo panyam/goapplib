@@ -43,7 +43,8 @@ content/
 │   ├── buf.gen.yaml           # Code generation configuration
 │   ├── common/v1/             # Shared types (EntityRef, Pagination)
 │   ├── likes/v1/              # LikesService protos
-│   ├── tags/v1/               # TagsService protos (planned)
+│   ├── tags/v1/               # TagsService protos
+│   ├── collections/v1/        # CollectionsService protos
 │   └── ...
 │
 ├── gen/                        # Generated code
@@ -65,7 +66,8 @@ content/
 │   └── datastore/             # Datastore backend tests
 │       ├── main_test.go       # Shared TestMain, index validation, utilities
 │       ├── likes_test.go      # LikesService tests only
-│       └── tags_test.go       # TagsService tests only
+│       ├── tags_test.go       # TagsService tests only
+│       └── collections_test.go # CollectionsService tests only
 │
 └── Makefile                    # Build and test commands
 ```
@@ -116,7 +118,7 @@ Indexes are project-wide (not namespace-specific). Wait for indexes to build in 
 |---------|--------|--------------|-------------------|-------|------|
 | LikesService | ✅ | ✅ | ✅ | ✅ | ✅ |
 | TagsService | ✅ | ✅ | ✅ | ✅ | ✅ |
-| CollectionsService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+| CollectionsService | ✅ | ✅ | ✅ | ✅ | ✅ |
 | NotesService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
 | CommentsService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
 | UserActivityService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |

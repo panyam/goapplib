@@ -1,6 +1,6 @@
 # Implementation Patterns and Learnings
 
-Lessons learned from implementing LikesService and TagsService that apply to future services.
+Lessons learned from implementing LikesService, TagsService, and CollectionsService that apply to future services.
 
 ## Proto Definition
 
@@ -21,6 +21,46 @@ message Tag {
   string name = 1;  // "venue"
 }
 ```
+
+### Minimal Backend Proto Definitions
+
+The `gorm.proto` and `gae.proto` files don't need to redefine every field from `models.proto`. Only include fields that need special handling:
+
+**GORM proto** - Only fields with:
+- `primaryKey` tag
+- Index definitions
+- Serializers (e.g., `serializer:json` for arrays/maps)
+- Type overrides (e.g., `type:text` for JSON columns)
+- Default values
+
+**Datastore proto** - Only fields with:
+- Key exclusion (`datastore_tags: ["-"]` for ID stored in key)
+- `noindex` tag for large/unqueried fields
+
+```protobuf
+// gorm.proto - minimal definition
+message CollectionGORM {
+  option (dal.v1.gorm) = {
+    source: "content.collections.v1.Collection"
+    table: "collections"
+  };
+  string id = 1 [(dal.v1.column) = { gorm_tags: ["primaryKey"] }];
+  // ... only indexed and special fields
+  repeated string path = 16 [(dal.v1.column) = { gorm_tags: ["serializer:json", "type:text"] }];
+}
+
+// gae.proto - minimal definition
+message CollectionDatastore {
+  option (dal.v1.datastore) = {
+    source: "content.collections.v1.Collection"
+    kind: "Collection"
+  };
+  string id = 1 [(dal.v1.column) = { datastore_tags: ["-"] }];  // Stored in key
+  string description = 4 [(dal.v1.column) = { datastore_tags: ["noindex"] }];
+}
+```
+
+Fields not listed inherit default behavior from the source message.
 
 ## Service Constructor Pattern
 
