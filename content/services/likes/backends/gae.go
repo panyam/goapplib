@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
+	dsidx "github.com/panyam/goapplib/datastore"
 	"github.com/panyam/goapplib/content/services/likes"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
@@ -17,22 +18,59 @@ import (
 // DatastoreLikesService implements LikesService using Google Cloud Datastore.
 type DatastoreLikesService struct {
 	*likes.BaseLikesService
-	client    *datastore.Client
-	namespace string
+	client           *datastore.Client
+	namespace        string
+	indexesValidated bool
 }
 
 // NewDatastoreLikesService creates a new Datastore-backed likes service.
-func NewDatastoreLikesService(client *datastore.Client, namespace string) *DatastoreLikesService {
+// Options:
+//   - dsidx.WithValidation(ctx): Validate indexes exist (warns by default, use WithValidationMode to change)
+//   - dsidx.WithValidationMode(mode): Set validation mode (ValidationNone, ValidationWarn, ValidationError)
+func NewDatastoreLikesService(client *datastore.Client, namespace string, options ...dsidx.ServiceOption) (*DatastoreLikesService, error) {
 	provider := &datastoreLikesStorageProvider{
 		client:    client,
 		namespace: namespace,
 	}
 	base := likes.NewBaseLikesService(provider)
-	return &DatastoreLikesService{
+	service := &DatastoreLikesService{
 		BaseLikesService: base,
 		client:           client,
 		namespace:        namespace,
 	}
+
+	// Apply options
+	opts := dsidx.ApplyOptions(options...)
+	if opts.ValidateCtx != nil {
+		if err := service.EnsureIndexesWithMode(opts.ValidateCtx, opts.ValidationMode); err != nil {
+			return nil, err
+		}
+	}
+
+	return service, nil
+}
+
+// EnsureIndexes validates that required indexes exist (only runs once per instance).
+// Uses ValidationWarn mode by default.
+func (s *DatastoreLikesService) EnsureIndexes(ctx context.Context) error {
+	return s.EnsureIndexesWithMode(ctx, dsidx.ValidationWarn)
+}
+
+// EnsureIndexesWithMode validates indexes with the specified mode.
+// Returns nil if indexes are valid or already validated.
+// With ValidationError mode, returns error with deployment instructions if indexes are missing.
+// With ValidationWarn mode, prints warning but returns nil.
+func (s *DatastoreLikesService) EnsureIndexesWithMode(ctx context.Context, mode dsidx.ValidationMode) error {
+	if s.indexesValidated {
+		return nil
+	}
+
+	if err := dsidx.ValidateWithMode(ctx, s.client, s.namespace, s, mode); err != nil {
+		return err
+	}
+
+	s.indexesValidated = true
+	return nil
 }
 
 // datastoreLikesStorageProvider implements LikesStorageProvider using Datastore.
@@ -56,51 +94,40 @@ func (p *datastoreLikesStorageProvider) newKey(kind, id string) *datastore.Key {
 }
 
 // SaveLike saves a like to Datastore.
+// Uses a deterministic key based on entity and user for strong consistency.
 func (p *datastoreLikesStorageProvider) SaveLike(ctx context.Context, like *v1.Like) error {
 	dsLike := likeToDatastore(like)
-	key := p.newKey(likeKind, like.Id)
+	// Use deterministic key for strong consistency on lookups
+	key := p.newKey(likeKind, likeKey(like.EntityType, like.EntityId, like.UserId))
 	_, err := p.client.Put(ctx, key, dsLike)
 	return err
 }
 
 // DeleteLike deletes a like from Datastore.
+// Uses deterministic key for direct deletion.
 func (p *datastoreLikesStorageProvider) DeleteLike(ctx context.Context, entityType, entityID, userID string) error {
-	// Find the like first
-	like, err := p.GetLike(ctx, entityType, entityID, userID)
-	if err != nil || like == nil {
-		return err
-	}
-
-	key := p.newKey(likeKind, like.Id)
+	key := p.newKey(likeKind, likeKey(entityType, entityID, userID))
 	return p.client.Delete(ctx, key)
 }
 
 // GetLike retrieves a like from Datastore.
+// Uses direct key lookup for strong consistency.
 func (p *datastoreLikesStorageProvider) GetLike(ctx context.Context, entityType, entityID, userID string) (*v1.Like, error) {
-	query := datastore.NewQuery(likeKind).
-		FilterField("entity_type", "=", entityType).
-		FilterField("entity_id", "=", entityID).
-		FilterField("user_id", "=", userID).
-		Limit(1)
+	key := p.newKey(likeKind, likeKey(entityType, entityID, userID))
 
-	if p.namespace != "" {
-		query = query.Namespace(p.namespace)
-	}
-
-	var dsLikes []dsgen.LikeDatastore
-	keys, err := p.client.GetAll(ctx, query, &dsLikes)
+	var dsLike dsgen.LikeDatastore
+	err := p.client.Get(ctx, key, &dsLike)
 	if err != nil {
+		if err == datastore.ErrNoSuchEntity {
+			return nil, nil
+		}
 		return nil, err
 	}
 
-	if len(dsLikes) == 0 {
-		return nil, nil
-	}
-
 	// Populate Id from the key since it's not persisted in the entity
-	dsLikes[0].Id = keys[0].Name
+	dsLike.Id = key.Name
 
-	return likeFromDatastore(&dsLikes[0]), nil
+	return likeFromDatastore(&dsLike), nil
 }
 
 // ListLikesByEntity lists likes for an entity.
@@ -259,6 +286,12 @@ func likeCountsKey(entityType, entityID string) string {
 	return fmt.Sprintf("%s:%s", entityType, entityID)
 }
 
+// likeKey generates a deterministic key for a like based on entity and user.
+// This allows direct key lookups which are strongly consistent in Datastore.
+func likeKey(entityType, entityID, userID string) string {
+	return fmt.Sprintf("%s:%s:%s", entityType, entityID, userID)
+}
+
 // Conversion functions for Datastore
 
 func likeToDatastore(like *v1.Like) *dsgen.LikeDatastore {
@@ -373,4 +406,112 @@ func reactionTypeFromDatastore(dsRT *dsgen.ReactionTypeDatastore) *v1.ReactionTy
 		UpdatedAt:    updatedAt,
 		CreatorId:    dsRT.CreatorId,
 	}
+}
+
+// IndexProvider implementation for DatastoreLikesService
+
+// ServiceName returns the service name for index file naming.
+func (s *DatastoreLikesService) ServiceName() string {
+	return "likes"
+}
+
+// RequiredIndexes returns the composite indexes required by the likes service.
+func (s *DatastoreLikesService) RequiredIndexes() []dsidx.DatastoreIndex {
+	return []dsidx.DatastoreIndex{
+		// For GetLike - find a user's reaction on an entity
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "entity_type"},
+				{Name: "entity_id"},
+				{Name: "user_id"},
+			},
+		},
+		// For ListLikesByEntity - list all reactions on an entity
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "entity_type"},
+				{Name: "entity_id"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListLikesByEntity with reaction type filter
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "entity_type"},
+				{Name: "entity_id"},
+				{Name: "reaction_type"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListLikesByUser - list all reactions by a user
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "user_id"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+		// For ListLikesByUser with entity type filter
+		{
+			Kind: likeKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "user_id"},
+				{Name: "entity_type"},
+				{Name: "created_at", Direction: "desc"},
+			},
+		},
+	}
+}
+
+// TestQueries returns queries that exercise each required index.
+func (s *DatastoreLikesService) TestQueries() []*datastore.Query {
+	return []*datastore.Query{
+		// GetLike
+		datastore.NewQuery(likeKind).
+			FilterField("entity_type", "=", "__test__").
+			FilterField("entity_id", "=", "__test__").
+			FilterField("user_id", "=", "__test__"),
+
+		// ListLikesByEntity
+		datastore.NewQuery(likeKind).
+			FilterField("entity_type", "=", "__test__").
+			FilterField("entity_id", "=", "__test__").
+			Order("-created_at"),
+
+		// ListLikesByEntity with reaction type
+		datastore.NewQuery(likeKind).
+			FilterField("entity_type", "=", "__test__").
+			FilterField("entity_id", "=", "__test__").
+			FilterField("reaction_type", "=", "__test__").
+			Order("-created_at"),
+
+		// ListLikesByUser
+		datastore.NewQuery(likeKind).
+			FilterField("user_id", "=", "__test__").
+			Order("-created_at"),
+
+		// ListLikesByUser with entity type
+		datastore.NewQuery(likeKind).
+			FilterField("user_id", "=", "__test__").
+			FilterField("entity_type", "=", "__test__").
+			Order("-created_at"),
+	}
+}
+
+// ValidateIndexes checks if all required indexes exist.
+func (s *DatastoreLikesService) ValidateIndexes(ctx context.Context) error {
+	return dsidx.ValidateIndexes(ctx, s.client, s.namespace, s)
+}
+
+// WriteIndexFile writes the required indexes to a YAML file.
+func (s *DatastoreLikesService) WriteIndexFile(path string) error {
+	return dsidx.WriteIndexFile(path, s.ServiceName(), s.RequiredIndexes())
+}
+
+// IndexesYAML returns the indexes as a YAML string.
+func (s *DatastoreLikesService) IndexesYAML() string {
+	return dsidx.IndexesToYAML(s.ServiceName(), s.RequiredIndexes())
 }

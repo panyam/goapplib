@@ -1,0 +1,117 @@
+# Combined Datastore indexes
+# Deploy with: gcloud datastore indexes create index.yaml
+
+indexes:
+
+# likes service
+
+- kind: Like
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: user_id
+
+- kind: Like
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: created_at
+    direction: desc
+
+- kind: Like
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: reaction_type
+  - name: created_at
+    direction: desc
+
+- kind: Like
+  properties:
+  - name: user_id
+  - name: created_at
+    direction: desc
+
+- kind: Like
+  properties:
+  - name: user_id
+  - name: entity_type
+  - name: created_at
+    direction: desc
+
+# tags service
+
+- kind: EntityTag
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: created_at
+    direction: desc
+
+- kind: EntityTag
+  properties:
+  - name: tag_id
+  - name: created_at
+    direction: desc
+
+- kind: EntityTag
+  properties:
+  - name: tag_id
+  - name: entity_type
+  - name: created_at
+    direction: desc
+
+- kind: Tag
+  properties:
+  - name: owner_type
+  - name: owner_id
+  - name: status
+  - name: created_at
+    direction: desc
+
+- kind: Tag
+  properties:
+  - name: owner_type
+  - name: owner_id
+  - name: status
+  - name: usage_count
+    direction: desc
+
+- kind: Tag
+  properties:
+  - name: owner_type
+  - name: owner_id
+  - name: normalized_name
+  - name: status
+  - name: created_at
+    direction: desc
+
+- kind: Tag
+  properties:
+  - name: owner_type
+  - name: owner_id
+  - name: normalized_name
+  - name: normalized_value
+  - name: status
+
+- kind: Tag
+  properties:
+  - name: owner_type
+  - name: owner_id
+  - name: status
+  - name: usage_count
+    direction: desc
+  - name: normalized_value
+
+- kind: Tag
+  properties:
+  - name: owner_id
+  - name: owner_type
+  - name: status
+  - name: normalized_value
+
+- kind: Tag
+  properties:
+  - name: status
+  - name: usage_count
+    direction: desc
