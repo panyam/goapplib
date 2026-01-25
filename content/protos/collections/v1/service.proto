@@ -1,0 +1,372 @@
+syntax = "proto3";
+package content.collections.v1;
+
+import "google/api/annotations.proto";
+import "common/v1/types.proto";
+import "collections/v1/models.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/go/collections/v1;collectionsv1";
+
+// CollectionsService provides hierarchical organization of entities into folders/collections.
+//
+// Key features:
+// - Nesting support (parent-child collections)
+// - Multi-parent support (entity can be in multiple collections)
+// - Path array for efficient subtree queries
+// - Denormalized counts for items and children
+service CollectionsService {
+  // === Collection CRUD ===
+
+  // CreateCollection creates a new collection.
+  rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse) {
+    option (google.api.http) = {
+      post: "/v1/collections"
+      body: "*"
+    };
+  }
+
+  // GetCollection retrieves a collection by ID.
+  rpc GetCollection(GetCollectionRequest) returns (GetCollectionResponse) {
+    option (google.api.http) = {
+      get: "/v1/collections/{id}"
+    };
+  }
+
+  // UpdateCollection updates a collection's properties.
+  rpc UpdateCollection(UpdateCollectionRequest) returns (UpdateCollectionResponse) {
+    option (google.api.http) = {
+      patch: "/v1/collections/{collection.id}"
+      body: "*"
+    };
+  }
+
+  // DeleteCollection removes a collection.
+  rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse) {
+    option (google.api.http) = {
+      delete: "/v1/collections/{id}"
+    };
+  }
+
+  // ListCollections lists collections for an owner with filtering.
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/collections"
+    };
+  }
+
+  // === Hierarchy Operations ===
+
+  // GetCollectionTree returns a collection and its children as a tree structure.
+  rpc GetCollectionTree(GetCollectionTreeRequest) returns (GetCollectionTreeResponse) {
+    option (google.api.http) = {
+      get: "/v1/collections/{id}/tree"
+    };
+  }
+
+  // MoveCollection moves a collection to a new parent.
+  rpc MoveCollection(MoveCollectionRequest) returns (MoveCollectionResponse) {
+    option (google.api.http) = {
+      post: "/v1/collections/{id}/move"
+      body: "*"
+    };
+  }
+
+  // GetCollectionPath returns the ancestors of a collection (breadcrumb).
+  rpc GetCollectionPath(GetCollectionPathRequest) returns (GetCollectionPathResponse) {
+    option (google.api.http) = {
+      get: "/v1/collections/{id}/path"
+    };
+  }
+
+  // === Item Management ===
+
+  // AddToCollection adds an entity to a collection.
+  rpc AddToCollection(AddToCollectionRequest) returns (AddToCollectionResponse) {
+    option (google.api.http) = {
+      post: "/v1/collections/{collection_id}/items"
+      body: "*"
+    };
+  }
+
+  // RemoveFromCollection removes an entity from a collection.
+  rpc RemoveFromCollection(RemoveFromCollectionRequest) returns (RemoveFromCollectionResponse) {
+    option (google.api.http) = {
+      delete: "/v1/collections/{collection_id}/items/{entity_type}/{entity_id}"
+    };
+  }
+
+  // GetCollectionItems returns all items in a collection.
+  rpc GetCollectionItems(GetCollectionItemsRequest) returns (GetCollectionItemsResponse) {
+    option (google.api.http) = {
+      get: "/v1/collections/{collection_id}/items"
+    };
+  }
+
+  // GetEntityCollections returns all collections that contain an entity.
+  rpc GetEntityCollections(GetEntityCollectionsRequest) returns (GetEntityCollectionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/collections/entity/{entity_type}/{entity_id}"
+    };
+  }
+
+  // ReorderItems updates the display order of items in a collection.
+  rpc ReorderItems(ReorderItemsRequest) returns (ReorderItemsResponse) {
+    option (google.api.http) = {
+      post: "/v1/collections/{collection_id}/reorder"
+      body: "*"
+    };
+  }
+
+  // === Batch Operations ===
+
+  // BatchAddToCollection adds multiple entities to a collection at once.
+  rpc BatchAddToCollection(BatchAddToCollectionRequest) returns (BatchAddToCollectionResponse) {
+    option (google.api.http) = {
+      post: "/v1/collections/{collection_id}/items/batch"
+      body: "*"
+    };
+  }
+
+  // BatchGetEntityCollections returns collections for multiple entities at once.
+  rpc BatchGetEntityCollections(BatchGetEntityCollectionsRequest) returns (BatchGetEntityCollectionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/collections/entity/batch"
+      body: "*"
+    };
+  }
+}
+
+// === Collection CRUD Messages ===
+
+message CreateCollectionRequest {
+  // Display name (required)
+  string name = 1;
+  // Optional description
+  string description = 2;
+  // Ownership
+  string owner_type = 3;
+  string owner_id = 4;
+  // Parent collection ID (empty = root)
+  string parent_id = 5;
+  // Order among siblings
+  int32 display_order = 6;
+  // Type of collection (e.g., "folder", "playlist")
+  string type = 7;
+  // Visual properties
+  string icon = 8;
+  string color = 9;
+  // Visibility
+  CollectionVisibility visibility = 10;
+}
+
+message CreateCollectionResponse {
+  // The collection (new or existing if duplicate name in same parent)
+  Collection collection = 1;
+  // True if collection already existed (returned existing)
+  bool already_existed = 2;
+}
+
+message GetCollectionRequest {
+  string id = 1;
+}
+
+message GetCollectionResponse {
+  Collection collection = 1;
+}
+
+message UpdateCollectionRequest {
+  Collection collection = 1;
+  // Fields to update (if empty, updates all non-empty fields)
+  repeated string update_mask = 2;
+}
+
+message UpdateCollectionResponse {
+  Collection collection = 1;
+}
+
+message DeleteCollectionRequest {
+  string id = 1;
+  // If true, recursively delete children and items
+  bool recursive = 2;
+  // If true, force delete even if collection has items (moves items to parent or deletes)
+  bool force_delete = 3;
+}
+
+message DeleteCollectionResponse {
+  bool deleted = 1;
+  // Number of child collections deleted (if recursive)
+  int64 children_deleted = 2;
+  // Number of items removed
+  int64 items_removed = 3;
+}
+
+message ListCollectionsRequest {
+  // Filter by owner
+  string owner_type = 1;
+  string owner_id = 2;
+  // Filter by parent (empty = root collections only)
+  string parent_id = 3;
+  // Filter by type
+  string type = 4;
+  // Filter by visibility
+  CollectionVisibility visibility = 5;
+  // Order by: "name", "created_at", "display_order"
+  string order_by = 6;
+  content.common.v1.PaginationRequest pagination = 10;
+}
+
+message ListCollectionsResponse {
+  repeated Collection collections = 1;
+  content.common.v1.PaginationResponse pagination = 10;
+}
+
+// === Hierarchy Messages ===
+
+message GetCollectionTreeRequest {
+  // Root collection ID (empty = get all root collections)
+  string id = 1;
+  // Maximum depth to retrieve (0 = unlimited)
+  int32 max_depth = 2;
+  // Include item counts
+  bool include_counts = 3;
+}
+
+message GetCollectionTreeResponse {
+  // Tree structure
+  repeated CollectionTreeNode nodes = 1;
+}
+
+// CollectionTreeNode represents a collection with its children.
+message CollectionTreeNode {
+  Collection collection = 1;
+  repeated CollectionTreeNode children = 2;
+}
+
+message MoveCollectionRequest {
+  // Collection to move
+  string id = 1;
+  // New parent ID (empty = move to root)
+  string new_parent_id = 2;
+  // New display order among siblings
+  int32 new_display_order = 3;
+}
+
+message MoveCollectionResponse {
+  Collection collection = 1;
+  // Number of descendants whose paths were updated
+  int64 descendants_updated = 2;
+}
+
+message GetCollectionPathRequest {
+  string id = 1;
+}
+
+message GetCollectionPathResponse {
+  // Ancestors from root to the collection (including the collection itself)
+  repeated Collection ancestors = 1;
+}
+
+// === Item Management Messages ===
+
+message AddToCollectionRequest {
+  string collection_id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+  // Order within collection (0 = add to end)
+  int32 display_order = 4;
+  // Who is adding the item
+  string added_by = 5;
+  // Optional metadata (JSON)
+  string metadata = 6;
+}
+
+message AddToCollectionResponse {
+  CollectionItem item = 1;
+  // True if item was newly added (false if already in collection)
+  bool newly_added = 2;
+}
+
+message RemoveFromCollectionRequest {
+  string collection_id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+}
+
+message RemoveFromCollectionResponse {
+  bool removed = 1;
+}
+
+message GetCollectionItemsRequest {
+  string collection_id = 1;
+  // Filter by entity type
+  string entity_type_filter = 2;
+  // Sort by
+  SortField sort_by = 3;
+  bool sort_descending = 4;
+  content.common.v1.PaginationRequest pagination = 10;
+}
+
+message GetCollectionItemsResponse {
+  repeated CollectionItem items = 1;
+  content.common.v1.PaginationResponse pagination = 10;
+}
+
+message GetEntityCollectionsRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+  // Filter by owner
+  string owner_type = 3;
+  string owner_id = 4;
+}
+
+message GetEntityCollectionsResponse {
+  repeated Collection collections = 1;
+}
+
+message ReorderItemsRequest {
+  string collection_id = 1;
+  // New order: map of "entity_type:entity_id" to new display_order
+  repeated ItemOrder item_orders = 2;
+}
+
+message ItemOrder {
+  string entity_type = 1;
+  string entity_id = 2;
+  int32 display_order = 3;
+}
+
+message ReorderItemsResponse {
+  int64 items_updated = 1;
+}
+
+// === Batch Messages ===
+
+message BatchAddToCollectionRequest {
+  string collection_id = 1;
+  // Entities to add
+  repeated content.common.v1.EntityRef entities = 2;
+  // Who is adding the items
+  string added_by = 3;
+}
+
+message BatchAddToCollectionResponse {
+  int64 items_added = 1;
+  int64 already_existed = 2;
+}
+
+message BatchGetEntityCollectionsRequest {
+  repeated content.common.v1.EntityRef entities = 1;
+  // Filter by owner
+  string owner_type = 2;
+  string owner_id = 3;
+}
+
+message BatchGetEntityCollectionsResponse {
+  // Map of "entity_type:entity_id" to list of collections
+  map<string, CollectionList> entity_collections = 1;
+}
+
+// Helper message for batch response
+message CollectionList {
+  repeated Collection collections = 1;
+}

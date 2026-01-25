@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"cloud.google.com/go/datastore"
+	collectionsbackends "github.com/panyam/goapplib/content/services/collections/backends"
 	"github.com/panyam/goapplib/content/services/likes/backends"
 	tagsbackends "github.com/panyam/goapplib/content/services/tags/backends"
 	dsidx "github.com/panyam/goapplib/datastore"
@@ -94,6 +95,13 @@ func validateAllIndexes() error {
 	}
 	_ = tagsService // unused, just for validation
 
+	// Validate collections service
+	collectionsService, err := collectionsbackends.NewDatastoreCollectionsService(client, namespace, dsidx.WithValidation(ctx))
+	if err != nil {
+		allErrors = append(allErrors, err.Error())
+	}
+	_ = collectionsService // unused, just for validation
+
 	if len(allErrors) > 0 {
 		return fmt.Errorf("%s", strings.Join(allErrors, "\n\n"))
 	}
@@ -123,6 +131,10 @@ func generateAllIndexFiles() error {
 	if err != nil {
 		return fmt.Errorf("failed to create tags service: %w", err)
 	}
+	collectionsService, err := collectionsbackends.NewDatastoreCollectionsService(client, "")
+	if err != nil {
+		return fmt.Errorf("failed to create collections service: %w", err)
+	}
 
 	// Write per-service index files
 	if err := likesService.WriteIndexFile("likes_index.yaml"); err != nil {
@@ -137,8 +149,14 @@ func generateAllIndexFiles() error {
 	fmt.Printf("Written: tags_index.yaml\n")
 	fmt.Printf("  Deploy: cp tags_index.yaml /tmp/index.yaml && gcloud --project=%s datastore indexes create /tmp/index.yaml\n\n", projectID)
 
+	if err := collectionsService.WriteIndexFile("collections_index.yaml"); err != nil {
+		return fmt.Errorf("failed to write collections_index.yaml: %w", err)
+	}
+	fmt.Printf("Written: collections_index.yaml\n")
+	fmt.Printf("  Deploy: cp collections_index.yaml /tmp/index.yaml && gcloud --project=%s datastore indexes create /tmp/index.yaml\n\n", projectID)
+
 	// Write combined index.yaml
-	if err := dsidx.WriteCombinedIndexFile("index.yaml", likesService, tagsService); err != nil {
+	if err := dsidx.WriteCombinedIndexFile("index.yaml", likesService, tagsService, collectionsService); err != nil {
 		return fmt.Errorf("failed to write index.yaml: %w", err)
 	}
 	fmt.Printf("Written: index.yaml (combined)\n")

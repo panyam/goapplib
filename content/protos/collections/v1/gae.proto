@@ -1,0 +1,47 @@
+syntax = "proto3";
+package content.collections.v1;
+
+import "dal/v1/annotations.proto";
+import "collections/v1/models.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/datastore/collections/v1;collectionsv1datastore";
+
+// CollectionDatastore is the Datastore model for Collection.
+message CollectionDatastore {
+  option (dal.v1.datastore_options) = {
+    source: "content.collections.v1.Collection"
+    kind: "Collection"
+  };
+
+  // ID stored in key, not as property
+  string id = 1 [(dal.v1.column) = {
+    datastore_tags: ["-"]
+  }];
+
+  // Description - not indexed (can be large)
+  string description = 4 [(dal.v1.column) = {
+    datastore_tags: ["noindex"]
+  }];
+
+  // Visual properties - not indexed
+  string icon = 22 [(dal.v1.column) = {
+    datastore_tags: ["noindex"]
+  }];
+  string color = 23 [(dal.v1.column) = {
+    datastore_tags: ["noindex"]
+  }];
+}
+
+// CollectionItemDatastore is the Datastore model for CollectionItem.
+// Key is composite: collection_id + entity_type + entity_id (deterministic for strong consistency)
+message CollectionItemDatastore {
+  option (dal.v1.datastore_options) = {
+    source: "content.collections.v1.CollectionItem"
+    kind: "CollectionItem"
+  };
+
+  // Metadata - not indexed (JSON blob)
+  string metadata = 25 [(dal.v1.column) = {
+    datastore_tags: ["noindex"]
+  }];
+}

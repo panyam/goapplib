@@ -1,0 +1,120 @@
+syntax = "proto3";
+package content.collections.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/panyam/goapplib/content/gen/go/collections/v1;collectionsv1";
+
+// CollectionStatus manages collection lifecycle.
+enum CollectionStatus {
+  COLLECTION_STATUS_UNSPECIFIED = 0;
+  COLLECTION_STATUS_ACTIVE = 1;
+  COLLECTION_STATUS_DELETED = 2;
+}
+
+// CollectionVisibility controls who can see the collection.
+enum CollectionVisibility {
+  COLLECTION_VISIBILITY_UNSPECIFIED = 0;
+  COLLECTION_VISIBILITY_PRIVATE = 1;    // Only owner sees
+  COLLECTION_VISIBILITY_SHARED = 2;     // Visible to team/org
+  COLLECTION_VISIBILITY_PUBLIC = 3;     // Visible to everyone
+}
+
+// SortField defines what field to sort collection items by.
+enum SortField {
+  SORT_FIELD_DISPLAY_ORDER = 0;   // Manual ordering (default)
+  SORT_FIELD_ADDED_AT = 1;        // When added to collection
+}
+
+// Collection represents a folder or grouping of items.
+// Collections can be nested (parent-child) and items can belong to multiple collections.
+//
+// Design:
+// - Hierarchy support via parent_id and path array
+// - Path stores ancestor IDs for efficient subtree queries
+// - Type is a simple string for flexibility (folder, playlist, album, etc.)
+//
+// Uniqueness: (owner_type, owner_id, parent_id, normalized_name)
+// must be unique to prevent duplicate sibling collections.
+message Collection {
+  // Unique identifier
+  string id = 1;
+
+  // Display name
+  string name = 2;
+
+  // Normalized name (readonly - computed by service, e.g., lowercase/trimmed).
+  // Used for uniqueness checks among siblings.
+  string normalized_name = 3;
+
+  // Optional description
+  string description = 4;
+
+  // Ownership
+  string owner_type = 10;       // "user", "org", "system"
+  string owner_id = 11;         // ID of owner
+
+  // Hierarchy
+  // Parent collection ID (empty = root collection)
+  string parent_id = 15;
+
+  // Path of ancestor collection IDs from root to parent (excluding this collection).
+  // For efficient subtree queries. Empty for root collections.
+  // Example: For collection C with parent B and grandparent A: path = ["A", "B"]
+  repeated string path = 16;
+
+  // Depth in hierarchy (0 = root)
+  int32 depth = 17;
+
+  // Order among siblings (for manual ordering)
+  int32 display_order = 20;
+
+  // Type of collection (pure metadata - no behavior differences)
+  // Examples: "folder", "playlist", "reading_list", "project", "album"
+  string type = 21;
+
+  // Visual properties
+  string icon = 22;             // Icon name or emoji
+  string color = 23;            // Hex "#FF5733" or named "blue"
+
+  // Statistics (denormalized for performance)
+  int64 item_count = 30;        // Number of items in this collection
+  int64 child_count = 31;       // Number of subcollections
+
+  // Visibility
+  CollectionVisibility visibility = 35;
+
+  // Lifecycle
+  CollectionStatus status = 40;
+
+  // Metadata
+  google.protobuf.Timestamp created_at = 50;
+  google.protobuf.Timestamp updated_at = 51;
+  string creator_id = 52;       // User who created the collection
+}
+
+// CollectionItem represents an entity added to a collection.
+// This is the join table that allows any entity to be in multiple collections.
+//
+// Composite Key: (collection_id, entity_type, entity_id) - enforces uniqueness.
+// An entity can only be in a collection once, but can be in multiple collections.
+message CollectionItem {
+  // The collection this item belongs to
+  string collection_id = 1;
+
+  // Entity being added to collection
+  string entity_type = 2;       // e.g., "document", "post", "song"
+  string entity_id = 3;
+
+  // Order within the collection (for manual ordering)
+  int32 display_order = 10;
+
+  // Who added this item
+  string added_by = 15;
+
+  // When the item was added
+  google.protobuf.Timestamp added_at = 20;
+
+  // Optional JSON metadata (for application-specific data)
+  string metadata = 25;
+}
