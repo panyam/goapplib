@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
 	"github.com/panyam/goapplib/content/services/tags/backends"
@@ -241,14 +242,18 @@ func TestTagsService_GetEntityTags(t *testing.T) {
 	service := setupTagsService(t)
 	ctx := context.Background()
 
+	// Use unique IDs to avoid conflicts with other tests
+	entityID := fmt.Sprintf("album-%d", time.Now().UnixNano())
+	ownerID := fmt.Sprintf("user-%d", time.Now().UnixNano())
+
 	// Tag an entity with multiple tags
 	_, err := service.TagEntity(ctx, &v1.TagEntityRequest{
 		EntityType: "album",
-		EntityId:   "album-1",
+		EntityId:   entityID,
 		Value:      "Rock",
 		OwnerType:  "user",
-		OwnerId:    "user-1",
-		TaggedBy:   "user-1",
+		OwnerId:    ownerID,
+		TaggedBy:   ownerID,
 	})
 	if err != nil {
 		t.Fatalf("TagEntity failed: %v", err)
@@ -256,11 +261,11 @@ func TestTagsService_GetEntityTags(t *testing.T) {
 
 	_, err = service.TagEntity(ctx, &v1.TagEntityRequest{
 		EntityType: "album",
-		EntityId:   "album-1",
+		EntityId:   entityID,
 		Value:      "Classic",
 		OwnerType:  "user",
-		OwnerId:    "user-1",
-		TaggedBy:   "user-1",
+		OwnerId:    ownerID,
+		TaggedBy:   ownerID,
 	})
 	if err != nil {
 		t.Fatalf("TagEntity failed: %v", err)
@@ -269,7 +274,7 @@ func TestTagsService_GetEntityTags(t *testing.T) {
 	// Get tags for entity
 	resp, err := service.GetEntityTags(ctx, &v1.GetEntityTagsRequest{
 		EntityType: "album",
-		EntityId:   "album-1",
+		EntityId:   entityID,
 	})
 	if err != nil {
 		t.Fatalf("GetEntityTags failed: %v", err)

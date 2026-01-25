@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
@@ -69,32 +70,36 @@ func TestLikesService_ToggleReaction(t *testing.T) {
 	service := setupLikesService(t)
 	ctx := context.Background()
 
+	// Use unique IDs to avoid conflicts with other tests
+	entityID := fmt.Sprintf("toggle-post-%d", time.Now().UnixNano())
+	userID := fmt.Sprintf("toggle-user-%d", time.Now().UnixNano())
+
 	// Toggle on
 	resp, err := service.ToggleReaction(ctx, &v1.ToggleReactionRequest{
 		EntityType:   "post",
-		EntityId:     "post-1",
-		UserId:       "user-1",
+		EntityId:     entityID,
+		UserId:       userID,
 		ReactionType: "like",
 	})
 	if err != nil {
 		t.Fatalf("ToggleReaction failed: %v", err)
 	}
 	if !resp.Added {
-		t.Error("Expected added=true")
+		t.Errorf("Expected added=true, got added=false")
 	}
 
 	// Toggle off
 	resp, err = service.ToggleReaction(ctx, &v1.ToggleReactionRequest{
 		EntityType:   "post",
-		EntityId:     "post-1",
-		UserId:       "user-1",
+		EntityId:     entityID,
+		UserId:       userID,
 		ReactionType: "like",
 	})
 	if err != nil {
 		t.Fatalf("ToggleReaction failed: %v", err)
 	}
 	if resp.Added {
-		t.Error("Expected added=false")
+		t.Errorf("Expected added=false, got added=true")
 	}
 }
 

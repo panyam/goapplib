@@ -4,6 +4,7 @@ package backends
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"cloud.google.com/go/datastore"
@@ -37,7 +38,8 @@ type DatastoreTagsService struct {
 
 // NewDatastoreTagsService creates a new Datastore-backed tags service.
 // Options:
-//   - dsidx.WithValidation(ctx): Validate indexes exist, return error with deployment instructions if not
+//   - dsidx.WithValidation(ctx): Validate indexes exist (warns by default, use WithValidationMode to change)
+//   - dsidx.WithValidationMode(mode): Set validation mode (ValidationNone, ValidationWarn, ValidationError)
 //   - dsidx.WithKindNames(map[string]string{"Tag": "MyTag"}): Override kind names
 func NewDatastoreTagsService(client *datastore.Client, namespace string, options ...dsidx.ServiceOption) (*DatastoreTagsService, error) {
 	opts := dsidx.ApplyOptions(options...)
@@ -77,7 +79,7 @@ func NewDatastoreTagsService(client *datastore.Client, namespace string, options
 	}
 
 	if opts.ValidateCtx != nil {
-		if err := service.EnsureIndexes(opts.ValidateCtx); err != nil {
+		if err := service.EnsureIndexesWithMode(opts.ValidateCtx, opts.ValidationMode); err != nil {
 			return nil, err
 		}
 	}
@@ -86,14 +88,21 @@ func NewDatastoreTagsService(client *datastore.Client, namespace string, options
 }
 
 // EnsureIndexes validates that required indexes exist (only runs once per instance).
-// Returns nil if indexes are valid or already validated.
-// Returns error with deployment instructions if indexes are missing.
+// Uses ValidationWarn mode by default.
 func (s *DatastoreTagsService) EnsureIndexes(ctx context.Context) error {
+	return s.EnsureIndexesWithMode(ctx, dsidx.ValidationWarn)
+}
+
+// EnsureIndexesWithMode validates indexes with the specified mode.
+// Returns nil if indexes are valid or already validated.
+// With ValidationError mode, returns error with deployment instructions if indexes are missing.
+// With ValidationWarn mode, prints warning but returns nil.
+func (s *DatastoreTagsService) EnsureIndexesWithMode(ctx context.Context, mode dsidx.ValidationMode) error {
 	if s.indexesValidated {
 		return nil
 	}
 
-	if err := dsidx.ValidateAndWriteIndexes(ctx, s.client, s.namespace, s); err != nil {
+	if err := dsidx.ValidateWithMode(ctx, s.client, s.namespace, s, mode); err != nil {
 		return err
 	}
 
@@ -250,8 +259,10 @@ func (p *datastoreTagsStorageProvider) SearchTags(ctx context.Context, opts tags
 		query = query.Namespace(p.namespace)
 	}
 
+	hasPrefixSearch := opts.Query != ""
+
 	// For prefix matching, we use >= and < with the prefix
-	if opts.Query != "" {
+	if hasPrefixSearch {
 		query = query.FilterField("normalized_value", ">=", opts.Query)
 		// Add upper bound for prefix search
 		upperBound := opts.Query + "\uffff"
@@ -273,7 +284,14 @@ func (p *datastoreTagsStorageProvider) SearchTags(ctx context.Context, opts tags
 	if limit <= 0 {
 		limit = 20
 	}
-	query = query.Order("-usage_count").Limit(limit)
+
+	// When doing prefix search (inequality filter), the emulator requires ORDER BY to be
+	// on the same property as the inequality filter. Real Datastore with composite indexes
+	// doesn't have this limitation. To support both, we skip ORDER BY when doing prefix
+	// search and sort in memory instead.
+	if !hasPrefixSearch {
+		query = query.Order("-usage_count").Limit(limit)
+	}
 
 	var dsTags []dsgen.TagDatastore
 	keys, err := p.client.GetAll(ctx, query, &dsTags)
@@ -285,6 +303,17 @@ func (p *datastoreTagsStorageProvider) SearchTags(ctx context.Context, opts tags
 	for i := range dsTags {
 		dsTags[i].Id = keys[i].Name
 		result[i] = tagFromDatastore(&dsTags[i])
+	}
+
+	// Sort by usage_count (descending) in memory when prefix search is used
+	if hasPrefixSearch {
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].UsageCount > result[j].UsageCount
+		})
+		// Apply limit after sorting
+		if len(result) > limit {
+			result = result[:limit]
+		}
 	}
 
 	return result, nil
@@ -714,7 +743,7 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 				{Name: "status"},
 			},
 		},
-		// For SearchTags - prefix search with owner filter, ordered by usage_count
+		// For SearchTags - prefix search with owner filter, ordered by usage_count (for non-prefix search)
 		{
 			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
@@ -722,6 +751,16 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 				{Name: "owner_id"},
 				{Name: "status"},
 				{Name: "usage_count", Direction: "desc"},
+				{Name: "normalized_value"},
+			},
+		},
+		// For SearchTags - prefix search without ORDER BY (used when prefix search is active)
+		{
+			Kind: s.tagKind,
+			Properties: []dsidx.IndexProperty{
+				{Name: "owner_id"},
+				{Name: "owner_type"},
+				{Name: "status"},
 				{Name: "normalized_value"},
 			},
 		},
@@ -794,6 +833,14 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 			FilterField("normalized_value", ">=", "a").
 			FilterField("normalized_value", "<", "b").
 			Order("-usage_count"),
+
+		// SearchTags (prefix search without ORDER BY - for emulator compatibility)
+		datastore.NewQuery(s.tagKind).
+			FilterField("owner_id", "=", "__test__").
+			FilterField("owner_type", "=", "__test__").
+			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
+			FilterField("normalized_value", ">=", "a").
+			FilterField("normalized_value", "<", "b"),
 
 		// GetPopularTags
 		datastore.NewQuery(s.tagKind).

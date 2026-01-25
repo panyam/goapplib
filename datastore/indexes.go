@@ -241,6 +241,18 @@ func WriteCombinedIndexFile(path string, providers ...IndexProvider) error {
 // ValidateAndWriteIndexes validates indexes and writes the index file if validation fails.
 // Returns a user-friendly error with deployment instructions.
 func ValidateAndWriteIndexes(ctx context.Context, client *datastore.Client, namespace string, provider IndexProvider) error {
+	return ValidateWithMode(ctx, client, namespace, provider, ValidationError)
+}
+
+// ValidateWithMode validates indexes with the specified mode.
+// - ValidationNone: skips validation entirely
+// - ValidationWarn: prints warning to stderr but returns nil
+// - ValidationError: returns error if indexes are missing
+func ValidateWithMode(ctx context.Context, client *datastore.Client, namespace string, provider IndexProvider, mode ValidationMode) error {
+	if mode == ValidationNone {
+		return nil
+	}
+
 	err := ValidateIndexes(ctx, client, namespace, provider)
 	if err == nil {
 		return nil
@@ -256,7 +268,7 @@ func ValidateAndWriteIndexes(ctx context.Context, client *datastore.Client, name
 		writeMsg = fmt.Sprintf("(Failed to write index file: %v)\n\n", writeErr)
 	}
 
-	return fmt.Errorf(`%s
+	message := fmt.Sprintf(`%s
 ======================================================================
 %sTo deploy the required indexes, run:
 
@@ -267,13 +279,35 @@ Wait for indexes to build (check status in GCP Console > Datastore > Indexes),
 then restart your application.
 ======================================================================
 `, err.Error(), writeMsg, PrintIndexCommand(provider.ServiceName()))
+
+	if mode == ValidationWarn {
+		fmt.Fprintf(os.Stderr, "\n⚠️  WARNING: %s\n", message)
+		return nil
+	}
+
+	return fmt.Errorf("%s", message)
 }
+
+// ValidationMode controls how missing indexes are handled.
+type ValidationMode int
+
+const (
+	// ValidationNone skips index validation entirely.
+	ValidationNone ValidationMode = iota
+	// ValidationWarn prints a warning if indexes are missing but doesn't fail (default).
+	ValidationWarn
+	// ValidationError returns an error if indexes are missing.
+	ValidationError
+)
 
 // ServiceOptions configures a Datastore service.
 type ServiceOptions struct {
 	// ValidateCtx, if non-nil, triggers index validation during construction.
-	// If validation fails, the constructor returns an error with deployment instructions.
 	ValidateCtx context.Context
+
+	// ValidationMode controls behavior when indexes are missing.
+	// Default is ValidationWarn (print warning but don't fail).
+	ValidationMode ValidationMode
 
 	// KindNames allows overriding default kind (table) names.
 	// Keys are default kind names, values are custom names.
@@ -285,10 +319,20 @@ type ServiceOptions struct {
 type ServiceOption func(*ServiceOptions)
 
 // WithValidation enables index validation during service construction.
-// If indexes are missing, the constructor returns an error with deployment instructions.
+// Uses ValidationWarn mode by default (prints warning but doesn't fail).
 func WithValidation(ctx context.Context) ServiceOption {
 	return func(opts *ServiceOptions) {
 		opts.ValidateCtx = ctx
+		if opts.ValidationMode == ValidationNone {
+			opts.ValidationMode = ValidationWarn
+		}
+	}
+}
+
+// WithValidationMode sets the validation mode for index checking.
+func WithValidationMode(mode ValidationMode) ServiceOption {
+	return func(opts *ServiceOptions) {
+		opts.ValidationMode = mode
 	}
 }
 

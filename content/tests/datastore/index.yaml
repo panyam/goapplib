@@ -1,7 +1,45 @@
-# Datastore indexes for tags service
-# Deploy with: gcloud datastore indexes create tags_index.yaml
+# Combined Datastore indexes
+# Deploy with: gcloud datastore indexes create index.yaml
 
 indexes:
+
+# likes service
+
+- kind: Like
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: user_id
+
+- kind: Like
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: created_at
+    direction: desc
+
+- kind: Like
+  properties:
+  - name: entity_type
+  - name: entity_id
+  - name: reaction_type
+  - name: created_at
+    direction: desc
+
+- kind: Like
+  properties:
+  - name: user_id
+  - name: created_at
+    direction: desc
+
+- kind: Like
+  properties:
+  - name: user_id
+  - name: entity_type
+  - name: created_at
+    direction: desc
+
+# tags service
 
 - kind: EntityTag
   properties:

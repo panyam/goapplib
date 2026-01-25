@@ -135,6 +135,63 @@ func (s *Service) TestQueries() []*datastore.Query {
 - Wait for indexes to build (check GCP Console > Datastore > Indexes)
 - "ALREADY_EXISTS" error is OK - existing indexes are skipped
 
+### Emulator vs Real Datastore Differences
+
+The Datastore emulator has stricter query limitations than real Datastore with proper composite indexes:
+
+**1. Inequality Filter + ORDER BY Restriction**
+
+The emulator requires the first ORDER BY property to match the inequality filter property:
+
+```go
+// FAILS on emulator (inequality on normalized_value, order by usage_count)
+query.FilterField("normalized_value", ">=", "a").
+      FilterField("normalized_value", "<", "b").
+      Order("-usage_count")
+
+// WORKS on emulator (but no usage_count ordering)
+query.FilterField("normalized_value", ">=", "a").
+      FilterField("normalized_value", "<", "b")
+// Then sort in memory
+```
+
+Real Datastore with the proper composite index handles both. For emulator compatibility, skip ORDER BY and sort in memory:
+
+```go
+if hasPrefixSearch {
+    // Skip ORDER BY for emulator compatibility
+    query.FilterField("normalized_value", ">=", prefix)
+    // Fetch results, then sort in memory
+    sort.Slice(results, func(i, j int) bool {
+        return results[i].UsageCount > results[j].UsageCount
+    })
+}
+```
+
+**2. Eventual Consistency on Queries**
+
+The emulator has eventual consistency on queries. For strongly consistent reads, use direct key lookups instead of queries:
+
+```go
+// BAD - query may not see recently written entities
+func (p *Provider) GetLike(ctx, entityType, entityID, userID string) (*Like, error) {
+    query := datastore.NewQuery("Like").
+        FilterField("entity_type", "=", entityType).
+        FilterField("entity_id", "=", entityID).
+        FilterField("user_id", "=", userID)
+    // ...
+}
+
+// GOOD - direct key lookup is strongly consistent
+func (p *Provider) GetLike(ctx, entityType, entityID, userID string) (*Like, error) {
+    key := datastore.NameKey("Like", fmt.Sprintf("%s:%s:%s", entityType, entityID, userID), nil)
+    err := p.client.Get(ctx, key, &like)
+    // ...
+}
+```
+
+Use deterministic keys based on natural identifiers when possible for strong consistency.
+
 ## Test Organization
 
 ### Shared TestMain
