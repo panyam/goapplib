@@ -11,6 +11,7 @@ import (
 	sync "sync"
 	unsafe "unsafe"
 
+	v1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -562,8 +563,8 @@ type ListReactorsRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	EntityId string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Filter by reaction type (optional)
-	ReactionType  string             `protobuf:"bytes,2,opt,name=reaction_type,json=reactionType,proto3" json:"reaction_type,omitempty"`
-	Pagination    *PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	ReactionType  string                `protobuf:"bytes,2,opt,name=reaction_type,json=reactionType,proto3" json:"reaction_type,omitempty"`
+	Pagination    *v1.PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -612,134 +613,24 @@ func (x *ListReactorsRequest) GetReactionType() string {
 	return ""
 }
 
-func (x *ListReactorsRequest) GetPagination() *PaginationRequest {
+func (x *ListReactorsRequest) GetPagination() *v1.PaginationRequest {
 	if x != nil {
 		return x.Pagination
 	}
 	return nil
 }
 
-// Standard pagination request.
-type PaginationRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Maximum number of items to return
-	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Token for fetching the next page
-	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PaginationRequest) Reset() {
-	*x = PaginationRequest{}
-	mi := &file_likes_v1_service_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PaginationRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PaginationRequest) ProtoMessage() {}
-
-func (x *PaginationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PaginationRequest.ProtoReflect.Descriptor instead.
-func (*PaginationRequest) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *PaginationRequest) GetPageSize() int32 {
-	if x != nil {
-		return x.PageSize
-	}
-	return 0
-}
-
-func (x *PaginationRequest) GetPageToken() string {
-	if x != nil {
-		return x.PageToken
-	}
-	return ""
-}
-
-// Standard pagination response.
-type PaginationResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Token to fetch the next page (empty if no more pages)
-	NextPageToken string `protobuf:"bytes,1,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
-	// Total count of items
-	TotalCount    int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PaginationResponse) Reset() {
-	*x = PaginationResponse{}
-	mi := &file_likes_v1_service_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PaginationResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PaginationResponse) ProtoMessage() {}
-
-func (x *PaginationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PaginationResponse.ProtoReflect.Descriptor instead.
-func (*PaginationResponse) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *PaginationResponse) GetNextPageToken() string {
-	if x != nil {
-		return x.NextPageToken
-	}
-	return ""
-}
-
-func (x *PaginationResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
 type ListReactorsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Likes         []*Like                `protobuf:"bytes,1,rep,name=likes,proto3" json:"likes,omitempty"`
-	Pagination    *PaginationResponse    `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination    *v1.PaginationResponse `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListReactorsResponse) Reset() {
 	*x = ListReactorsResponse{}
-	mi := &file_likes_v1_service_proto_msgTypes[13]
+	mi := &file_likes_v1_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -751,7 +642,7 @@ func (x *ListReactorsResponse) String() string {
 func (*ListReactorsResponse) ProtoMessage() {}
 
 func (x *ListReactorsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[13]
+	mi := &file_likes_v1_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -764,7 +655,7 @@ func (x *ListReactorsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReactorsResponse.ProtoReflect.Descriptor instead.
 func (*ListReactorsResponse) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{13}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListReactorsResponse) GetLikes() []*Like {
@@ -774,7 +665,7 @@ func (x *ListReactorsResponse) GetLikes() []*Like {
 	return nil
 }
 
-func (x *ListReactorsResponse) GetPagination() *PaginationResponse {
+func (x *ListReactorsResponse) GetPagination() *v1.PaginationResponse {
 	if x != nil {
 		return x.Pagination
 	}
@@ -785,14 +676,14 @@ func (x *ListReactorsResponse) GetPagination() *PaginationResponse {
 type ListUserReactionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Pagination    *PaginationRequest     `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination    *v1.PaginationRequest  `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListUserReactionsRequest) Reset() {
 	*x = ListUserReactionsRequest{}
-	mi := &file_likes_v1_service_proto_msgTypes[14]
+	mi := &file_likes_v1_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -804,7 +695,7 @@ func (x *ListUserReactionsRequest) String() string {
 func (*ListUserReactionsRequest) ProtoMessage() {}
 
 func (x *ListUserReactionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[14]
+	mi := &file_likes_v1_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -817,7 +708,7 @@ func (x *ListUserReactionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUserReactionsRequest.ProtoReflect.Descriptor instead.
 func (*ListUserReactionsRequest) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{14}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListUserReactionsRequest) GetUserId() string {
@@ -827,7 +718,7 @@ func (x *ListUserReactionsRequest) GetUserId() string {
 	return ""
 }
 
-func (x *ListUserReactionsRequest) GetPagination() *PaginationRequest {
+func (x *ListUserReactionsRequest) GetPagination() *v1.PaginationRequest {
 	if x != nil {
 		return x.Pagination
 	}
@@ -837,14 +728,14 @@ func (x *ListUserReactionsRequest) GetPagination() *PaginationRequest {
 type ListUserReactionsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Likes         []*Like                `protobuf:"bytes,1,rep,name=likes,proto3" json:"likes,omitempty"`
-	Pagination    *PaginationResponse    `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination    *v1.PaginationResponse `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListUserReactionsResponse) Reset() {
 	*x = ListUserReactionsResponse{}
-	mi := &file_likes_v1_service_proto_msgTypes[15]
+	mi := &file_likes_v1_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -856,7 +747,7 @@ func (x *ListUserReactionsResponse) String() string {
 func (*ListUserReactionsResponse) ProtoMessage() {}
 
 func (x *ListUserReactionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[15]
+	mi := &file_likes_v1_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -869,7 +760,7 @@ func (x *ListUserReactionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUserReactionsResponse.ProtoReflect.Descriptor instead.
 func (*ListUserReactionsResponse) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{15}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListUserReactionsResponse) GetLikes() []*Like {
@@ -879,7 +770,7 @@ func (x *ListUserReactionsResponse) GetLikes() []*Like {
 	return nil
 }
 
-func (x *ListUserReactionsResponse) GetPagination() *PaginationResponse {
+func (x *ListUserReactionsResponse) GetPagination() *v1.PaginationResponse {
 	if x != nil {
 		return x.Pagination
 	}
@@ -898,7 +789,7 @@ type BatchGetUserReactionsRequest struct {
 
 func (x *BatchGetUserReactionsRequest) Reset() {
 	*x = BatchGetUserReactionsRequest{}
-	mi := &file_likes_v1_service_proto_msgTypes[16]
+	mi := &file_likes_v1_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -910,7 +801,7 @@ func (x *BatchGetUserReactionsRequest) String() string {
 func (*BatchGetUserReactionsRequest) ProtoMessage() {}
 
 func (x *BatchGetUserReactionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[16]
+	mi := &file_likes_v1_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -923,7 +814,7 @@ func (x *BatchGetUserReactionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchGetUserReactionsRequest.ProtoReflect.Descriptor instead.
 func (*BatchGetUserReactionsRequest) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{16}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *BatchGetUserReactionsRequest) GetUserId() string {
@@ -950,7 +841,7 @@ type BatchGetUserReactionsResponse struct {
 
 func (x *BatchGetUserReactionsResponse) Reset() {
 	*x = BatchGetUserReactionsResponse{}
-	mi := &file_likes_v1_service_proto_msgTypes[17]
+	mi := &file_likes_v1_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -962,7 +853,7 @@ func (x *BatchGetUserReactionsResponse) String() string {
 func (*BatchGetUserReactionsResponse) ProtoMessage() {}
 
 func (x *BatchGetUserReactionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[17]
+	mi := &file_likes_v1_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +866,7 @@ func (x *BatchGetUserReactionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchGetUserReactionsResponse.ProtoReflect.Descriptor instead.
 func (*BatchGetUserReactionsResponse) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{17}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *BatchGetUserReactionsResponse) GetReactions() map[string]*Like {
@@ -996,7 +887,7 @@ type BatchGetLikeCountsRequest struct {
 
 func (x *BatchGetLikeCountsRequest) Reset() {
 	*x = BatchGetLikeCountsRequest{}
-	mi := &file_likes_v1_service_proto_msgTypes[18]
+	mi := &file_likes_v1_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1008,7 +899,7 @@ func (x *BatchGetLikeCountsRequest) String() string {
 func (*BatchGetLikeCountsRequest) ProtoMessage() {}
 
 func (x *BatchGetLikeCountsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[18]
+	mi := &file_likes_v1_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1021,7 +912,7 @@ func (x *BatchGetLikeCountsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchGetLikeCountsRequest.ProtoReflect.Descriptor instead.
 func (*BatchGetLikeCountsRequest) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{18}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *BatchGetLikeCountsRequest) GetEntityIds() []string {
@@ -1041,7 +932,7 @@ type BatchGetLikeCountsResponse struct {
 
 func (x *BatchGetLikeCountsResponse) Reset() {
 	*x = BatchGetLikeCountsResponse{}
-	mi := &file_likes_v1_service_proto_msgTypes[19]
+	mi := &file_likes_v1_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1053,7 +944,7 @@ func (x *BatchGetLikeCountsResponse) String() string {
 func (*BatchGetLikeCountsResponse) ProtoMessage() {}
 
 func (x *BatchGetLikeCountsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[19]
+	mi := &file_likes_v1_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1066,7 +957,7 @@ func (x *BatchGetLikeCountsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchGetLikeCountsResponse.ProtoReflect.Descriptor instead.
 func (*BatchGetLikeCountsResponse) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{19}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *BatchGetLikeCountsResponse) GetCounts() map[string]*LikeCounts {
@@ -1086,7 +977,7 @@ type CreateReactionTypeRequest struct {
 
 func (x *CreateReactionTypeRequest) Reset() {
 	*x = CreateReactionTypeRequest{}
-	mi := &file_likes_v1_service_proto_msgTypes[20]
+	mi := &file_likes_v1_service_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1098,7 +989,7 @@ func (x *CreateReactionTypeRequest) String() string {
 func (*CreateReactionTypeRequest) ProtoMessage() {}
 
 func (x *CreateReactionTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[20]
+	mi := &file_likes_v1_service_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1111,7 +1002,7 @@ func (x *CreateReactionTypeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReactionTypeRequest.ProtoReflect.Descriptor instead.
 func (*CreateReactionTypeRequest) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{20}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CreateReactionTypeRequest) GetReactionType() *ReactionType {
@@ -1130,7 +1021,7 @@ type CreateReactionTypeResponse struct {
 
 func (x *CreateReactionTypeResponse) Reset() {
 	*x = CreateReactionTypeResponse{}
-	mi := &file_likes_v1_service_proto_msgTypes[21]
+	mi := &file_likes_v1_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1142,7 +1033,7 @@ func (x *CreateReactionTypeResponse) String() string {
 func (*CreateReactionTypeResponse) ProtoMessage() {}
 
 func (x *CreateReactionTypeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[21]
+	mi := &file_likes_v1_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1155,7 +1046,7 @@ func (x *CreateReactionTypeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReactionTypeResponse.ProtoReflect.Descriptor instead.
 func (*CreateReactionTypeResponse) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{21}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CreateReactionTypeResponse) GetReactionType() *ReactionType {
@@ -1174,7 +1065,7 @@ type ListReactionTypesRequest struct {
 
 func (x *ListReactionTypesRequest) Reset() {
 	*x = ListReactionTypesRequest{}
-	mi := &file_likes_v1_service_proto_msgTypes[22]
+	mi := &file_likes_v1_service_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1186,7 +1077,7 @@ func (x *ListReactionTypesRequest) String() string {
 func (*ListReactionTypesRequest) ProtoMessage() {}
 
 func (x *ListReactionTypesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[22]
+	mi := &file_likes_v1_service_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1199,7 +1090,7 @@ func (x *ListReactionTypesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReactionTypesRequest.ProtoReflect.Descriptor instead.
 func (*ListReactionTypesRequest) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{22}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{20}
 }
 
 type ListReactionTypesResponse struct {
@@ -1211,7 +1102,7 @@ type ListReactionTypesResponse struct {
 
 func (x *ListReactionTypesResponse) Reset() {
 	*x = ListReactionTypesResponse{}
-	mi := &file_likes_v1_service_proto_msgTypes[23]
+	mi := &file_likes_v1_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1223,7 +1114,7 @@ func (x *ListReactionTypesResponse) String() string {
 func (*ListReactionTypesResponse) ProtoMessage() {}
 
 func (x *ListReactionTypesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_likes_v1_service_proto_msgTypes[23]
+	mi := &file_likes_v1_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1236,7 +1127,7 @@ func (x *ListReactionTypesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReactionTypesResponse.ProtoReflect.Descriptor instead.
 func (*ListReactionTypesResponse) Descriptor() ([]byte, []int) {
-	return file_likes_v1_service_proto_rawDescGZIP(), []int{23}
+	return file_likes_v1_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListReactionTypesResponse) GetReactionTypes() []*ReactionType {
@@ -1250,7 +1141,7 @@ var File_likes_v1_service_proto protoreflect.FileDescriptor
 
 const file_likes_v1_service_proto_rawDesc = "" +
 	"\n" +
-	"\x16likes/v1/service.proto\x12\x10content.likes.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15likes/v1/models.proto\"o\n" +
+	"\x16likes/v1/service.proto\x12\x10content.likes.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15likes/v1/models.proto\x1a\x15common/v1/types.proto\"o\n" +
 	"\x12AddReactionRequest\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12#\n" +
@@ -1280,39 +1171,31 @@ const file_likes_v1_service_proto_rawDesc = "" +
 	"\x14GetLikeCountsRequest\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\tR\bentityId\"M\n" +
 	"\x15GetLikeCountsResponse\x124\n" +
-	"\x06counts\x18\x01 \x01(\v2\x1c.content.likes.v1.LikeCountsR\x06counts\"\x9c\x01\n" +
+	"\x06counts\x18\x01 \x01(\v2\x1c.content.likes.v1.LikeCountsR\x06counts\"\x9d\x01\n" +
 	"\x13ListReactorsRequest\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12#\n" +
-	"\rreaction_type\x18\x02 \x01(\tR\freactionType\x12C\n" +
+	"\rreaction_type\x18\x02 \x01(\tR\freactionType\x12D\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2#.content.likes.v1.PaginationRequestR\n" +
-	"pagination\"O\n" +
-	"\x11PaginationRequest\x12\x1b\n" +
-	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
-	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\"]\n" +
-	"\x12PaginationResponse\x12&\n" +
-	"\x0fnext_page_token\x18\x01 \x01(\tR\rnextPageToken\x12\x1f\n" +
-	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\"\x8a\x01\n" +
+	" \x01(\v2$.content.common.v1.PaginationRequestR\n" +
+	"pagination\"\x8b\x01\n" +
 	"\x14ListReactorsResponse\x12,\n" +
-	"\x05likes\x18\x01 \x03(\v2\x16.content.likes.v1.LikeR\x05likes\x12D\n" +
+	"\x05likes\x18\x01 \x03(\v2\x16.content.likes.v1.LikeR\x05likes\x12E\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2$.content.likes.v1.PaginationResponseR\n" +
-	"pagination\"x\n" +
+	" \x01(\v2%.content.common.v1.PaginationResponseR\n" +
+	"pagination\"y\n" +
 	"\x18ListUserReactionsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12C\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12D\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2#.content.likes.v1.PaginationRequestR\n" +
-	"pagination\"\x8f\x01\n" +
+	" \x01(\v2$.content.common.v1.PaginationRequestR\n" +
+	"pagination\"\x90\x01\n" +
 	"\x19ListUserReactionsResponse\x12,\n" +
-	"\x05likes\x18\x01 \x03(\v2\x16.content.likes.v1.LikeR\x05likes\x12D\n" +
+	"\x05likes\x18\x01 \x03(\v2\x16.content.likes.v1.LikeR\x05likes\x12E\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2$.content.likes.v1.PaginationResponseR\n" +
+	" \x01(\v2%.content.common.v1.PaginationResponseR\n" +
 	"pagination\"V\n" +
 	"\x1cBatchGetUserReactionsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
@@ -1364,7 +1247,7 @@ func file_likes_v1_service_proto_rawDescGZIP() []byte {
 	return file_likes_v1_service_proto_rawDescData
 }
 
-var file_likes_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_likes_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_likes_v1_service_proto_goTypes = []any{
 	(*AddReactionRequest)(nil),            // 0: content.likes.v1.AddReactionRequest
 	(*AddReactionResponse)(nil),           // 1: content.likes.v1.AddReactionResponse
@@ -1377,68 +1260,68 @@ var file_likes_v1_service_proto_goTypes = []any{
 	(*GetLikeCountsRequest)(nil),          // 8: content.likes.v1.GetLikeCountsRequest
 	(*GetLikeCountsResponse)(nil),         // 9: content.likes.v1.GetLikeCountsResponse
 	(*ListReactorsRequest)(nil),           // 10: content.likes.v1.ListReactorsRequest
-	(*PaginationRequest)(nil),             // 11: content.likes.v1.PaginationRequest
-	(*PaginationResponse)(nil),            // 12: content.likes.v1.PaginationResponse
-	(*ListReactorsResponse)(nil),          // 13: content.likes.v1.ListReactorsResponse
-	(*ListUserReactionsRequest)(nil),      // 14: content.likes.v1.ListUserReactionsRequest
-	(*ListUserReactionsResponse)(nil),     // 15: content.likes.v1.ListUserReactionsResponse
-	(*BatchGetUserReactionsRequest)(nil),  // 16: content.likes.v1.BatchGetUserReactionsRequest
-	(*BatchGetUserReactionsResponse)(nil), // 17: content.likes.v1.BatchGetUserReactionsResponse
-	(*BatchGetLikeCountsRequest)(nil),     // 18: content.likes.v1.BatchGetLikeCountsRequest
-	(*BatchGetLikeCountsResponse)(nil),    // 19: content.likes.v1.BatchGetLikeCountsResponse
-	(*CreateReactionTypeRequest)(nil),     // 20: content.likes.v1.CreateReactionTypeRequest
-	(*CreateReactionTypeResponse)(nil),    // 21: content.likes.v1.CreateReactionTypeResponse
-	(*ListReactionTypesRequest)(nil),      // 22: content.likes.v1.ListReactionTypesRequest
-	(*ListReactionTypesResponse)(nil),     // 23: content.likes.v1.ListReactionTypesResponse
-	nil,                                   // 24: content.likes.v1.BatchGetUserReactionsResponse.ReactionsEntry
-	nil,                                   // 25: content.likes.v1.BatchGetLikeCountsResponse.CountsEntry
-	(*Like)(nil),                          // 26: content.likes.v1.Like
-	(*LikeCounts)(nil),                    // 27: content.likes.v1.LikeCounts
+	(*ListReactorsResponse)(nil),          // 11: content.likes.v1.ListReactorsResponse
+	(*ListUserReactionsRequest)(nil),      // 12: content.likes.v1.ListUserReactionsRequest
+	(*ListUserReactionsResponse)(nil),     // 13: content.likes.v1.ListUserReactionsResponse
+	(*BatchGetUserReactionsRequest)(nil),  // 14: content.likes.v1.BatchGetUserReactionsRequest
+	(*BatchGetUserReactionsResponse)(nil), // 15: content.likes.v1.BatchGetUserReactionsResponse
+	(*BatchGetLikeCountsRequest)(nil),     // 16: content.likes.v1.BatchGetLikeCountsRequest
+	(*BatchGetLikeCountsResponse)(nil),    // 17: content.likes.v1.BatchGetLikeCountsResponse
+	(*CreateReactionTypeRequest)(nil),     // 18: content.likes.v1.CreateReactionTypeRequest
+	(*CreateReactionTypeResponse)(nil),    // 19: content.likes.v1.CreateReactionTypeResponse
+	(*ListReactionTypesRequest)(nil),      // 20: content.likes.v1.ListReactionTypesRequest
+	(*ListReactionTypesResponse)(nil),     // 21: content.likes.v1.ListReactionTypesResponse
+	nil,                                   // 22: content.likes.v1.BatchGetUserReactionsResponse.ReactionsEntry
+	nil,                                   // 23: content.likes.v1.BatchGetLikeCountsResponse.CountsEntry
+	(*Like)(nil),                          // 24: content.likes.v1.Like
+	(*LikeCounts)(nil),                    // 25: content.likes.v1.LikeCounts
+	(*v1.PaginationRequest)(nil),          // 26: content.common.v1.PaginationRequest
+	(*v1.PaginationResponse)(nil),         // 27: content.common.v1.PaginationResponse
 	(*ReactionType)(nil),                  // 28: content.likes.v1.ReactionType
 }
 var file_likes_v1_service_proto_depIdxs = []int32{
-	26, // 0: content.likes.v1.AddReactionResponse.like:type_name -> content.likes.v1.Like
-	27, // 1: content.likes.v1.AddReactionResponse.counts:type_name -> content.likes.v1.LikeCounts
-	27, // 2: content.likes.v1.RemoveReactionResponse.counts:type_name -> content.likes.v1.LikeCounts
-	26, // 3: content.likes.v1.ToggleReactionResponse.like:type_name -> content.likes.v1.Like
-	27, // 4: content.likes.v1.ToggleReactionResponse.counts:type_name -> content.likes.v1.LikeCounts
-	26, // 5: content.likes.v1.GetUserReactionResponse.like:type_name -> content.likes.v1.Like
-	27, // 6: content.likes.v1.GetLikeCountsResponse.counts:type_name -> content.likes.v1.LikeCounts
-	11, // 7: content.likes.v1.ListReactorsRequest.pagination:type_name -> content.likes.v1.PaginationRequest
-	26, // 8: content.likes.v1.ListReactorsResponse.likes:type_name -> content.likes.v1.Like
-	12, // 9: content.likes.v1.ListReactorsResponse.pagination:type_name -> content.likes.v1.PaginationResponse
-	11, // 10: content.likes.v1.ListUserReactionsRequest.pagination:type_name -> content.likes.v1.PaginationRequest
-	26, // 11: content.likes.v1.ListUserReactionsResponse.likes:type_name -> content.likes.v1.Like
-	12, // 12: content.likes.v1.ListUserReactionsResponse.pagination:type_name -> content.likes.v1.PaginationResponse
-	24, // 13: content.likes.v1.BatchGetUserReactionsResponse.reactions:type_name -> content.likes.v1.BatchGetUserReactionsResponse.ReactionsEntry
-	25, // 14: content.likes.v1.BatchGetLikeCountsResponse.counts:type_name -> content.likes.v1.BatchGetLikeCountsResponse.CountsEntry
+	24, // 0: content.likes.v1.AddReactionResponse.like:type_name -> content.likes.v1.Like
+	25, // 1: content.likes.v1.AddReactionResponse.counts:type_name -> content.likes.v1.LikeCounts
+	25, // 2: content.likes.v1.RemoveReactionResponse.counts:type_name -> content.likes.v1.LikeCounts
+	24, // 3: content.likes.v1.ToggleReactionResponse.like:type_name -> content.likes.v1.Like
+	25, // 4: content.likes.v1.ToggleReactionResponse.counts:type_name -> content.likes.v1.LikeCounts
+	24, // 5: content.likes.v1.GetUserReactionResponse.like:type_name -> content.likes.v1.Like
+	25, // 6: content.likes.v1.GetLikeCountsResponse.counts:type_name -> content.likes.v1.LikeCounts
+	26, // 7: content.likes.v1.ListReactorsRequest.pagination:type_name -> content.common.v1.PaginationRequest
+	24, // 8: content.likes.v1.ListReactorsResponse.likes:type_name -> content.likes.v1.Like
+	27, // 9: content.likes.v1.ListReactorsResponse.pagination:type_name -> content.common.v1.PaginationResponse
+	26, // 10: content.likes.v1.ListUserReactionsRequest.pagination:type_name -> content.common.v1.PaginationRequest
+	24, // 11: content.likes.v1.ListUserReactionsResponse.likes:type_name -> content.likes.v1.Like
+	27, // 12: content.likes.v1.ListUserReactionsResponse.pagination:type_name -> content.common.v1.PaginationResponse
+	22, // 13: content.likes.v1.BatchGetUserReactionsResponse.reactions:type_name -> content.likes.v1.BatchGetUserReactionsResponse.ReactionsEntry
+	23, // 14: content.likes.v1.BatchGetLikeCountsResponse.counts:type_name -> content.likes.v1.BatchGetLikeCountsResponse.CountsEntry
 	28, // 15: content.likes.v1.CreateReactionTypeRequest.reaction_type:type_name -> content.likes.v1.ReactionType
 	28, // 16: content.likes.v1.CreateReactionTypeResponse.reaction_type:type_name -> content.likes.v1.ReactionType
 	28, // 17: content.likes.v1.ListReactionTypesResponse.reaction_types:type_name -> content.likes.v1.ReactionType
-	26, // 18: content.likes.v1.BatchGetUserReactionsResponse.ReactionsEntry.value:type_name -> content.likes.v1.Like
-	27, // 19: content.likes.v1.BatchGetLikeCountsResponse.CountsEntry.value:type_name -> content.likes.v1.LikeCounts
+	24, // 18: content.likes.v1.BatchGetUserReactionsResponse.ReactionsEntry.value:type_name -> content.likes.v1.Like
+	25, // 19: content.likes.v1.BatchGetLikeCountsResponse.CountsEntry.value:type_name -> content.likes.v1.LikeCounts
 	0,  // 20: content.likes.v1.LikesService.AddReaction:input_type -> content.likes.v1.AddReactionRequest
 	2,  // 21: content.likes.v1.LikesService.RemoveReaction:input_type -> content.likes.v1.RemoveReactionRequest
 	4,  // 22: content.likes.v1.LikesService.ToggleReaction:input_type -> content.likes.v1.ToggleReactionRequest
 	6,  // 23: content.likes.v1.LikesService.GetUserReaction:input_type -> content.likes.v1.GetUserReactionRequest
 	8,  // 24: content.likes.v1.LikesService.GetLikeCounts:input_type -> content.likes.v1.GetLikeCountsRequest
 	10, // 25: content.likes.v1.LikesService.ListReactors:input_type -> content.likes.v1.ListReactorsRequest
-	14, // 26: content.likes.v1.LikesService.ListUserReactions:input_type -> content.likes.v1.ListUserReactionsRequest
-	16, // 27: content.likes.v1.LikesService.BatchGetUserReactions:input_type -> content.likes.v1.BatchGetUserReactionsRequest
-	18, // 28: content.likes.v1.LikesService.BatchGetLikeCounts:input_type -> content.likes.v1.BatchGetLikeCountsRequest
-	20, // 29: content.likes.v1.LikesService.CreateReactionType:input_type -> content.likes.v1.CreateReactionTypeRequest
-	22, // 30: content.likes.v1.LikesService.ListReactionTypes:input_type -> content.likes.v1.ListReactionTypesRequest
+	12, // 26: content.likes.v1.LikesService.ListUserReactions:input_type -> content.likes.v1.ListUserReactionsRequest
+	14, // 27: content.likes.v1.LikesService.BatchGetUserReactions:input_type -> content.likes.v1.BatchGetUserReactionsRequest
+	16, // 28: content.likes.v1.LikesService.BatchGetLikeCounts:input_type -> content.likes.v1.BatchGetLikeCountsRequest
+	18, // 29: content.likes.v1.LikesService.CreateReactionType:input_type -> content.likes.v1.CreateReactionTypeRequest
+	20, // 30: content.likes.v1.LikesService.ListReactionTypes:input_type -> content.likes.v1.ListReactionTypesRequest
 	1,  // 31: content.likes.v1.LikesService.AddReaction:output_type -> content.likes.v1.AddReactionResponse
 	3,  // 32: content.likes.v1.LikesService.RemoveReaction:output_type -> content.likes.v1.RemoveReactionResponse
 	5,  // 33: content.likes.v1.LikesService.ToggleReaction:output_type -> content.likes.v1.ToggleReactionResponse
 	7,  // 34: content.likes.v1.LikesService.GetUserReaction:output_type -> content.likes.v1.GetUserReactionResponse
 	9,  // 35: content.likes.v1.LikesService.GetLikeCounts:output_type -> content.likes.v1.GetLikeCountsResponse
-	13, // 36: content.likes.v1.LikesService.ListReactors:output_type -> content.likes.v1.ListReactorsResponse
-	15, // 37: content.likes.v1.LikesService.ListUserReactions:output_type -> content.likes.v1.ListUserReactionsResponse
-	17, // 38: content.likes.v1.LikesService.BatchGetUserReactions:output_type -> content.likes.v1.BatchGetUserReactionsResponse
-	19, // 39: content.likes.v1.LikesService.BatchGetLikeCounts:output_type -> content.likes.v1.BatchGetLikeCountsResponse
-	21, // 40: content.likes.v1.LikesService.CreateReactionType:output_type -> content.likes.v1.CreateReactionTypeResponse
-	23, // 41: content.likes.v1.LikesService.ListReactionTypes:output_type -> content.likes.v1.ListReactionTypesResponse
+	11, // 36: content.likes.v1.LikesService.ListReactors:output_type -> content.likes.v1.ListReactorsResponse
+	13, // 37: content.likes.v1.LikesService.ListUserReactions:output_type -> content.likes.v1.ListUserReactionsResponse
+	15, // 38: content.likes.v1.LikesService.BatchGetUserReactions:output_type -> content.likes.v1.BatchGetUserReactionsResponse
+	17, // 39: content.likes.v1.LikesService.BatchGetLikeCounts:output_type -> content.likes.v1.BatchGetLikeCountsResponse
+	19, // 40: content.likes.v1.LikesService.CreateReactionType:output_type -> content.likes.v1.CreateReactionTypeResponse
+	21, // 41: content.likes.v1.LikesService.ListReactionTypes:output_type -> content.likes.v1.ListReactionTypesResponse
 	31, // [31:42] is the sub-list for method output_type
 	20, // [20:31] is the sub-list for method input_type
 	20, // [20:20] is the sub-list for extension type_name
@@ -1458,7 +1341,7 @@ func file_likes_v1_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_likes_v1_service_proto_rawDesc), len(file_likes_v1_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   26,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

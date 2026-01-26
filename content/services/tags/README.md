@@ -18,12 +18,40 @@ A flexible tagging service supporting pure labels, metadata tags (name-value pai
 TagsService Interface (Public API)
     |
 BaseTagsService (Shared logic + caching)
+    |                    |
+gRPC Server          Connect RPC Adapter
+(embedded)           (ConnectTagsServer)
     |
 TagsStorageProvider Interface (Storage abstraction)
     |
 Concrete Backends
     +-- GORMTagsService (SQL databases)
     +-- DatastoreTagsService (Google Cloud)
+```
+
+### gRPC and Connect Support
+
+The service is directly registrable as a gRPC server and includes a Connect RPC adapter:
+
+```go
+import (
+    "github.com/panyam/goapplib/content/services/tags"
+    "github.com/panyam/goapplib/content/services/tags/backends"
+    tagsv1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
+    "github.com/panyam/goapplib/content/gen/go/tags/v1/tagsv1connect"
+)
+
+// Create service
+service := backends.NewGORMTagsService(db)
+
+// Register as gRPC server
+grpcServer := grpc.NewServer()
+tagsv1.RegisterTagsServiceServer(grpcServer, service)
+
+// Register as Connect handler (HTTP/2 + JSON)
+mux := http.NewServeMux()
+path, handler := tagsv1connect.NewTagsServiceHandler(tags.NewConnectTagsServer(service))
+mux.Handle(path, handler)
 ```
 
 ## Quick Start

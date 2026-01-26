@@ -38,6 +38,7 @@ import (
 	"time"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/collections/v1"
+	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -115,7 +116,9 @@ type EntityCollectionsOptions struct {
 }
 
 // BaseCollectionsService provides shared logic for collections services.
+// Embeds UnimplementedCollectionsServiceServer for gRPC forward compatibility.
 type BaseCollectionsService struct {
+	v1.UnimplementedCollectionsServiceServer
 	StorageProvider CollectionsStorageProvider
 
 	// Optional in-memory cache for collection lookups
@@ -136,6 +139,9 @@ type BaseCollectionsService struct {
 	// Hooks for customization
 	Hooks Hooks
 }
+
+// Compile-time check that BaseCollectionsService implements CollectionsServiceServer.
+var _ v1.CollectionsServiceServer = (*BaseCollectionsService)(nil)
 
 // NewBaseCollectionsService creates a new BaseCollectionsService with the given storage provider.
 func NewBaseCollectionsService(provider CollectionsStorageProvider, opts ...ServiceOption) *BaseCollectionsService {
@@ -552,7 +558,7 @@ func (s *BaseCollectionsService) ListCollections(ctx context.Context, req *v1.Li
 
 	return &v1.ListCollectionsResponse{
 		Collections: collections,
-		Pagination: &v1.PaginationResponse{
+		Pagination: &commonv1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},
@@ -944,7 +950,7 @@ func (s *BaseCollectionsService) GetCollectionItems(ctx context.Context, req *v1
 
 	return &v1.GetCollectionItemsResponse{
 		Items: items,
-		Pagination: &v1.PaginationResponse{
+		Pagination: &commonv1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},

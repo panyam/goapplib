@@ -21,10 +21,31 @@ All services follow a consistent layered architecture:
 Service Interface (Public API)
     ↓
 BaseService (Shared logic + optional caching)
+    ↓                    ↓
+gRPC Server          Connect RPC Adapter
+(embedded)           (connect.go)
     ↓
 StorageProvider Interface (Storage abstraction)
     ↓
 Concrete Backends (GORM, Datastore)
+```
+
+### gRPC and Connect Support
+
+Services are directly registrable as gRPC servers and include Connect RPC adapters:
+
+```go
+// Create service - it's already a gRPC server!
+likesService := backends.NewGORMLikesService(db)
+
+// Register directly as gRPC server (no wrapper needed)
+grpcServer := grpc.NewServer()
+likesv1.RegisterLikesServiceServer(grpcServer, likesService)
+
+// Register as Connect handler (HTTP/2 + JSON support)
+mux := http.NewServeMux()
+path, handler := likesv1connect.NewLikesServiceHandler(likes.NewConnectLikesServer(likesService))
+mux.Handle(path, handler)
 ```
 
 ### Key Patterns
@@ -41,20 +62,21 @@ content/
 ├── protos/                     # Protocol buffer definitions
 │   ├── buf.yaml               # Buf module configuration
 │   ├── buf.gen.yaml           # Code generation configuration
-│   ├── common/v1/             # Shared types (EntityRef, Pagination)
+│   ├── common/v1/             # Shared types (Pagination)
 │   ├── likes/v1/              # LikesService protos
 │   ├── tags/v1/               # TagsService protos
 │   ├── collections/v1/        # CollectionsService protos
 │   └── ...
 │
 ├── gen/                        # Generated code
-│   ├── go/                    # Proto messages and services
+│   ├── go/                    # Proto messages, gRPC services, Connect handlers
 │   ├── gorm/                  # GORM models and DAL
 │   └── datastore/             # Datastore models and DAL
 │
 ├── services/                   # Service implementations
 │   ├── likes/                 # LikesService
-│   │   ├── service.go         # Interface + BaseService
+│   │   ├── service.go         # Interface + BaseService (embeds gRPC server)
+│   │   ├── connect.go         # Connect RPC adapter
 │   │   ├── README.md          # Service documentation
 │   │   └── backends/          # Storage providers
 │   │       ├── gorm.go        # GORM backend
@@ -114,14 +136,14 @@ Indexes are project-wide (not namespace-specific). Wait for indexes to build in 
 
 ## Implementation Status
 
-| Service             | Protos | GORM Backend | Datastore Backend | Hooks | Tests | Docs |
-|---------------------|--------|--------------|-------------------|-------|-------|------|
-| LikesService        | ✅     | ✅           | ✅                | ✅    | ✅    | ✅   |
-| TagsService         | ✅     | ✅           | ✅                | ✅    | ✅    | ✅   |
-| CollectionsService  | ✅     | ✅           | ✅                | ✅    | ✅    | ✅   |
-| NotesService        | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
-| CommentsService     | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
-| UserActivityService | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
+| Service             | Protos | GORM Backend | Datastore Backend | Hooks | gRPC | Connect | Tests | Docs |
+|---------------------|--------|--------------|-------------------|-------|------|---------|-------|------|
+| LikesService        | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅   |
+| TagsService         | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅   |
+| CollectionsService  | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅   |
+| NotesService        | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳   |
+| CommentsService     | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳   |
+| UserActivityService | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳   |
 
 ### Design Simplifications
 

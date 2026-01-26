@@ -11,6 +11,7 @@ import (
 	sync "sync"
 	unsafe "unsafe"
 
+	v1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -513,8 +514,8 @@ type ListCollectionsRequest struct {
 	// Filter by visibility
 	Visibility CollectionVisibility `protobuf:"varint,5,opt,name=visibility,proto3,enum=content.collections.v1.CollectionVisibility" json:"visibility,omitempty"`
 	// Order by: "name", "created_at", "display_order"
-	OrderBy       string             `protobuf:"bytes,6,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
-	Pagination    *PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	OrderBy       string                `protobuf:"bytes,6,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
+	Pagination    *v1.PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -584,7 +585,7 @@ func (x *ListCollectionsRequest) GetOrderBy() string {
 	return ""
 }
 
-func (x *ListCollectionsRequest) GetPagination() *PaginationRequest {
+func (x *ListCollectionsRequest) GetPagination() *v1.PaginationRequest {
 	if x != nil {
 		return x.Pagination
 	}
@@ -594,7 +595,7 @@ func (x *ListCollectionsRequest) GetPagination() *PaginationRequest {
 type ListCollectionsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Collections   []*Collection          `protobuf:"bytes,1,rep,name=collections,proto3" json:"collections,omitempty"`
-	Pagination    *PaginationResponse    `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination    *v1.PaginationResponse `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -636,121 +637,11 @@ func (x *ListCollectionsResponse) GetCollections() []*Collection {
 	return nil
 }
 
-func (x *ListCollectionsResponse) GetPagination() *PaginationResponse {
+func (x *ListCollectionsResponse) GetPagination() *v1.PaginationResponse {
 	if x != nil {
 		return x.Pagination
 	}
 	return nil
-}
-
-// Standard pagination request.
-type PaginationRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Maximum number of items to return
-	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Token for fetching the next page
-	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PaginationRequest) Reset() {
-	*x = PaginationRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PaginationRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PaginationRequest) ProtoMessage() {}
-
-func (x *PaginationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PaginationRequest.ProtoReflect.Descriptor instead.
-func (*PaginationRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *PaginationRequest) GetPageSize() int32 {
-	if x != nil {
-		return x.PageSize
-	}
-	return 0
-}
-
-func (x *PaginationRequest) GetPageToken() string {
-	if x != nil {
-		return x.PageToken
-	}
-	return ""
-}
-
-// Standard pagination response.
-type PaginationResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Token to fetch the next page (empty if no more pages)
-	NextPageToken string `protobuf:"bytes,1,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
-	// Total count of items
-	TotalCount    int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PaginationResponse) Reset() {
-	*x = PaginationResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PaginationResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PaginationResponse) ProtoMessage() {}
-
-func (x *PaginationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PaginationResponse.ProtoReflect.Descriptor instead.
-func (*PaginationResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *PaginationResponse) GetNextPageToken() string {
-	if x != nil {
-		return x.NextPageToken
-	}
-	return ""
-}
-
-func (x *PaginationResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
 }
 
 type GetCollectionTreeRequest struct {
@@ -767,7 +658,7 @@ type GetCollectionTreeRequest struct {
 
 func (x *GetCollectionTreeRequest) Reset() {
 	*x = GetCollectionTreeRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[12]
+	mi := &file_collections_v1_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -779,7 +670,7 @@ func (x *GetCollectionTreeRequest) String() string {
 func (*GetCollectionTreeRequest) ProtoMessage() {}
 
 func (x *GetCollectionTreeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[12]
+	mi := &file_collections_v1_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -792,7 +683,7 @@ func (x *GetCollectionTreeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionTreeRequest.ProtoReflect.Descriptor instead.
 func (*GetCollectionTreeRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{12}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetCollectionTreeRequest) GetId() string {
@@ -826,7 +717,7 @@ type GetCollectionTreeResponse struct {
 
 func (x *GetCollectionTreeResponse) Reset() {
 	*x = GetCollectionTreeResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[13]
+	mi := &file_collections_v1_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -838,7 +729,7 @@ func (x *GetCollectionTreeResponse) String() string {
 func (*GetCollectionTreeResponse) ProtoMessage() {}
 
 func (x *GetCollectionTreeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[13]
+	mi := &file_collections_v1_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -851,7 +742,7 @@ func (x *GetCollectionTreeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionTreeResponse.ProtoReflect.Descriptor instead.
 func (*GetCollectionTreeResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{13}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetCollectionTreeResponse) GetNodes() []*CollectionTreeNode {
@@ -872,7 +763,7 @@ type CollectionTreeNode struct {
 
 func (x *CollectionTreeNode) Reset() {
 	*x = CollectionTreeNode{}
-	mi := &file_collections_v1_service_proto_msgTypes[14]
+	mi := &file_collections_v1_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -884,7 +775,7 @@ func (x *CollectionTreeNode) String() string {
 func (*CollectionTreeNode) ProtoMessage() {}
 
 func (x *CollectionTreeNode) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[14]
+	mi := &file_collections_v1_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -897,7 +788,7 @@ func (x *CollectionTreeNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectionTreeNode.ProtoReflect.Descriptor instead.
 func (*CollectionTreeNode) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{14}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CollectionTreeNode) GetCollection() *Collection {
@@ -928,7 +819,7 @@ type MoveCollectionRequest struct {
 
 func (x *MoveCollectionRequest) Reset() {
 	*x = MoveCollectionRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[15]
+	mi := &file_collections_v1_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -940,7 +831,7 @@ func (x *MoveCollectionRequest) String() string {
 func (*MoveCollectionRequest) ProtoMessage() {}
 
 func (x *MoveCollectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[15]
+	mi := &file_collections_v1_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -953,7 +844,7 @@ func (x *MoveCollectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveCollectionRequest.ProtoReflect.Descriptor instead.
 func (*MoveCollectionRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{15}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *MoveCollectionRequest) GetId() string {
@@ -988,7 +879,7 @@ type MoveCollectionResponse struct {
 
 func (x *MoveCollectionResponse) Reset() {
 	*x = MoveCollectionResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[16]
+	mi := &file_collections_v1_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1000,7 +891,7 @@ func (x *MoveCollectionResponse) String() string {
 func (*MoveCollectionResponse) ProtoMessage() {}
 
 func (x *MoveCollectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[16]
+	mi := &file_collections_v1_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1013,7 +904,7 @@ func (x *MoveCollectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveCollectionResponse.ProtoReflect.Descriptor instead.
 func (*MoveCollectionResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{16}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *MoveCollectionResponse) GetCollection() *Collection {
@@ -1039,7 +930,7 @@ type GetCollectionPathRequest struct {
 
 func (x *GetCollectionPathRequest) Reset() {
 	*x = GetCollectionPathRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[17]
+	mi := &file_collections_v1_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1051,7 +942,7 @@ func (x *GetCollectionPathRequest) String() string {
 func (*GetCollectionPathRequest) ProtoMessage() {}
 
 func (x *GetCollectionPathRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[17]
+	mi := &file_collections_v1_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1064,7 +955,7 @@ func (x *GetCollectionPathRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionPathRequest.ProtoReflect.Descriptor instead.
 func (*GetCollectionPathRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{17}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetCollectionPathRequest) GetId() string {
@@ -1084,7 +975,7 @@ type GetCollectionPathResponse struct {
 
 func (x *GetCollectionPathResponse) Reset() {
 	*x = GetCollectionPathResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[18]
+	mi := &file_collections_v1_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1096,7 +987,7 @@ func (x *GetCollectionPathResponse) String() string {
 func (*GetCollectionPathResponse) ProtoMessage() {}
 
 func (x *GetCollectionPathResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[18]
+	mi := &file_collections_v1_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1109,7 +1000,7 @@ func (x *GetCollectionPathResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionPathResponse.ProtoReflect.Descriptor instead.
 func (*GetCollectionPathResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{18}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetCollectionPathResponse) GetAncestors() []*Collection {
@@ -1135,7 +1026,7 @@ type AddToCollectionRequest struct {
 
 func (x *AddToCollectionRequest) Reset() {
 	*x = AddToCollectionRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[19]
+	mi := &file_collections_v1_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1147,7 +1038,7 @@ func (x *AddToCollectionRequest) String() string {
 func (*AddToCollectionRequest) ProtoMessage() {}
 
 func (x *AddToCollectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[19]
+	mi := &file_collections_v1_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1160,7 +1051,7 @@ func (x *AddToCollectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddToCollectionRequest.ProtoReflect.Descriptor instead.
 func (*AddToCollectionRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{19}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AddToCollectionRequest) GetCollectionId() string {
@@ -1209,7 +1100,7 @@ type AddToCollectionResponse struct {
 
 func (x *AddToCollectionResponse) Reset() {
 	*x = AddToCollectionResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[20]
+	mi := &file_collections_v1_service_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1221,7 +1112,7 @@ func (x *AddToCollectionResponse) String() string {
 func (*AddToCollectionResponse) ProtoMessage() {}
 
 func (x *AddToCollectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[20]
+	mi := &file_collections_v1_service_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1234,7 +1125,7 @@ func (x *AddToCollectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddToCollectionResponse.ProtoReflect.Descriptor instead.
 func (*AddToCollectionResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{20}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AddToCollectionResponse) GetItem() *CollectionItem {
@@ -1261,7 +1152,7 @@ type RemoveFromCollectionRequest struct {
 
 func (x *RemoveFromCollectionRequest) Reset() {
 	*x = RemoveFromCollectionRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[21]
+	mi := &file_collections_v1_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1273,7 +1164,7 @@ func (x *RemoveFromCollectionRequest) String() string {
 func (*RemoveFromCollectionRequest) ProtoMessage() {}
 
 func (x *RemoveFromCollectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[21]
+	mi := &file_collections_v1_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1286,7 +1177,7 @@ func (x *RemoveFromCollectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveFromCollectionRequest.ProtoReflect.Descriptor instead.
 func (*RemoveFromCollectionRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{21}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *RemoveFromCollectionRequest) GetCollectionId() string {
@@ -1312,7 +1203,7 @@ type RemoveFromCollectionResponse struct {
 
 func (x *RemoveFromCollectionResponse) Reset() {
 	*x = RemoveFromCollectionResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[22]
+	mi := &file_collections_v1_service_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1324,7 +1215,7 @@ func (x *RemoveFromCollectionResponse) String() string {
 func (*RemoveFromCollectionResponse) ProtoMessage() {}
 
 func (x *RemoveFromCollectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[22]
+	mi := &file_collections_v1_service_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1337,7 +1228,7 @@ func (x *RemoveFromCollectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveFromCollectionResponse.ProtoReflect.Descriptor instead.
 func (*RemoveFromCollectionResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{22}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *RemoveFromCollectionResponse) GetRemoved() bool {
@@ -1351,16 +1242,16 @@ type GetCollectionItemsRequest struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	CollectionId string                 `protobuf:"bytes,1,opt,name=collection_id,json=collectionId,proto3" json:"collection_id,omitempty"`
 	// Sort by
-	SortBy         SortField          `protobuf:"varint,2,opt,name=sort_by,json=sortBy,proto3,enum=content.collections.v1.SortField" json:"sort_by,omitempty"`
-	SortDescending bool               `protobuf:"varint,3,opt,name=sort_descending,json=sortDescending,proto3" json:"sort_descending,omitempty"`
-	Pagination     *PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	SortBy         SortField             `protobuf:"varint,2,opt,name=sort_by,json=sortBy,proto3,enum=content.collections.v1.SortField" json:"sort_by,omitempty"`
+	SortDescending bool                  `protobuf:"varint,3,opt,name=sort_descending,json=sortDescending,proto3" json:"sort_descending,omitempty"`
+	Pagination     *v1.PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetCollectionItemsRequest) Reset() {
 	*x = GetCollectionItemsRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[23]
+	mi := &file_collections_v1_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1372,7 +1263,7 @@ func (x *GetCollectionItemsRequest) String() string {
 func (*GetCollectionItemsRequest) ProtoMessage() {}
 
 func (x *GetCollectionItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[23]
+	mi := &file_collections_v1_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1385,7 +1276,7 @@ func (x *GetCollectionItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionItemsRequest.ProtoReflect.Descriptor instead.
 func (*GetCollectionItemsRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{23}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetCollectionItemsRequest) GetCollectionId() string {
@@ -1409,7 +1300,7 @@ func (x *GetCollectionItemsRequest) GetSortDescending() bool {
 	return false
 }
 
-func (x *GetCollectionItemsRequest) GetPagination() *PaginationRequest {
+func (x *GetCollectionItemsRequest) GetPagination() *v1.PaginationRequest {
 	if x != nil {
 		return x.Pagination
 	}
@@ -1419,14 +1310,14 @@ func (x *GetCollectionItemsRequest) GetPagination() *PaginationRequest {
 type GetCollectionItemsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*CollectionItem      `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Pagination    *PaginationResponse    `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination    *v1.PaginationResponse `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetCollectionItemsResponse) Reset() {
 	*x = GetCollectionItemsResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[24]
+	mi := &file_collections_v1_service_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1438,7 +1329,7 @@ func (x *GetCollectionItemsResponse) String() string {
 func (*GetCollectionItemsResponse) ProtoMessage() {}
 
 func (x *GetCollectionItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[24]
+	mi := &file_collections_v1_service_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1451,7 +1342,7 @@ func (x *GetCollectionItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionItemsResponse.ProtoReflect.Descriptor instead.
 func (*GetCollectionItemsResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{24}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetCollectionItemsResponse) GetItems() []*CollectionItem {
@@ -1461,7 +1352,7 @@ func (x *GetCollectionItemsResponse) GetItems() []*CollectionItem {
 	return nil
 }
 
-func (x *GetCollectionItemsResponse) GetPagination() *PaginationResponse {
+func (x *GetCollectionItemsResponse) GetPagination() *v1.PaginationResponse {
 	if x != nil {
 		return x.Pagination
 	}
@@ -1479,7 +1370,7 @@ type GetEntityCollectionsRequest struct {
 
 func (x *GetEntityCollectionsRequest) Reset() {
 	*x = GetEntityCollectionsRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[25]
+	mi := &file_collections_v1_service_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1491,7 +1382,7 @@ func (x *GetEntityCollectionsRequest) String() string {
 func (*GetEntityCollectionsRequest) ProtoMessage() {}
 
 func (x *GetEntityCollectionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[25]
+	mi := &file_collections_v1_service_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1504,7 +1395,7 @@ func (x *GetEntityCollectionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEntityCollectionsRequest.ProtoReflect.Descriptor instead.
 func (*GetEntityCollectionsRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{25}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetEntityCollectionsRequest) GetEntityId() string {
@@ -1530,7 +1421,7 @@ type GetEntityCollectionsResponse struct {
 
 func (x *GetEntityCollectionsResponse) Reset() {
 	*x = GetEntityCollectionsResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[26]
+	mi := &file_collections_v1_service_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1542,7 +1433,7 @@ func (x *GetEntityCollectionsResponse) String() string {
 func (*GetEntityCollectionsResponse) ProtoMessage() {}
 
 func (x *GetEntityCollectionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[26]
+	mi := &file_collections_v1_service_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1555,7 +1446,7 @@ func (x *GetEntityCollectionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEntityCollectionsResponse.ProtoReflect.Descriptor instead.
 func (*GetEntityCollectionsResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{26}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetEntityCollectionsResponse) GetCollections() []*Collection {
@@ -1576,7 +1467,7 @@ type ReorderItemsRequest struct {
 
 func (x *ReorderItemsRequest) Reset() {
 	*x = ReorderItemsRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[27]
+	mi := &file_collections_v1_service_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1588,7 +1479,7 @@ func (x *ReorderItemsRequest) String() string {
 func (*ReorderItemsRequest) ProtoMessage() {}
 
 func (x *ReorderItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[27]
+	mi := &file_collections_v1_service_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1601,7 +1492,7 @@ func (x *ReorderItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReorderItemsRequest.ProtoReflect.Descriptor instead.
 func (*ReorderItemsRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{27}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ReorderItemsRequest) GetCollectionId() string {
@@ -1628,7 +1519,7 @@ type ItemOrder struct {
 
 func (x *ItemOrder) Reset() {
 	*x = ItemOrder{}
-	mi := &file_collections_v1_service_proto_msgTypes[28]
+	mi := &file_collections_v1_service_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1640,7 +1531,7 @@ func (x *ItemOrder) String() string {
 func (*ItemOrder) ProtoMessage() {}
 
 func (x *ItemOrder) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[28]
+	mi := &file_collections_v1_service_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1653,7 +1544,7 @@ func (x *ItemOrder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemOrder.ProtoReflect.Descriptor instead.
 func (*ItemOrder) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{28}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ItemOrder) GetEntityId() string {
@@ -1679,7 +1570,7 @@ type ReorderItemsResponse struct {
 
 func (x *ReorderItemsResponse) Reset() {
 	*x = ReorderItemsResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[29]
+	mi := &file_collections_v1_service_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1691,7 +1582,7 @@ func (x *ReorderItemsResponse) String() string {
 func (*ReorderItemsResponse) ProtoMessage() {}
 
 func (x *ReorderItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[29]
+	mi := &file_collections_v1_service_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1704,7 +1595,7 @@ func (x *ReorderItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReorderItemsResponse.ProtoReflect.Descriptor instead.
 func (*ReorderItemsResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{29}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ReorderItemsResponse) GetItemsUpdated() int64 {
@@ -1727,7 +1618,7 @@ type BatchAddToCollectionRequest struct {
 
 func (x *BatchAddToCollectionRequest) Reset() {
 	*x = BatchAddToCollectionRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[30]
+	mi := &file_collections_v1_service_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1739,7 +1630,7 @@ func (x *BatchAddToCollectionRequest) String() string {
 func (*BatchAddToCollectionRequest) ProtoMessage() {}
 
 func (x *BatchAddToCollectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[30]
+	mi := &file_collections_v1_service_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1752,7 +1643,7 @@ func (x *BatchAddToCollectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchAddToCollectionRequest.ProtoReflect.Descriptor instead.
 func (*BatchAddToCollectionRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{30}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *BatchAddToCollectionRequest) GetCollectionId() string {
@@ -1786,7 +1677,7 @@ type BatchAddToCollectionResponse struct {
 
 func (x *BatchAddToCollectionResponse) Reset() {
 	*x = BatchAddToCollectionResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[31]
+	mi := &file_collections_v1_service_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1798,7 +1689,7 @@ func (x *BatchAddToCollectionResponse) String() string {
 func (*BatchAddToCollectionResponse) ProtoMessage() {}
 
 func (x *BatchAddToCollectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[31]
+	mi := &file_collections_v1_service_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1811,7 +1702,7 @@ func (x *BatchAddToCollectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchAddToCollectionResponse.ProtoReflect.Descriptor instead.
 func (*BatchAddToCollectionResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{31}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *BatchAddToCollectionResponse) GetItemsAdded() int64 {
@@ -1840,7 +1731,7 @@ type BatchGetEntityCollectionsRequest struct {
 
 func (x *BatchGetEntityCollectionsRequest) Reset() {
 	*x = BatchGetEntityCollectionsRequest{}
-	mi := &file_collections_v1_service_proto_msgTypes[32]
+	mi := &file_collections_v1_service_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1852,7 +1743,7 @@ func (x *BatchGetEntityCollectionsRequest) String() string {
 func (*BatchGetEntityCollectionsRequest) ProtoMessage() {}
 
 func (x *BatchGetEntityCollectionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[32]
+	mi := &file_collections_v1_service_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1865,7 +1756,7 @@ func (x *BatchGetEntityCollectionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchGetEntityCollectionsRequest.ProtoReflect.Descriptor instead.
 func (*BatchGetEntityCollectionsRequest) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{32}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *BatchGetEntityCollectionsRequest) GetEntityIds() []string {
@@ -1892,7 +1783,7 @@ type BatchGetEntityCollectionsResponse struct {
 
 func (x *BatchGetEntityCollectionsResponse) Reset() {
 	*x = BatchGetEntityCollectionsResponse{}
-	mi := &file_collections_v1_service_proto_msgTypes[33]
+	mi := &file_collections_v1_service_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1904,7 +1795,7 @@ func (x *BatchGetEntityCollectionsResponse) String() string {
 func (*BatchGetEntityCollectionsResponse) ProtoMessage() {}
 
 func (x *BatchGetEntityCollectionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[33]
+	mi := &file_collections_v1_service_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1917,7 +1808,7 @@ func (x *BatchGetEntityCollectionsResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use BatchGetEntityCollectionsResponse.ProtoReflect.Descriptor instead.
 func (*BatchGetEntityCollectionsResponse) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{33}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *BatchGetEntityCollectionsResponse) GetEntityCollections() map[string]*CollectionList {
@@ -1937,7 +1828,7 @@ type CollectionList struct {
 
 func (x *CollectionList) Reset() {
 	*x = CollectionList{}
-	mi := &file_collections_v1_service_proto_msgTypes[34]
+	mi := &file_collections_v1_service_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1949,7 +1840,7 @@ func (x *CollectionList) String() string {
 func (*CollectionList) ProtoMessage() {}
 
 func (x *CollectionList) ProtoReflect() protoreflect.Message {
-	mi := &file_collections_v1_service_proto_msgTypes[34]
+	mi := &file_collections_v1_service_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1962,7 +1853,7 @@ func (x *CollectionList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectionList.ProtoReflect.Descriptor instead.
 func (*CollectionList) Descriptor() ([]byte, []int) {
-	return file_collections_v1_service_proto_rawDescGZIP(), []int{34}
+	return file_collections_v1_service_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CollectionList) GetCollections() []*Collection {
@@ -1976,7 +1867,7 @@ var File_collections_v1_service_proto protoreflect.FileDescriptor
 
 const file_collections_v1_service_proto_rawDesc = "" +
 	"\n" +
-	"\x1ccollections/v1/service.proto\x12\x16content.collections.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bcollections/v1/models.proto\"\xb8\x02\n" +
+	"\x1ccollections/v1/service.proto\x12\x16content.collections.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bcollections/v1/models.proto\x1a\x15common/v1/types.proto\"\xb8\x02\n" +
 	"\x17CreateCollectionRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x19\n" +
@@ -2018,7 +1909,7 @@ const file_collections_v1_service_proto_rawDesc = "" +
 	"\x18DeleteCollectionResponse\x12\x18\n" +
 	"\adeleted\x18\x01 \x01(\bR\adeleted\x12)\n" +
 	"\x10children_deleted\x18\x02 \x01(\x03R\x0fchildrenDeleted\x12#\n" +
-	"\ritems_removed\x18\x03 \x01(\x03R\fitemsRemoved\"\x98\x02\n" +
+	"\ritems_removed\x18\x03 \x01(\x03R\fitemsRemoved\"\x93\x02\n" +
 	"\x16ListCollectionsRequest\x12\x19\n" +
 	"\bowner_id\x18\x01 \x01(\tR\aownerId\x12\x1b\n" +
 	"\tparent_id\x18\x03 \x01(\tR\bparentId\x12\x12\n" +
@@ -2026,25 +1917,17 @@ const file_collections_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"visibility\x18\x05 \x01(\x0e2,.content.collections.v1.CollectionVisibilityR\n" +
 	"visibility\x12\x19\n" +
-	"\border_by\x18\x06 \x01(\tR\aorderBy\x12I\n" +
+	"\border_by\x18\x06 \x01(\tR\aorderBy\x12D\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2).content.collections.v1.PaginationRequestR\n" +
-	"pagination\"\xab\x01\n" +
+	" \x01(\v2$.content.common.v1.PaginationRequestR\n" +
+	"pagination\"\xa6\x01\n" +
 	"\x17ListCollectionsResponse\x12D\n" +
-	"\vcollections\x18\x01 \x03(\v2\".content.collections.v1.CollectionR\vcollections\x12J\n" +
+	"\vcollections\x18\x01 \x03(\v2\".content.collections.v1.CollectionR\vcollections\x12E\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2*.content.collections.v1.PaginationResponseR\n" +
-	"pagination\"O\n" +
-	"\x11PaginationRequest\x12\x1b\n" +
-	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
-	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\"]\n" +
-	"\x12PaginationResponse\x12&\n" +
-	"\x0fnext_page_token\x18\x01 \x01(\tR\rnextPageToken\x12\x1f\n" +
-	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\"n\n" +
+	" \x01(\v2%.content.common.v1.PaginationResponseR\n" +
+	"pagination\"n\n" +
 	"\x18GetCollectionTreeRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tmax_depth\x18\x02 \x01(\x05R\bmaxDepth\x12%\n" +
@@ -2083,20 +1966,20 @@ const file_collections_v1_service_proto_rawDesc = "" +
 	"\rcollection_id\x18\x01 \x01(\tR\fcollectionId\x12\x1b\n" +
 	"\tentity_id\x18\x02 \x01(\tR\bentityId\"8\n" +
 	"\x1cRemoveFromCollectionResponse\x12\x18\n" +
-	"\aremoved\x18\x01 \x01(\bR\aremoved\"\xf0\x01\n" +
+	"\aremoved\x18\x01 \x01(\bR\aremoved\"\xeb\x01\n" +
 	"\x19GetCollectionItemsRequest\x12#\n" +
 	"\rcollection_id\x18\x01 \x01(\tR\fcollectionId\x12:\n" +
 	"\asort_by\x18\x02 \x01(\x0e2!.content.collections.v1.SortFieldR\x06sortBy\x12'\n" +
-	"\x0fsort_descending\x18\x03 \x01(\bR\x0esortDescending\x12I\n" +
+	"\x0fsort_descending\x18\x03 \x01(\bR\x0esortDescending\x12D\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2).content.collections.v1.PaginationRequestR\n" +
-	"pagination\"\xa6\x01\n" +
+	" \x01(\v2$.content.common.v1.PaginationRequestR\n" +
+	"pagination\"\xa1\x01\n" +
 	"\x1aGetCollectionItemsResponse\x12<\n" +
-	"\x05items\x18\x01 \x03(\v2&.content.collections.v1.CollectionItemR\x05items\x12J\n" +
+	"\x05items\x18\x01 \x03(\v2&.content.collections.v1.CollectionItemR\x05items\x12E\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2*.content.collections.v1.PaginationResponseR\n" +
+	" \x01(\v2%.content.common.v1.PaginationResponseR\n" +
 	"pagination\"U\n" +
 	"\x1bGetEntityCollectionsRequest\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x19\n" +
@@ -2162,7 +2045,7 @@ func file_collections_v1_service_proto_rawDescGZIP() []byte {
 	return file_collections_v1_service_proto_rawDescData
 }
 
-var file_collections_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
+var file_collections_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_collections_v1_service_proto_goTypes = []any{
 	(*CreateCollectionRequest)(nil),           // 0: content.collections.v1.CreateCollectionRequest
 	(*CreateCollectionResponse)(nil),          // 1: content.collections.v1.CreateCollectionResponse
@@ -2174,92 +2057,92 @@ var file_collections_v1_service_proto_goTypes = []any{
 	(*DeleteCollectionResponse)(nil),          // 7: content.collections.v1.DeleteCollectionResponse
 	(*ListCollectionsRequest)(nil),            // 8: content.collections.v1.ListCollectionsRequest
 	(*ListCollectionsResponse)(nil),           // 9: content.collections.v1.ListCollectionsResponse
-	(*PaginationRequest)(nil),                 // 10: content.collections.v1.PaginationRequest
-	(*PaginationResponse)(nil),                // 11: content.collections.v1.PaginationResponse
-	(*GetCollectionTreeRequest)(nil),          // 12: content.collections.v1.GetCollectionTreeRequest
-	(*GetCollectionTreeResponse)(nil),         // 13: content.collections.v1.GetCollectionTreeResponse
-	(*CollectionTreeNode)(nil),                // 14: content.collections.v1.CollectionTreeNode
-	(*MoveCollectionRequest)(nil),             // 15: content.collections.v1.MoveCollectionRequest
-	(*MoveCollectionResponse)(nil),            // 16: content.collections.v1.MoveCollectionResponse
-	(*GetCollectionPathRequest)(nil),          // 17: content.collections.v1.GetCollectionPathRequest
-	(*GetCollectionPathResponse)(nil),         // 18: content.collections.v1.GetCollectionPathResponse
-	(*AddToCollectionRequest)(nil),            // 19: content.collections.v1.AddToCollectionRequest
-	(*AddToCollectionResponse)(nil),           // 20: content.collections.v1.AddToCollectionResponse
-	(*RemoveFromCollectionRequest)(nil),       // 21: content.collections.v1.RemoveFromCollectionRequest
-	(*RemoveFromCollectionResponse)(nil),      // 22: content.collections.v1.RemoveFromCollectionResponse
-	(*GetCollectionItemsRequest)(nil),         // 23: content.collections.v1.GetCollectionItemsRequest
-	(*GetCollectionItemsResponse)(nil),        // 24: content.collections.v1.GetCollectionItemsResponse
-	(*GetEntityCollectionsRequest)(nil),       // 25: content.collections.v1.GetEntityCollectionsRequest
-	(*GetEntityCollectionsResponse)(nil),      // 26: content.collections.v1.GetEntityCollectionsResponse
-	(*ReorderItemsRequest)(nil),               // 27: content.collections.v1.ReorderItemsRequest
-	(*ItemOrder)(nil),                         // 28: content.collections.v1.ItemOrder
-	(*ReorderItemsResponse)(nil),              // 29: content.collections.v1.ReorderItemsResponse
-	(*BatchAddToCollectionRequest)(nil),       // 30: content.collections.v1.BatchAddToCollectionRequest
-	(*BatchAddToCollectionResponse)(nil),      // 31: content.collections.v1.BatchAddToCollectionResponse
-	(*BatchGetEntityCollectionsRequest)(nil),  // 32: content.collections.v1.BatchGetEntityCollectionsRequest
-	(*BatchGetEntityCollectionsResponse)(nil), // 33: content.collections.v1.BatchGetEntityCollectionsResponse
-	(*CollectionList)(nil),                    // 34: content.collections.v1.CollectionList
-	nil,                                       // 35: content.collections.v1.BatchGetEntityCollectionsResponse.EntityCollectionsEntry
-	(CollectionVisibility)(0),                 // 36: content.collections.v1.CollectionVisibility
-	(*Collection)(nil),                        // 37: content.collections.v1.Collection
+	(*GetCollectionTreeRequest)(nil),          // 10: content.collections.v1.GetCollectionTreeRequest
+	(*GetCollectionTreeResponse)(nil),         // 11: content.collections.v1.GetCollectionTreeResponse
+	(*CollectionTreeNode)(nil),                // 12: content.collections.v1.CollectionTreeNode
+	(*MoveCollectionRequest)(nil),             // 13: content.collections.v1.MoveCollectionRequest
+	(*MoveCollectionResponse)(nil),            // 14: content.collections.v1.MoveCollectionResponse
+	(*GetCollectionPathRequest)(nil),          // 15: content.collections.v1.GetCollectionPathRequest
+	(*GetCollectionPathResponse)(nil),         // 16: content.collections.v1.GetCollectionPathResponse
+	(*AddToCollectionRequest)(nil),            // 17: content.collections.v1.AddToCollectionRequest
+	(*AddToCollectionResponse)(nil),           // 18: content.collections.v1.AddToCollectionResponse
+	(*RemoveFromCollectionRequest)(nil),       // 19: content.collections.v1.RemoveFromCollectionRequest
+	(*RemoveFromCollectionResponse)(nil),      // 20: content.collections.v1.RemoveFromCollectionResponse
+	(*GetCollectionItemsRequest)(nil),         // 21: content.collections.v1.GetCollectionItemsRequest
+	(*GetCollectionItemsResponse)(nil),        // 22: content.collections.v1.GetCollectionItemsResponse
+	(*GetEntityCollectionsRequest)(nil),       // 23: content.collections.v1.GetEntityCollectionsRequest
+	(*GetEntityCollectionsResponse)(nil),      // 24: content.collections.v1.GetEntityCollectionsResponse
+	(*ReorderItemsRequest)(nil),               // 25: content.collections.v1.ReorderItemsRequest
+	(*ItemOrder)(nil),                         // 26: content.collections.v1.ItemOrder
+	(*ReorderItemsResponse)(nil),              // 27: content.collections.v1.ReorderItemsResponse
+	(*BatchAddToCollectionRequest)(nil),       // 28: content.collections.v1.BatchAddToCollectionRequest
+	(*BatchAddToCollectionResponse)(nil),      // 29: content.collections.v1.BatchAddToCollectionResponse
+	(*BatchGetEntityCollectionsRequest)(nil),  // 30: content.collections.v1.BatchGetEntityCollectionsRequest
+	(*BatchGetEntityCollectionsResponse)(nil), // 31: content.collections.v1.BatchGetEntityCollectionsResponse
+	(*CollectionList)(nil),                    // 32: content.collections.v1.CollectionList
+	nil,                                       // 33: content.collections.v1.BatchGetEntityCollectionsResponse.EntityCollectionsEntry
+	(CollectionVisibility)(0),                 // 34: content.collections.v1.CollectionVisibility
+	(*Collection)(nil),                        // 35: content.collections.v1.Collection
+	(*v1.PaginationRequest)(nil),              // 36: content.common.v1.PaginationRequest
+	(*v1.PaginationResponse)(nil),             // 37: content.common.v1.PaginationResponse
 	(*CollectionItem)(nil),                    // 38: content.collections.v1.CollectionItem
 	(SortField)(0),                            // 39: content.collections.v1.SortField
 }
 var file_collections_v1_service_proto_depIdxs = []int32{
-	36, // 0: content.collections.v1.CreateCollectionRequest.visibility:type_name -> content.collections.v1.CollectionVisibility
-	37, // 1: content.collections.v1.CreateCollectionResponse.collection:type_name -> content.collections.v1.Collection
-	37, // 2: content.collections.v1.GetCollectionResponse.collection:type_name -> content.collections.v1.Collection
-	37, // 3: content.collections.v1.UpdateCollectionRequest.collection:type_name -> content.collections.v1.Collection
-	37, // 4: content.collections.v1.UpdateCollectionResponse.collection:type_name -> content.collections.v1.Collection
-	36, // 5: content.collections.v1.ListCollectionsRequest.visibility:type_name -> content.collections.v1.CollectionVisibility
-	10, // 6: content.collections.v1.ListCollectionsRequest.pagination:type_name -> content.collections.v1.PaginationRequest
-	37, // 7: content.collections.v1.ListCollectionsResponse.collections:type_name -> content.collections.v1.Collection
-	11, // 8: content.collections.v1.ListCollectionsResponse.pagination:type_name -> content.collections.v1.PaginationResponse
-	14, // 9: content.collections.v1.GetCollectionTreeResponse.nodes:type_name -> content.collections.v1.CollectionTreeNode
-	37, // 10: content.collections.v1.CollectionTreeNode.collection:type_name -> content.collections.v1.Collection
-	14, // 11: content.collections.v1.CollectionTreeNode.children:type_name -> content.collections.v1.CollectionTreeNode
-	37, // 12: content.collections.v1.MoveCollectionResponse.collection:type_name -> content.collections.v1.Collection
-	37, // 13: content.collections.v1.GetCollectionPathResponse.ancestors:type_name -> content.collections.v1.Collection
+	34, // 0: content.collections.v1.CreateCollectionRequest.visibility:type_name -> content.collections.v1.CollectionVisibility
+	35, // 1: content.collections.v1.CreateCollectionResponse.collection:type_name -> content.collections.v1.Collection
+	35, // 2: content.collections.v1.GetCollectionResponse.collection:type_name -> content.collections.v1.Collection
+	35, // 3: content.collections.v1.UpdateCollectionRequest.collection:type_name -> content.collections.v1.Collection
+	35, // 4: content.collections.v1.UpdateCollectionResponse.collection:type_name -> content.collections.v1.Collection
+	34, // 5: content.collections.v1.ListCollectionsRequest.visibility:type_name -> content.collections.v1.CollectionVisibility
+	36, // 6: content.collections.v1.ListCollectionsRequest.pagination:type_name -> content.common.v1.PaginationRequest
+	35, // 7: content.collections.v1.ListCollectionsResponse.collections:type_name -> content.collections.v1.Collection
+	37, // 8: content.collections.v1.ListCollectionsResponse.pagination:type_name -> content.common.v1.PaginationResponse
+	12, // 9: content.collections.v1.GetCollectionTreeResponse.nodes:type_name -> content.collections.v1.CollectionTreeNode
+	35, // 10: content.collections.v1.CollectionTreeNode.collection:type_name -> content.collections.v1.Collection
+	12, // 11: content.collections.v1.CollectionTreeNode.children:type_name -> content.collections.v1.CollectionTreeNode
+	35, // 12: content.collections.v1.MoveCollectionResponse.collection:type_name -> content.collections.v1.Collection
+	35, // 13: content.collections.v1.GetCollectionPathResponse.ancestors:type_name -> content.collections.v1.Collection
 	38, // 14: content.collections.v1.AddToCollectionResponse.item:type_name -> content.collections.v1.CollectionItem
 	39, // 15: content.collections.v1.GetCollectionItemsRequest.sort_by:type_name -> content.collections.v1.SortField
-	10, // 16: content.collections.v1.GetCollectionItemsRequest.pagination:type_name -> content.collections.v1.PaginationRequest
+	36, // 16: content.collections.v1.GetCollectionItemsRequest.pagination:type_name -> content.common.v1.PaginationRequest
 	38, // 17: content.collections.v1.GetCollectionItemsResponse.items:type_name -> content.collections.v1.CollectionItem
-	11, // 18: content.collections.v1.GetCollectionItemsResponse.pagination:type_name -> content.collections.v1.PaginationResponse
-	37, // 19: content.collections.v1.GetEntityCollectionsResponse.collections:type_name -> content.collections.v1.Collection
-	28, // 20: content.collections.v1.ReorderItemsRequest.item_orders:type_name -> content.collections.v1.ItemOrder
-	35, // 21: content.collections.v1.BatchGetEntityCollectionsResponse.entity_collections:type_name -> content.collections.v1.BatchGetEntityCollectionsResponse.EntityCollectionsEntry
-	37, // 22: content.collections.v1.CollectionList.collections:type_name -> content.collections.v1.Collection
-	34, // 23: content.collections.v1.BatchGetEntityCollectionsResponse.EntityCollectionsEntry.value:type_name -> content.collections.v1.CollectionList
+	37, // 18: content.collections.v1.GetCollectionItemsResponse.pagination:type_name -> content.common.v1.PaginationResponse
+	35, // 19: content.collections.v1.GetEntityCollectionsResponse.collections:type_name -> content.collections.v1.Collection
+	26, // 20: content.collections.v1.ReorderItemsRequest.item_orders:type_name -> content.collections.v1.ItemOrder
+	33, // 21: content.collections.v1.BatchGetEntityCollectionsResponse.entity_collections:type_name -> content.collections.v1.BatchGetEntityCollectionsResponse.EntityCollectionsEntry
+	35, // 22: content.collections.v1.CollectionList.collections:type_name -> content.collections.v1.Collection
+	32, // 23: content.collections.v1.BatchGetEntityCollectionsResponse.EntityCollectionsEntry.value:type_name -> content.collections.v1.CollectionList
 	0,  // 24: content.collections.v1.CollectionsService.CreateCollection:input_type -> content.collections.v1.CreateCollectionRequest
 	2,  // 25: content.collections.v1.CollectionsService.GetCollection:input_type -> content.collections.v1.GetCollectionRequest
 	4,  // 26: content.collections.v1.CollectionsService.UpdateCollection:input_type -> content.collections.v1.UpdateCollectionRequest
 	6,  // 27: content.collections.v1.CollectionsService.DeleteCollection:input_type -> content.collections.v1.DeleteCollectionRequest
 	8,  // 28: content.collections.v1.CollectionsService.ListCollections:input_type -> content.collections.v1.ListCollectionsRequest
-	12, // 29: content.collections.v1.CollectionsService.GetCollectionTree:input_type -> content.collections.v1.GetCollectionTreeRequest
-	15, // 30: content.collections.v1.CollectionsService.MoveCollection:input_type -> content.collections.v1.MoveCollectionRequest
-	17, // 31: content.collections.v1.CollectionsService.GetCollectionPath:input_type -> content.collections.v1.GetCollectionPathRequest
-	19, // 32: content.collections.v1.CollectionsService.AddToCollection:input_type -> content.collections.v1.AddToCollectionRequest
-	21, // 33: content.collections.v1.CollectionsService.RemoveFromCollection:input_type -> content.collections.v1.RemoveFromCollectionRequest
-	23, // 34: content.collections.v1.CollectionsService.GetCollectionItems:input_type -> content.collections.v1.GetCollectionItemsRequest
-	25, // 35: content.collections.v1.CollectionsService.GetEntityCollections:input_type -> content.collections.v1.GetEntityCollectionsRequest
-	27, // 36: content.collections.v1.CollectionsService.ReorderItems:input_type -> content.collections.v1.ReorderItemsRequest
-	30, // 37: content.collections.v1.CollectionsService.BatchAddToCollection:input_type -> content.collections.v1.BatchAddToCollectionRequest
-	32, // 38: content.collections.v1.CollectionsService.BatchGetEntityCollections:input_type -> content.collections.v1.BatchGetEntityCollectionsRequest
+	10, // 29: content.collections.v1.CollectionsService.GetCollectionTree:input_type -> content.collections.v1.GetCollectionTreeRequest
+	13, // 30: content.collections.v1.CollectionsService.MoveCollection:input_type -> content.collections.v1.MoveCollectionRequest
+	15, // 31: content.collections.v1.CollectionsService.GetCollectionPath:input_type -> content.collections.v1.GetCollectionPathRequest
+	17, // 32: content.collections.v1.CollectionsService.AddToCollection:input_type -> content.collections.v1.AddToCollectionRequest
+	19, // 33: content.collections.v1.CollectionsService.RemoveFromCollection:input_type -> content.collections.v1.RemoveFromCollectionRequest
+	21, // 34: content.collections.v1.CollectionsService.GetCollectionItems:input_type -> content.collections.v1.GetCollectionItemsRequest
+	23, // 35: content.collections.v1.CollectionsService.GetEntityCollections:input_type -> content.collections.v1.GetEntityCollectionsRequest
+	25, // 36: content.collections.v1.CollectionsService.ReorderItems:input_type -> content.collections.v1.ReorderItemsRequest
+	28, // 37: content.collections.v1.CollectionsService.BatchAddToCollection:input_type -> content.collections.v1.BatchAddToCollectionRequest
+	30, // 38: content.collections.v1.CollectionsService.BatchGetEntityCollections:input_type -> content.collections.v1.BatchGetEntityCollectionsRequest
 	1,  // 39: content.collections.v1.CollectionsService.CreateCollection:output_type -> content.collections.v1.CreateCollectionResponse
 	3,  // 40: content.collections.v1.CollectionsService.GetCollection:output_type -> content.collections.v1.GetCollectionResponse
 	5,  // 41: content.collections.v1.CollectionsService.UpdateCollection:output_type -> content.collections.v1.UpdateCollectionResponse
 	7,  // 42: content.collections.v1.CollectionsService.DeleteCollection:output_type -> content.collections.v1.DeleteCollectionResponse
 	9,  // 43: content.collections.v1.CollectionsService.ListCollections:output_type -> content.collections.v1.ListCollectionsResponse
-	13, // 44: content.collections.v1.CollectionsService.GetCollectionTree:output_type -> content.collections.v1.GetCollectionTreeResponse
-	16, // 45: content.collections.v1.CollectionsService.MoveCollection:output_type -> content.collections.v1.MoveCollectionResponse
-	18, // 46: content.collections.v1.CollectionsService.GetCollectionPath:output_type -> content.collections.v1.GetCollectionPathResponse
-	20, // 47: content.collections.v1.CollectionsService.AddToCollection:output_type -> content.collections.v1.AddToCollectionResponse
-	22, // 48: content.collections.v1.CollectionsService.RemoveFromCollection:output_type -> content.collections.v1.RemoveFromCollectionResponse
-	24, // 49: content.collections.v1.CollectionsService.GetCollectionItems:output_type -> content.collections.v1.GetCollectionItemsResponse
-	26, // 50: content.collections.v1.CollectionsService.GetEntityCollections:output_type -> content.collections.v1.GetEntityCollectionsResponse
-	29, // 51: content.collections.v1.CollectionsService.ReorderItems:output_type -> content.collections.v1.ReorderItemsResponse
-	31, // 52: content.collections.v1.CollectionsService.BatchAddToCollection:output_type -> content.collections.v1.BatchAddToCollectionResponse
-	33, // 53: content.collections.v1.CollectionsService.BatchGetEntityCollections:output_type -> content.collections.v1.BatchGetEntityCollectionsResponse
+	11, // 44: content.collections.v1.CollectionsService.GetCollectionTree:output_type -> content.collections.v1.GetCollectionTreeResponse
+	14, // 45: content.collections.v1.CollectionsService.MoveCollection:output_type -> content.collections.v1.MoveCollectionResponse
+	16, // 46: content.collections.v1.CollectionsService.GetCollectionPath:output_type -> content.collections.v1.GetCollectionPathResponse
+	18, // 47: content.collections.v1.CollectionsService.AddToCollection:output_type -> content.collections.v1.AddToCollectionResponse
+	20, // 48: content.collections.v1.CollectionsService.RemoveFromCollection:output_type -> content.collections.v1.RemoveFromCollectionResponse
+	22, // 49: content.collections.v1.CollectionsService.GetCollectionItems:output_type -> content.collections.v1.GetCollectionItemsResponse
+	24, // 50: content.collections.v1.CollectionsService.GetEntityCollections:output_type -> content.collections.v1.GetEntityCollectionsResponse
+	27, // 51: content.collections.v1.CollectionsService.ReorderItems:output_type -> content.collections.v1.ReorderItemsResponse
+	29, // 52: content.collections.v1.CollectionsService.BatchAddToCollection:output_type -> content.collections.v1.BatchAddToCollectionResponse
+	31, // 53: content.collections.v1.CollectionsService.BatchGetEntityCollections:output_type -> content.collections.v1.BatchGetEntityCollectionsResponse
 	39, // [39:54] is the sub-list for method output_type
 	24, // [24:39] is the sub-list for method input_type
 	24, // [24:24] is the sub-list for extension type_name
@@ -2279,7 +2162,7 @@ func file_collections_v1_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_collections_v1_service_proto_rawDesc), len(file_collections_v1_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   36,
+			NumMessages:   34,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

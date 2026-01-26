@@ -3,6 +3,7 @@ package content.tags.v1;
 
 import "google/api/annotations.proto";
 import "tags/v1/models.proto";
+import "common/v1/types.proto";
 
 option go_package = "github.com/panyam/goapplib/content/gen/go/tags/v1;tagsv1";
 
@@ -211,28 +212,12 @@ message ListTagsRequest {
   string name_filter = 4;
   // Order by: "name", "usage_count", "created_at", "display_order"
   string order_by = 5;
-  PaginationRequest pagination = 10;
+  content.common.v1.PaginationRequest pagination = 10;
 }
 
 message ListTagsResponse {
   repeated Tag tags = 1;
-  PaginationResponse pagination = 10;
-}
-
-// Standard pagination request.
-message PaginationRequest {
-  // Maximum number of items to return
-  int32 page_size = 1;
-  // Token for fetching the next page
-  string page_token = 2;
-}
-
-// Standard pagination response.
-message PaginationResponse {
-  // Token to fetch the next page (empty if no more pages)
-  string next_page_token = 1;
-  // Total count of items
-  int32 total_count = 2;
+  content.common.v1.PaginationResponse pagination = 10;
 }
 
 // === Entity Tagging Messages ===
@@ -318,13 +303,13 @@ message GetEntitiesWithTagRequest {
   string value = 3;
   string owner_id = 4;  // owner_id in "type:id" format
 
-  PaginationRequest pagination = 10;
+  content.common.v1.PaginationRequest pagination = 10;
 }
 
 message GetEntitiesWithTagResponse {
   // List of entity IDs that have this tag
   repeated string entity_ids = 1;
-  PaginationResponse pagination = 10;
+  content.common.v1.PaginationResponse pagination = 10;
 }
 
 // === Batch Operations Messages ===

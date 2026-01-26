@@ -18,12 +18,40 @@ A hierarchical collections service for organizing entities into folders, playlis
 CollectionsService Interface (Public API)
     |
 BaseCollectionsService (Shared logic)
+    |                    |
+gRPC Server          Connect RPC Adapter
+(embedded)           (ConnectCollectionsServer)
     |
 CollectionsStorageProvider Interface (Storage abstraction)
     |
 Concrete Backends
     +-- GORMCollectionsService (SQL databases)
     +-- DatastoreCollectionsService (Google Cloud)
+```
+
+### gRPC and Connect Support
+
+The service is directly registrable as a gRPC server and includes a Connect RPC adapter:
+
+```go
+import (
+    "github.com/panyam/goapplib/content/services/collections"
+    "github.com/panyam/goapplib/content/services/collections/backends"
+    collectionsv1 "github.com/panyam/goapplib/content/gen/go/collections/v1"
+    "github.com/panyam/goapplib/content/gen/go/collections/v1/collectionsv1connect"
+)
+
+// Create service
+service := backends.NewGORMCollectionsService(db)
+
+// Register as gRPC server
+grpcServer := grpc.NewServer()
+collectionsv1.RegisterCollectionsServiceServer(grpcServer, service)
+
+// Register as Connect handler (HTTP/2 + JSON)
+mux := http.NewServeMux()
+path, handler := collectionsv1connect.NewCollectionsServiceHandler(collections.NewConnectCollectionsServer(service))
+mux.Handle(path, handler)
 ```
 
 ## Quick Start

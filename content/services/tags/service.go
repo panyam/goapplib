@@ -38,6 +38,7 @@ import (
 	"sync"
 	"time"
 
+	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -129,7 +130,9 @@ type EntityTagsOptions struct {
 }
 
 // BaseTagsService provides shared logic for tags services.
+// Embeds UnimplementedTagsServiceServer for gRPC forward compatibility.
 type BaseTagsService struct {
+	v1.UnimplementedTagsServiceServer
 	StorageProvider TagsStorageProvider
 
 	// Optional in-memory cache for tag lookups
@@ -147,6 +150,9 @@ type BaseTagsService struct {
 	// Hooks for customization
 	Hooks Hooks
 }
+
+// Compile-time check that BaseTagsService implements TagsServiceServer.
+var _ v1.TagsServiceServer = (*BaseTagsService)(nil)
 
 // NewBaseTagsService creates a new BaseTagsService with the given storage provider.
 func NewBaseTagsService(provider TagsStorageProvider, opts ...ServiceOption) *BaseTagsService {
@@ -465,7 +471,7 @@ func (s *BaseTagsService) ListTags(ctx context.Context, req *v1.ListTagsRequest)
 
 	return &v1.ListTagsResponse{
 		Tags: tags,
-		Pagination: &v1.PaginationResponse{
+		Pagination: &commonv1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},
@@ -801,7 +807,7 @@ func (s *BaseTagsService) GetEntitiesWithTag(ctx context.Context, req *v1.GetEnt
 		if tag == nil {
 			return &v1.GetEntitiesWithTagResponse{
 				EntityIds:  []string{},
-				Pagination: &v1.PaginationResponse{},
+				Pagination: &commonv1.PaginationResponse{},
 			}, nil
 		}
 		tagID = tag.Id
@@ -834,7 +840,7 @@ func (s *BaseTagsService) GetEntitiesWithTag(ctx context.Context, req *v1.GetEnt
 
 	return &v1.GetEntitiesWithTagResponse{
 		EntityIds: entityIds,
-		Pagination: &v1.PaginationResponse{
+		Pagination: &commonv1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},

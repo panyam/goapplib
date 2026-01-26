@@ -4,6 +4,7 @@ package content.likes.v1;
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 import "likes/v1/models.proto";
+import "common/v1/types.proto";
 
 option go_package = "github.com/panyam/goapplib/content/gen/go/likes/v1;likesv1";
 
@@ -162,39 +163,23 @@ message ListReactorsRequest {
   string entity_id = 1;
   // Filter by reaction type (optional)
   string reaction_type = 2;
-  PaginationRequest pagination = 10;
-}
-
-// Standard pagination request.
-message PaginationRequest {
-  // Maximum number of items to return
-  int32 page_size = 1;
-  // Token for fetching the next page
-  string page_token = 2;
-}
-
-// Standard pagination response.
-message PaginationResponse {
-  // Token to fetch the next page (empty if no more pages)
-  string next_page_token = 1;
-  // Total count of items
-  int32 total_count = 2;
+  content.common.v1.PaginationRequest pagination = 10;
 }
 
 message ListReactorsResponse {
   repeated Like likes = 1;
-  PaginationResponse pagination = 10;
+  content.common.v1.PaginationResponse pagination = 10;
 }
 
 // ListUserReactionsRequest lists all reactions by a user.
 message ListUserReactionsRequest {
   string user_id = 1;
-  PaginationRequest pagination = 10;
+  content.common.v1.PaginationRequest pagination = 10;
 }
 
 message ListUserReactionsResponse {
   repeated Like likes = 1;
-  PaginationResponse pagination = 10;
+  content.common.v1.PaginationResponse pagination = 10;
 }
 
 // BatchGetUserReactionsRequest gets a user's reactions for multiple entities.

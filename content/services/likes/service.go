@@ -35,6 +35,7 @@ import (
 	"sync"
 	"time"
 
+	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -83,7 +84,9 @@ type LikesStorageProvider interface {
 }
 
 // BaseLikesService provides shared logic for likes services.
+// Embeds UnimplementedLikesServiceServer for gRPC forward compatibility.
 type BaseLikesService struct {
+	v1.UnimplementedLikesServiceServer
 	StorageProvider LikesStorageProvider
 
 	// Optional in-memory cache for counts
@@ -101,6 +104,9 @@ type BaseLikesService struct {
 	// Hooks for customization
 	Hooks Hooks
 }
+
+// Compile-time check that BaseLikesService implements LikesServiceServer.
+var _ v1.LikesServiceServer = (*BaseLikesService)(nil)
 
 // NewBaseLikesService creates a new BaseLikesService with the given storage provider.
 func NewBaseLikesService(provider LikesStorageProvider, opts ...ServiceOption) *BaseLikesService {
@@ -550,7 +556,7 @@ func (s *BaseLikesService) ListReactors(ctx context.Context, req *v1.ListReactor
 
 	return &v1.ListReactorsResponse{
 		Likes: likes,
-		Pagination: &v1.PaginationResponse{
+		Pagination: &commonv1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},
@@ -606,7 +612,7 @@ func (s *BaseLikesService) ListUserReactions(ctx context.Context, req *v1.ListUs
 
 	return &v1.ListUserReactionsResponse{
 		Likes: likes,
-		Pagination: &v1.PaginationResponse{
+		Pagination: &commonv1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},

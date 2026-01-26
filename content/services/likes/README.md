@@ -16,12 +16,40 @@ A high-volume reactions service supporting multiple reaction types (like, love, 
 LikesService Interface (Public API)
     ↓
 BaseLikesService (Shared logic + caching)
+    ↓                    ↓
+gRPC Server          Connect RPC Adapter
+(embedded)           (ConnectLikesServer)
     ↓
 LikesStorageProvider Interface (Storage abstraction)
     ↓
 Concrete Backends
     ├── GORMLikesService (SQL databases)
     └── DatastoreLikesService (Google Cloud)
+```
+
+### gRPC and Connect Support
+
+The service is directly registrable as a gRPC server and includes a Connect RPC adapter:
+
+```go
+import (
+    "github.com/panyam/goapplib/content/services/likes"
+    "github.com/panyam/goapplib/content/services/likes/backends"
+    likesv1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
+    "github.com/panyam/goapplib/content/gen/go/likes/v1/likesv1connect"
+)
+
+// Create service
+service := backends.NewGORMLikesService(db)
+
+// Register as gRPC server
+grpcServer := grpc.NewServer()
+likesv1.RegisterLikesServiceServer(grpcServer, service)
+
+// Register as Connect handler (HTTP/2 + JSON)
+mux := http.NewServeMux()
+path, handler := likesv1connect.NewLikesServiceHandler(likes.NewConnectLikesServer(service))
+mux.Handle(path, handler)
 ```
 
 ## Quick Start
