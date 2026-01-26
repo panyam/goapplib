@@ -18,9 +18,8 @@ type TagGORM struct {
 	Color           string
 	Description     string
 	DisplayOrder    int32
-	OwnerType       string       `gorm:"index:idx_tags_owner_key_value,priority:1;index:idx_tags_owner_scope,priority:1"`
-	OwnerId         string       `gorm:"index:idx_tags_owner_key_value,priority:2;index:idx_tags_owner_scope,priority:2"`
-	Scope           v1.TagScope  `gorm:"index:idx_tags_owner_scope,priority:3"`
+	OwnerId         string       `gorm:"index:idx_tags_owner_key_value,priority:1;index:idx_tags_owner_scope,priority:1"`
+	Scope           v1.TagScope  `gorm:"index:idx_tags_owner_scope,priority:2"`
 	UsageCount      int64        `gorm:"index:idx_tags_usage"`
 	Status          v1.TagStatus `gorm:"default:1"`
 	RedirectToTagId string
@@ -37,8 +36,7 @@ func (*TagGORM) TableName() string {
 // EntityTagGORM is the GORM model for content.tags.v1.EntityTag
 type EntityTagGORM struct {
 	TagId      string                 `gorm:"primaryKey;index:idx_entity_tags_tag,priority:1"`
-	EntityType string                 `gorm:"primaryKey;index:idx_entity_tags_entity,priority:1;index:idx_entity_tags_tag,priority:2"`
-	EntityId   string                 `gorm:"primaryKey;index:idx_entity_tags_entity,priority:2"`
+	EntityId   string                 `gorm:"primaryKey;index:idx_entity_tags_entity,priority:1;index:idx_entity_tags_tag,priority:2"`
 	TaggedBy   string                 `gorm:"primaryKey;index:idx_entity_tags_user,priority:1"`
 	Visibility v1.EntityTagVisibility `gorm:"index:idx_entity_tags_user,priority:2;default:3"`
 	CreatedAt  time.Time
@@ -51,7 +49,6 @@ func (*EntityTagGORM) TableName() string {
 
 // TagUsageCountsGORM is the GORM model for content.tags.v1.TagUsageCounts
 type TagUsageCountsGORM struct {
-	EntityType string `gorm:"primaryKey"`
 	EntityId   string `gorm:"primaryKey"`
 	TotalCount int64
 	ByName     map[string]int64 `gorm:"serializer:json;type:text"`

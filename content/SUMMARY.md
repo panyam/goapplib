@@ -1,6 +1,6 @@
 # Content Organization Services
 
-A set of reusable content organization services that can attach metadata to any entity via the `entity_type + entity_id` pattern.
+A set of reusable content organization services that can attach metadata to any entity via the `entity_id` pattern.
 
 ## Purpose
 
@@ -123,13 +123,15 @@ Indexes are project-wide (not namespace-specific). Wait for indexes to build in 
 | CommentsService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
 | UserActivityService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
 
+### Design Simplifications
+
+**Removed `entity_type`**: All services now use only `entity_id` to identify entities. The entity type can be encoded in the ID if needed (e.g., "song:123") or determined by the service/table instance being used.
+
+**Removed `owner_type`**: Collections and Tags services now use only `owner_id` in "type:id" format (e.g., "user:123", "org:456"). This simplifies Datastore indexes by removing one field from composite indexes.
+
 ### Tags Service Notes
 
-The Tag model uses `name` instead of `key` for the metadata identifier field (e.g., `name="venue"`, `value="Wembley Stadium"`). This avoids a naming collision in the Datastore generator where proto field `key` becomes Go field `Key`, conflicting with the auto-generated `Key *datastore.Key` field. The `key` → `name` rename was applied to:
-- models.proto: `Tag.name`, `Tag.normalized_name`, `TagUsageCounts.by_name`
-- gae.proto: `TagDatastore.name`, `TagDatastore.normalized_name`
-- gorm.proto: `TagGORM.name`, `TagGORM.normalized_name`, `TagUsageCountsGORM.by_name`
-- service.proto: All API fields (`name`, `name_filter` instead of `key`, `key_filter`)
+The Tag model uses `name` instead of `key` for the metadata identifier field (e.g., `name="venue"`, `value="Wembley Stadium"`). This avoids a naming collision in the Datastore generator where proto field `key` becomes Go field `Key`, conflicting with the auto-generated `Key *datastore.Key` field.
 
 ## See Also
 

@@ -156,13 +156,12 @@ func (x *CollectionGORM) GetStatus() CollectionStatus {
 }
 
 // CollectionItemGORM is the GORM model for CollectionItem (join table).
-// Composite primary key: (collection_id, entity_type, entity_id)
+// Composite primary key: (collection_id, entity_id)
 type CollectionItemGORM struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Composite primary key
 	CollectionId string `protobuf:"bytes,1,opt,name=collection_id,json=collectionId,proto3" json:"collection_id,omitempty"`
-	EntityType   string `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId     string `protobuf:"bytes,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityId     string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Ordering - indexed for sorted queries
 	DisplayOrder int32 `protobuf:"varint,10,opt,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"`
 	// Metadata - needs type override
@@ -204,13 +203,6 @@ func (*CollectionItemGORM) Descriptor() ([]byte, []int) {
 func (x *CollectionItemGORM) GetCollectionId() string {
 	if x != nil {
 		return x.CollectionId
-	}
-	return ""
-}
-
-func (x *CollectionItemGORM) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
 	}
 	return ""
 }
@@ -258,15 +250,12 @@ const file_collections_v1_gorm_proto_rawDesc = "" +
 	"visibility\x18# \x01(\x0e2,.content.collections.v1.CollectionVisibilityB&\x92\xa6\x1d\"R index:idx_collections_visibilityR\n" +
 	"visibility\x12Q\n" +
 	"\x06status\x18( \x01(\x0e2(.content.collections.v1.CollectionStatusB\x0f\x92\xa6\x1d\vR\tdefault:1R\x06status:4ʦ\x1d0\n" +
-	"!content.collections.v1.Collection\x12\vcollections\"\xb7\x04\n" +
+	"!content.collections.v1.Collection\x12\vcollections\"\xd6\x03\n" +
 	"\x12CollectionItemGORM\x12g\n" +
 	"\rcollection_id\x18\x01 \x01(\tBB\x92\xa6\x1d>R\n" +
-	"primaryKeyR0index:idx_collection_items_collection,priority:1R\fcollectionId\x12\x91\x01\n" +
-	"\ventity_type\x18\x02 \x01(\tBp\x92\xa6\x1dlR\n" +
-	"primaryKeyR,index:idx_collection_items_entity,priority:1R0index:idx_collection_items_collection,priority:2R\n" +
-	"entityType\x12[\n" +
-	"\tentity_id\x18\x03 \x01(\tB>\x92\xa6\x1d:R\n" +
-	"primaryKeyR,index:idx_collection_items_entity,priority:2R\bentityId\x12[\n" +
+	"primaryKeyR0index:idx_collection_items_collection,priority:1R\fcollectionId\x12\x8d\x01\n" +
+	"\tentity_id\x18\x02 \x01(\tBp\x92\xa6\x1dlR\n" +
+	"primaryKeyR,index:idx_collection_items_entity,priority:1R0index:idx_collection_items_collection,priority:2R\bentityId\x12[\n" +
 	"\rdisplay_order\x18\n" +
 	" \x01(\x05B6\x92\xa6\x1d2R0index:idx_collection_items_collection,priority:3R\fdisplayOrder\x12+\n" +
 	"\bmetadata\x18\x19 \x01(\tB\x0f\x92\xa6\x1d\vR\ttype:textR\bmetadata:=ʦ\x1d9\n" +

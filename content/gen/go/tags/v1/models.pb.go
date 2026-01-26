@@ -248,7 +248,7 @@ func (EntityTagVisibility) EnumDescriptor() ([]byte, []int) {
 // - Pure tag: key is empty, value is the label (e.g., "Favorites", "Rock")
 // - Metadata: key is present (e.g., key="venue", value="Wembley Stadium")
 //
-// Uniqueness: (owner_type, owner_id, normalized_key, normalized_value)
+// Uniqueness: (owner_id, normalized_key, normalized_value)
 // must be unique. This prevents duplicate tags/metadata.
 //
 // Normalization: The service computes normalized_key and normalized_value
@@ -279,12 +279,11 @@ type Tag struct {
 	Color        string `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`                                    // Hex "#FF5733" or named "blue"
 	Description  string `protobuf:"bytes,8,opt,name=description,proto3" json:"description,omitempty"`                        // Optional description
 	DisplayOrder int32  `protobuf:"varint,9,opt,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"` // For ordering in UI
-	// Ownership
-	OwnerType string   `protobuf:"bytes,10,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`       // "user", "org", "system"
-	OwnerId   string   `protobuf:"bytes,11,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`             // ID of owner (user ID, org ID, or empty for system)
-	Scope     TagScope `protobuf:"varint,12,opt,name=scope,proto3,enum=content.tags.v1.TagScope" json:"scope,omitempty"` // Visibility scope
+	// Ownership - owner_id in "type:id" format (e.g., "user:123", "org:456")
+	OwnerId string   `protobuf:"bytes,10,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	Scope   TagScope `protobuf:"varint,12,opt,name=scope,proto3,enum=content.tags.v1.TagScope" json:"scope,omitempty"` // Visibility scope
 	// Statistics (denormalized for performance)
-	// Counts unique (entity_type, entity_id) pairs, NOT EntityTag rows.
+	// Counts unique (entity_id) pairs, NOT EntityTag rows.
 	// If 3 users tag same book, usage_count = 1.
 	UsageCount int64 `protobuf:"varint,15,opt,name=usage_count,json=usageCount,proto3" json:"usage_count,omitempty"`
 	// Lifecycle management (for migrations like private → public)
@@ -393,13 +392,6 @@ func (x *Tag) GetDisplayOrder() int32 {
 	return 0
 }
 
-func (x *Tag) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
-	}
-	return ""
-}
-
 func (x *Tag) GetOwnerId() string {
 	if x != nil {
 		return x.OwnerId
@@ -457,24 +449,24 @@ func (x *Tag) GetCreatorId() string {
 }
 
 // EntityTag represents the association between a tag and an entity.
-// This is the join table that allows any entity to have multiple tags.
+// This is the join table that allows any to have multiple tags.
 //
-// Uniqueness: (tag_id, entity_type, entity_id, tagged_by) must be unique.
+// Uniqueness: (tag_id, entity_id, tagged_by) must be unique.
 // This allows multiple users to independently apply/remove the same shared tag.
 // For example, both User A and User B can tag Book B1 with shared "rock" tag.
+// Note: Entity type is determined by which service/table instance is used.
 type EntityTag struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Tag being applied
 	TagId string `protobuf:"bytes,1,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
 	// Entity being tagged
-	EntityType string `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"` // e.g., "song", "document", "post"
-	EntityId   string `protobuf:"bytes,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityId string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Who applied this tag (part of uniqueness constraint)
-	TaggedBy string `protobuf:"bytes,4,opt,name=tagged_by,json=taggedBy,proto3" json:"tagged_by,omitempty"`
+	TaggedBy string `protobuf:"bytes,3,opt,name=tagged_by,json=taggedBy,proto3" json:"tagged_by,omitempty"`
 	// Visibility of THIS application (not the tag itself).
 	// A public tag can still have private applications.
 	// Example: User privately tracks "Rock" on a book without public endorsement.
-	Visibility EntityTagVisibility `protobuf:"varint,5,opt,name=visibility,proto3,enum=content.tags.v1.EntityTagVisibility" json:"visibility,omitempty"`
+	Visibility EntityTagVisibility `protobuf:"varint,4,opt,name=visibility,proto3,enum=content.tags.v1.EntityTagVisibility" json:"visibility,omitempty"`
 	// When the tag was applied
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -518,13 +510,6 @@ func (x *EntityTag) GetTagId() string {
 	return ""
 }
 
-func (x *EntityTag) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
-}
-
 func (x *EntityTag) GetEntityId() string {
 	if x != nil {
 		return x.EntityId
@@ -555,16 +540,16 @@ func (x *EntityTag) GetCreatedAt() *timestamppb.Timestamp {
 
 // TagUsageCounts provides aggregated tag statistics for an entity.
 // Optional: for apps that want to show "10 tags" without fetching all tags.
+// Note: Entity type is determined by which service/table instance is used.
 type TagUsageCounts struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	EntityType string                 `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId   string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	EntityId string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Total number of tags on this entity
-	TotalCount int64 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	TotalCount int64 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	// Count by name (for metadata grouping)
 	// e.g., {"": 5, "venue": 2, "year": 1} means 5 pure tags, 2 venues, 1 year
-	ByName        map[string]int64       `protobuf:"bytes,4,rep,name=by_name,json=byName,proto3" json:"by_name,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	ByName        map[string]int64       `protobuf:"bytes,3,rep,name=by_name,json=byName,proto3" json:"by_name,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -599,13 +584,6 @@ func (*TagUsageCounts) Descriptor() ([]byte, []int) {
 	return file_tags_v1_models_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *TagUsageCounts) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
-}
-
 func (x *TagUsageCounts) GetEntityId() string {
 	if x != nil {
 		return x.EntityId
@@ -638,7 +616,7 @@ var File_tags_v1_models_proto protoreflect.FileDescriptor
 
 const file_tags_v1_models_proto_rawDesc = "" +
 	"\n" +
-	"\x14tags/v1/models.proto\x12\x0fcontent.tags.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa0\x05\n" +
+	"\x14tags/v1/models.proto\x12\x0fcontent.tags.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x81\x05\n" +
 	"\x03Tag\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
@@ -648,11 +626,9 @@ const file_tags_v1_models_proto_rawDesc = "" +
 	"\x04type\x18\x06 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x14\n" +
 	"\x05color\x18\a \x01(\tR\x05color\x12 \n" +
 	"\vdescription\x18\b \x01(\tR\vdescription\x12#\n" +
-	"\rdisplay_order\x18\t \x01(\x05R\fdisplayOrder\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\n" +
-	" \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\v \x01(\tR\aownerId\x12/\n" +
+	"\rdisplay_order\x18\t \x01(\x05R\fdisplayOrder\x12\x19\n" +
+	"\bowner_id\x18\n" +
+	" \x01(\tR\aownerId\x12/\n" +
 	"\x05scope\x18\f \x01(\x0e2\x19.content.tags.v1.TagScopeR\x05scope\x12\x1f\n" +
 	"\vusage_count\x18\x0f \x01(\x03R\n" +
 	"usageCount\x122\n" +
@@ -663,28 +639,24 @@ const file_tags_v1_models_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n" +
 	"\n" +
-	"creator_id\x18\x16 \x01(\tR\tcreatorId\"\xfe\x01\n" +
+	"creator_id\x18\x16 \x01(\tR\tcreatorId\"\xdd\x01\n" +
 	"\tEntityTag\x12\x15\n" +
-	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x1f\n" +
-	"\ventity_type\x18\x02 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x03 \x01(\tR\bentityId\x12\x1b\n" +
-	"\ttagged_by\x18\x04 \x01(\tR\btaggedBy\x12D\n" +
+	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1b\n" +
+	"\ttagged_by\x18\x03 \x01(\tR\btaggedBy\x12D\n" +
 	"\n" +
-	"visibility\x18\x05 \x01(\x0e2$.content.tags.v1.EntityTagVisibilityR\n" +
+	"visibility\x18\x04 \x01(\x0e2$.content.tags.v1.EntityTagVisibilityR\n" +
 	"visibility\x129\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xab\x02\n" +
-	"\x0eTagUsageCounts\x12\x1f\n" +
-	"\ventity_type\x18\x01 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1f\n" +
-	"\vtotal_count\x18\x03 \x01(\x03R\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x8a\x02\n" +
+	"\x0eTagUsageCounts\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x03R\n" +
 	"totalCount\x12D\n" +
-	"\aby_name\x18\x04 \x03(\v2+.content.tags.v1.TagUsageCounts.ByNameEntryR\x06byName\x129\n" +
+	"\aby_name\x18\x03 \x03(\v2+.content.tags.v1.TagUsageCounts.ByNameEntryR\x06byName\x129\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a9\n" +
+	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a9\n" +
 	"\vByNameEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01*h\n" +

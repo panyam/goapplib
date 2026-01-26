@@ -46,7 +46,7 @@ enum EntityTagVisibility {
 // - Pure tag: key is empty, value is the label (e.g., "Favorites", "Rock")
 // - Metadata: key is present (e.g., key="venue", value="Wembley Stadium")
 //
-// Uniqueness: (owner_type, owner_id, normalized_key, normalized_value)
+// Uniqueness: (owner_id, normalized_key, normalized_value)
 // must be unique. This prevents duplicate tags/metadata.
 //
 // Normalization: The service computes normalized_key and normalized_value
@@ -83,13 +83,12 @@ message Tag {
   string description = 8;       // Optional description
   int32 display_order = 9;      // For ordering in UI
 
-  // Ownership
-  string owner_type = 10;       // "user", "org", "system"
-  string owner_id = 11;         // ID of owner (user ID, org ID, or empty for system)
+  // Ownership - owner_id in "type:id" format (e.g., "user:123", "org:456")
+  string owner_id = 10;
   TagScope scope = 12;          // Visibility scope
 
   // Statistics (denormalized for performance)
-  // Counts unique (entity_type, entity_id) pairs, NOT EntityTag rows.
+  // Counts unique (entity_id) pairs, NOT EntityTag rows.
   // If 3 users tag same book, usage_count = 1.
   int64 usage_count = 15;
 
@@ -106,26 +105,26 @@ message Tag {
 }
 
 // EntityTag represents the association between a tag and an entity.
-// This is the join table that allows any entity to have multiple tags.
+// This is the join table that allows any to have multiple tags.
 //
-// Uniqueness: (tag_id, entity_type, entity_id, tagged_by) must be unique.
+// Uniqueness: (tag_id, entity_id, tagged_by) must be unique.
 // This allows multiple users to independently apply/remove the same shared tag.
 // For example, both User A and User B can tag Book B1 with shared "rock" tag.
+// Note: Entity type is determined by which service/table instance is used.
 message EntityTag {
   // Tag being applied
   string tag_id = 1;
 
   // Entity being tagged
-  string entity_type = 2;       // e.g., "song", "document", "post"
-  string entity_id = 3;
+  string entity_id = 2;
 
   // Who applied this tag (part of uniqueness constraint)
-  string tagged_by = 4;
+  string tagged_by = 3;
 
   // Visibility of THIS application (not the tag itself).
   // A public tag can still have private applications.
   // Example: User privately tracks "Rock" on a book without public endorsement.
-  EntityTagVisibility visibility = 5;
+  EntityTagVisibility visibility = 4;
 
   // When the tag was applied
   google.protobuf.Timestamp created_at = 10;
@@ -133,16 +132,16 @@ message EntityTag {
 
 // TagUsageCounts provides aggregated tag statistics for an entity.
 // Optional: for apps that want to show "10 tags" without fetching all tags.
+// Note: Entity type is determined by which service/table instance is used.
 message TagUsageCounts {
-  string entity_type = 1;
-  string entity_id = 2;
+  string entity_id = 1;
 
   // Total number of tags on this entity
-  int64 total_count = 3;
+  int64 total_count = 2;
 
   // Count by name (for metadata grouping)
   // e.g., {"": 5, "venue": 2, "year": 1} means 5 pure tags, 2 venues, 1 year
-  map<string, int64> by_name = 4;
+  map<string, int64> by_name = 3;
 
-  google.protobuf.Timestamp updated_at = 5;
+  google.protobuf.Timestamp updated_at = 4;
 }

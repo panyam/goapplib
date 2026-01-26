@@ -46,14 +46,12 @@ service.AutoMigrate()
 // Create a tag
 createResp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
     Value:     "Rock",
-    OwnerType: "user",
     OwnerId:   "user-123",
     Scope:     v1.TagScope_TAG_SCOPE_PRIVATE,
 })
 
 // Tag an entity
 tagResp, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-    EntityType: "song",
     EntityId:   "song-456",
     TagId:      createResp.Tag.Id,
     TaggedBy:   "user-123",
@@ -73,10 +71,8 @@ service := backends.NewDatastoreTagsService(client, "my-namespace")
 
 // Create a tag with inline tagging
 tagResp, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-    EntityType: "book",
     EntityId:   "book-123",
     Value:      "To Read",
-    OwnerType:  "user",
     OwnerId:    "user-456",
     TaggedBy:   "user-456",
 })
@@ -121,7 +117,6 @@ Simple labels without a name component:
 // Creates a tag with value="Favorites", name=""
 service.CreateTag(ctx, &v1.CreateTagRequest{
     Value:     "Favorites",
-    OwnerType: "user",
     OwnerId:   "user-123",
 })
 ```
@@ -135,7 +130,6 @@ Structured tags with both name and value:
 service.CreateTag(ctx, &v1.CreateTagRequest{
     Name:      "venue",
     Value:     "Wembley Stadium",
-    OwnerType: "user",
     OwnerId:   "user-123",
 })
 ```
@@ -155,7 +149,6 @@ Multiple users can apply the same tag to the same entity. Each application is tr
 ```go
 // User 1 tags a book
 service.TagEntity(ctx, &v1.TagEntityRequest{
-    EntityType: "book",
     EntityId:   "book-123",
     TagId:      tagID,
     TaggedBy:   "user-1",
@@ -163,7 +156,6 @@ service.TagEntity(ctx, &v1.TagEntityRequest{
 
 // User 2 also tags the same book with the same tag
 service.TagEntity(ctx, &v1.TagEntityRequest{
-    EntityType: "book",
     EntityId:   "book-123",
     TagId:      tagID,
     TaggedBy:   "user-2",
@@ -171,7 +163,6 @@ service.TagEntity(ctx, &v1.TagEntityRequest{
 
 // User 1 removes their tag (User 2's tag remains)
 service.UntagEntity(ctx, &v1.UntagEntityRequest{
-    EntityType: "book",
     EntityId:   "book-123",
     TagId:      tagID,
     TaggedBy:   "user-1",
@@ -185,7 +176,6 @@ service.UntagEntity(ctx, &v1.UntagEntityRequest{
 ```protobuf
 message Tag {
   string id = 1;
-  string owner_type = 2;       // "user", "org"
   string owner_id = 3;
   string name = 4;             // For metadata tags (optional)
   string normalized_name = 5;
@@ -216,7 +206,7 @@ message EntityTag {
 
 ### GORM Tables
 
-- `tags` - Tag definitions with composite unique index on (owner_type, owner_id, normalized_name, normalized_value)
+- `tags` - Tag definitions with composite unique index on (owner_id, normalized_name, normalized_value)
 - `entity_tags` - Tag applications with composite unique index on (tag_id, entity_type, entity_id, tagged_by)
 
 ### Datastore Kinds
@@ -299,10 +289,8 @@ make testrealDS DS_REAL_PROJECT=my-project DS_REAL_CREDENTIALS=~/creds.json
 3. **Use Inline Creation**: When tagging entities, use the inline creation feature to create tags on-the-fly:
    ```go
    service.TagEntity(ctx, &v1.TagEntityRequest{
-       EntityType: "book",
        EntityId:   "book-123",
        Value:      "To Read",  // Creates tag if not exists
-       OwnerType:  "user",
        OwnerId:    "user-456",
        TaggedBy:   "user-456",
    })

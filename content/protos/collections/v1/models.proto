@@ -34,7 +34,7 @@ enum SortField {
 // - Path stores ancestor IDs for efficient subtree queries
 // - Type is a simple string for flexibility (folder, playlist, album, etc.)
 //
-// Uniqueness: (owner_type, owner_id, parent_id, normalized_name)
+// Uniqueness: (owner_id, parent_id, normalized_name)
 // must be unique to prevent duplicate sibling collections.
 message Collection {
   // Unique identifier
@@ -50,9 +50,9 @@ message Collection {
   // Optional description
   string description = 4;
 
-  // Ownership
-  string owner_type = 10;       // "user", "org", "system"
-  string owner_id = 11;         // ID of owner
+  // Ownership - owner_id identifies who owns the collection.
+  // Format: "type:id" (e.g., "user:123", "org:456", "system:default")
+  string owner_id = 10;
 
   // Hierarchy
   // Parent collection ID (empty = root collection)
@@ -96,15 +96,15 @@ message Collection {
 // CollectionItem represents an entity added to a collection.
 // This is the join table that allows any entity to be in multiple collections.
 //
-// Composite Key: (collection_id, entity_type, entity_id) - enforces uniqueness.
+// Composite Key: (collection_id, entity_id) - enforces uniqueness.
 // An entity can only be in a collection once, but can be in multiple collections.
+// Note: Entity type is determined by which service/table instance is used.
 message CollectionItem {
   // The collection this item belongs to
   string collection_id = 1;
 
   // Entity being added to collection
-  string entity_type = 2;       // e.g., "document", "post", "song"
-  string entity_id = 3;
+  string entity_id = 2;
 
   // Order within the collection (for manual ordering)
   int32 display_order = 10;

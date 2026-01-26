@@ -46,7 +46,6 @@ service.AutoMigrate()
 // Create a folder
 collResp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
     Name:       "My Projects",
-    OwnerType:  "user",
     OwnerId:    "user-123",
     Type:       "folder",
     Visibility: v1.CollectionVisibility_COLLECTION_VISIBILITY_PRIVATE,
@@ -55,7 +54,6 @@ collResp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
 // Add an entity to the collection
 addResp, err := service.AddToCollection(ctx, &v1.AddToCollectionRequest{
     CollectionId: collResp.Collection.Id,
-    EntityType:   "document",
     EntityId:     "doc-456",
     AddedBy:      "user-123",
 })
@@ -75,7 +73,6 @@ service := backends.NewDatastoreCollectionsService(client, "my-namespace")
 // Create a nested collection
 childResp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
     Name:      "Subfolder",
-    OwnerType: "user",
     OwnerId:   "user-123",
     ParentId:  parentCollectionID,  // Nested under parent
 })
@@ -139,7 +136,6 @@ Collection types are simple strings stored as metadata. The service does not enf
 // Create root collection
 root, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
     Name:      "Documents",
-    OwnerType: "user",
     OwnerId:   "user-123",
 })
 // root.Depth = 0, root.Path = []
@@ -147,7 +143,6 @@ root, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
 // Create child collection
 child, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
     Name:      "Work",
-    OwnerType: "user",
     OwnerId:   "user-123",
     ParentId:  root.Collection.Id,
 })
@@ -156,7 +151,6 @@ child, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
 // Create grandchild
 grandchild, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
     Name:      "Projects",
-    OwnerType: "user",
     OwnerId:   "user-123",
     ParentId:  child.Collection.Id,
 })
@@ -204,7 +198,6 @@ Items have a `display_order` field for custom ordering:
 // Add items (auto-assigned sequential display_order)
 service.AddToCollection(ctx, &v1.AddToCollectionRequest{
     CollectionId: collID,
-    EntityType:   "song",
     EntityId:     "song-1",
     AddedBy:      "user-123",
 })
@@ -212,7 +205,6 @@ service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 
 service.AddToCollection(ctx, &v1.AddToCollectionRequest{
     CollectionId: collID,
-    EntityType:   "song",
     EntityId:     "song-2",
     AddedBy:      "user-123",
 })
@@ -222,8 +214,8 @@ service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 service.ReorderItems(ctx, &v1.ReorderItemsRequest{
     CollectionId: collID,
     ItemOrders: []*v1.ItemOrder{
-        {EntityType: "song", EntityId: "song-2", DisplayOrder: 1},
-        {EntityType: "song", EntityId: "song-1", DisplayOrder: 2},
+        {EntityId: "song-2", DisplayOrder: 1},
+        {EntityId: "song-1", DisplayOrder: 2},
     },
 })
 ```
@@ -254,7 +246,6 @@ message Collection {
   string name = 2;              // Display name
   string normalized_name = 3;   // Lowercase for deduplication
   string description = 4;
-  string owner_type = 5;        // "user", "org"
   string owner_id = 6;
   string parent_id = 7;         // Parent collection (empty = root)
   repeated string path = 8;     // Ancestor IDs for subtree queries
@@ -374,13 +365,11 @@ go test ./content/tests/datastore/... -run TestCollections
    // Add document to both "Work" and "Favorites" collections
    service.AddToCollection(ctx, &v1.AddToCollectionRequest{
        CollectionId: workCollID,
-       EntityType:   "document",
        EntityId:     "doc-123",
        AddedBy:      "user-1",
    })
    service.AddToCollection(ctx, &v1.AddToCollectionRequest{
        CollectionId: favoritesCollID,
-       EntityType:   "document",
        EntityId:     "doc-123",
        AddedBy:      "user-1",
    })

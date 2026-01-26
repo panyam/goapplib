@@ -42,7 +42,6 @@ func TagToTagDatastore(
 		Color:           src.Color,
 		Description:     src.Description,
 		DisplayOrder:    src.DisplayOrder,
-		OwnerType:       src.OwnerType,
 		OwnerId:         src.OwnerId,
 		Scope:           src.Scope,
 		UsageCount:      src.UsageCount,
@@ -105,7 +104,6 @@ func TagFromTagDatastore(
 		Color:           src.Color,
 		Description:     src.Description,
 		DisplayOrder:    src.DisplayOrder,
-		OwnerType:       src.OwnerType,
 		OwnerId:         src.OwnerId,
 		Scope:           src.Scope,
 		UsageCount:      src.UsageCount,
@@ -154,7 +152,6 @@ func EntityTagToEntityTagDatastore(
 	// Initialize struct with inline values
 	*dest = EntityTagDatastore{
 		TagId:      src.TagId,
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TaggedBy:   src.TaggedBy,
 		Visibility: src.Visibility,
@@ -202,7 +199,6 @@ func EntityTagFromEntityTagDatastore(
 	// Initialize struct with inline values
 	*dest = v1.EntityTag{
 		TagId:      src.TagId,
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TaggedBy:   src.TaggedBy,
 		Visibility: src.Visibility,
@@ -246,7 +242,6 @@ func TagUsageCountsToTagUsageCountsDatastore(
 
 	// Initialize struct with inline values
 	*dest = TagUsageCountsDatastore{
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TotalCount: src.TotalCount,
 	}
@@ -296,7 +291,6 @@ func TagUsageCountsFromTagUsageCountsDatastore(
 
 	// Initialize struct with inline values
 	*dest = v1.TagUsageCounts{
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TotalCount: src.TotalCount,
 		ByName:     src.ByName,

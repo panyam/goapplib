@@ -33,10 +33,9 @@ message LikeDatastore {
   string id = 1 [(dal.v1.column) = {
     datastore_tags: ["-"]
   }];
-  string entity_type = 2;
-  string entity_id = 3;
-  string user_id = 4;
-  string reaction_type = 5;
+  string entity_id = 2;
+  string user_id = 3;
+  string reaction_type = 4;
 }
 
 // LikeCountsDatastore is the Datastore model for denormalized like counts.
@@ -47,12 +46,11 @@ message LikeCountsDatastore {
     implement_property_loader: true
   };
 
-  // Composite key: entity_type:entity_id
-  string entity_type = 1;
-  string entity_id = 2;
-  int64 total_count = 3;
+  // Key is entity_id
+  string entity_id = 1;
+  int64 total_count = 2;
   // JSON-serialized map of reaction type to count
-  map<string, int64> by_reaction_type = 4 [(dal.v1.column) = {
+  map<string, int64> by_reaction_type = 3 [(dal.v1.column) = {
     datastore_tags: ["noindex"]
   }];
 }

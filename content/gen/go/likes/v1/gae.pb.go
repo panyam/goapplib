@@ -112,10 +112,9 @@ func (x *ReactionTypeDatastore) GetIsDefault() bool {
 type LikeDatastore struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId      string                 `protobuf:"bytes,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	UserId        string                 `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ReactionType  string                 `protobuf:"bytes,5,opt,name=reaction_type,json=reactionType,proto3" json:"reaction_type,omitempty"`
+	EntityId      string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ReactionType  string                 `protobuf:"bytes,4,opt,name=reaction_type,json=reactionType,proto3" json:"reaction_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -157,13 +156,6 @@ func (x *LikeDatastore) GetId() string {
 	return ""
 }
 
-func (x *LikeDatastore) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
-}
-
 func (x *LikeDatastore) GetEntityId() string {
 	if x != nil {
 		return x.EntityId
@@ -188,12 +180,11 @@ func (x *LikeDatastore) GetReactionType() string {
 // LikeCountsDatastore is the Datastore model for denormalized like counts.
 type LikeCountsDatastore struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Composite key: entity_type:entity_id
-	EntityType string `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId   string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	TotalCount int64  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// Key is entity_id
+	EntityId   string `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	TotalCount int64  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	// JSON-serialized map of reaction type to count
-	ByReactionType map[string]int64 `protobuf:"bytes,4,rep,name=by_reaction_type,json=byReactionType,proto3" json:"by_reaction_type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	ByReactionType map[string]int64 `protobuf:"bytes,3,rep,name=by_reaction_type,json=byReactionType,proto3" json:"by_reaction_type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -226,13 +217,6 @@ func (x *LikeCountsDatastore) ProtoReflect() protoreflect.Message {
 // Deprecated: Use LikeCountsDatastore.ProtoReflect.Descriptor instead.
 func (*LikeCountsDatastore) Descriptor() ([]byte, []int) {
 	return file_likes_v1_gae_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *LikeCountsDatastore) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
 }
 
 func (x *LikeCountsDatastore) GetEntityId() string {
@@ -269,22 +253,18 @@ const file_likes_v1_gae_proto_rawDesc = "" +
 	"\rdisplay_order\x18\x05 \x01(\x05R\fdisplayOrder\x12\x1d\n" +
 	"\n" +
 	"is_default\x18\x06 \x01(\bR\tisDefault:1Ҧ\x1d-\n" +
-	"\fReactionType*\x1dcontent.likes.v1.ReactionType\"\xc7\x01\n" +
+	"\fReactionType*\x1dcontent.likes.v1.ReactionType\"\xa6\x01\n" +
 	"\rLikeDatastore\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\x92\xa6\x1d\x03r\x01-R\x02id\x12\x1f\n" +
-	"\ventity_type\x18\x02 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x03 \x01(\tR\bentityId\x12\x17\n" +
-	"\auser_id\x18\x04 \x01(\tR\x06userId\x12#\n" +
-	"\rreaction_type\x18\x05 \x01(\tR\freactionType:!Ҧ\x1d\x1d\n" +
-	"\x04Like*\x15content.likes.v1.Like\"\xdc\x02\n" +
-	"\x13LikeCountsDatastore\x12\x1f\n" +
-	"\ventity_type\x18\x01 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1f\n" +
-	"\vtotal_count\x18\x03 \x01(\x03R\n" +
+	"\x02id\x18\x01 \x01(\tB\a\x92\xa6\x1d\x03r\x01-R\x02id\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12#\n" +
+	"\rreaction_type\x18\x04 \x01(\tR\freactionType:!Ҧ\x1d\x1d\n" +
+	"\x04Like*\x15content.likes.v1.Like\"\xbb\x02\n" +
+	"\x13LikeCountsDatastore\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x03R\n" +
 	"totalCount\x12r\n" +
-	"\x10by_reaction_type\x18\x04 \x03(\v29.content.likes.v1.LikeCountsDatastore.ByReactionTypeEntryB\r\x92\xa6\x1d\tr\anoindexR\x0ebyReactionType\x1aA\n" +
+	"\x10by_reaction_type\x18\x03 \x03(\v29.content.likes.v1.LikeCountsDatastore.ByReactionTypeEntryB\r\x92\xa6\x1d\tr\anoindexR\x0ebyReactionType\x1aA\n" +
 	"\x13ByReactionTypeEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01:/Ҧ\x1d+\n" +

@@ -2,7 +2,6 @@ syntax = "proto3";
 package content.collections.v1;
 
 import "google/api/annotations.proto";
-import "common/v1/types.proto";
 import "collections/v1/models.proto";
 
 option go_package = "github.com/panyam/goapplib/content/gen/go/collections/v1;collectionsv1";
@@ -91,7 +90,7 @@ service CollectionsService {
   // RemoveFromCollection removes an entity from a collection.
   rpc RemoveFromCollection(RemoveFromCollectionRequest) returns (RemoveFromCollectionResponse) {
     option (google.api.http) = {
-      delete: "/v1/collections/{collection_id}/items/{entity_type}/{entity_id}"
+      delete: "/v1/collections/{collection_id}/items/{entity_id}"
     };
   }
 
@@ -105,7 +104,7 @@ service CollectionsService {
   // GetEntityCollections returns all collections that contain an entity.
   rpc GetEntityCollections(GetEntityCollectionsRequest) returns (GetEntityCollectionsResponse) {
     option (google.api.http) = {
-      get: "/v1/collections/entity/{entity_type}/{entity_id}"
+      get: "/v1/collections/entity/{entity_id}"
     };
   }
 
@@ -143,9 +142,8 @@ message CreateCollectionRequest {
   string name = 1;
   // Optional description
   string description = 2;
-  // Ownership
-  string owner_type = 3;
-  string owner_id = 4;
+  // Ownership - owner_id in "type:id" format (e.g., "user:123", "org:456")
+  string owner_id = 3;
   // Parent collection ID (empty = root)
   string parent_id = 5;
   // Order among siblings
@@ -201,9 +199,8 @@ message DeleteCollectionResponse {
 }
 
 message ListCollectionsRequest {
-  // Filter by owner
-  string owner_type = 1;
-  string owner_id = 2;
+  // Filter by owner - owner_id in "type:id" format (e.g., "user:123")
+  string owner_id = 1;
   // Filter by parent (empty = root collections only)
   string parent_id = 3;
   // Filter by type
@@ -212,12 +209,28 @@ message ListCollectionsRequest {
   CollectionVisibility visibility = 5;
   // Order by: "name", "created_at", "display_order"
   string order_by = 6;
-  content.common.v1.PaginationRequest pagination = 10;
+  PaginationRequest pagination = 10;
 }
 
 message ListCollectionsResponse {
   repeated Collection collections = 1;
-  content.common.v1.PaginationResponse pagination = 10;
+  PaginationResponse pagination = 10;
+}
+
+// Standard pagination request.
+message PaginationRequest {
+  // Maximum number of items to return
+  int32 page_size = 1;
+  // Token for fetching the next page
+  string page_token = 2;
+}
+
+// Standard pagination response.
+message PaginationResponse {
+  // Token to fetch the next page (empty if no more pages)
+  string next_page_token = 1;
+  // Total count of items
+  int32 total_count = 2;
 }
 
 // === Hierarchy Messages ===
@@ -270,14 +283,13 @@ message GetCollectionPathResponse {
 
 message AddToCollectionRequest {
   string collection_id = 1;
-  string entity_type = 2;
-  string entity_id = 3;
+  string entity_id = 2;
   // Order within collection (0 = add to end)
-  int32 display_order = 4;
+  int32 display_order = 3;
   // Who is adding the item
-  string added_by = 5;
+  string added_by = 4;
   // Optional metadata (JSON)
-  string metadata = 6;
+  string metadata = 5;
 }
 
 message AddToCollectionResponse {
@@ -288,8 +300,7 @@ message AddToCollectionResponse {
 
 message RemoveFromCollectionRequest {
   string collection_id = 1;
-  string entity_type = 2;
-  string entity_id = 3;
+  string entity_id = 2;
 }
 
 message RemoveFromCollectionResponse {
@@ -298,25 +309,21 @@ message RemoveFromCollectionResponse {
 
 message GetCollectionItemsRequest {
   string collection_id = 1;
-  // Filter by entity type
-  string entity_type_filter = 2;
   // Sort by
-  SortField sort_by = 3;
-  bool sort_descending = 4;
-  content.common.v1.PaginationRequest pagination = 10;
+  SortField sort_by = 2;
+  bool sort_descending = 3;
+  PaginationRequest pagination = 10;
 }
 
 message GetCollectionItemsResponse {
   repeated CollectionItem items = 1;
-  content.common.v1.PaginationResponse pagination = 10;
+  PaginationResponse pagination = 10;
 }
 
 message GetEntityCollectionsRequest {
-  string entity_type = 1;
-  string entity_id = 2;
-  // Filter by owner
-  string owner_type = 3;
-  string owner_id = 4;
+  string entity_id = 1;
+  // Filter by owner - owner_id in "type:id" format (e.g., "user:123")
+  string owner_id = 2;
 }
 
 message GetEntityCollectionsResponse {
@@ -325,14 +332,13 @@ message GetEntityCollectionsResponse {
 
 message ReorderItemsRequest {
   string collection_id = 1;
-  // New order: map of "entity_type:entity_id" to new display_order
+  // New order: list of entity_id to new display_order
   repeated ItemOrder item_orders = 2;
 }
 
 message ItemOrder {
-  string entity_type = 1;
-  string entity_id = 2;
-  int32 display_order = 3;
+  string entity_id = 1;
+  int32 display_order = 2;
 }
 
 message ReorderItemsResponse {
@@ -343,8 +349,8 @@ message ReorderItemsResponse {
 
 message BatchAddToCollectionRequest {
   string collection_id = 1;
-  // Entities to add
-  repeated content.common.v1.EntityRef entities = 2;
+  // Entity IDs to add
+  repeated string entity_ids = 2;
   // Who is adding the items
   string added_by = 3;
 }
@@ -355,14 +361,14 @@ message BatchAddToCollectionResponse {
 }
 
 message BatchGetEntityCollectionsRequest {
-  repeated content.common.v1.EntityRef entities = 1;
-  // Filter by owner
-  string owner_type = 2;
-  string owner_id = 3;
+  // Entity IDs to get collections for
+  repeated string entity_ids = 1;
+  // Filter by owner - owner_id in "type:id" format (e.g., "user:123")
+  string owner_id = 2;
 }
 
 message BatchGetEntityCollectionsResponse {
-  // Map of "entity_type:entity_id" to list of collections
+  // Map of entity_id to list of collections
   map<string, CollectionList> entity_collections = 1;
 }
 

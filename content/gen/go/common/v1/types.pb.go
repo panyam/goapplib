@@ -23,62 +23,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Generic entity reference used across all content services.
-// This pattern allows attaching metadata (likes, tags, notes, etc.) to any entity.
-type EntityRef struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Type of the entity (e.g., "document", "post", "video", "song")
-	EntityType string `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	// Unique identifier within the entity type
-	EntityId      string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *EntityRef) Reset() {
-	*x = EntityRef{}
-	mi := &file_common_v1_types_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EntityRef) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EntityRef) ProtoMessage() {}
-
-func (x *EntityRef) ProtoReflect() protoreflect.Message {
-	mi := &file_common_v1_types_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EntityRef.ProtoReflect.Descriptor instead.
-func (*EntityRef) Descriptor() ([]byte, []int) {
-	return file_common_v1_types_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *EntityRef) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
-}
-
-func (x *EntityRef) GetEntityId() string {
-	if x != nil {
-		return x.EntityId
-	}
-	return ""
-}
-
 // Standard pagination request used across all list operations.
 type PaginationRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -92,7 +36,7 @@ type PaginationRequest struct {
 
 func (x *PaginationRequest) Reset() {
 	*x = PaginationRequest{}
-	mi := &file_common_v1_types_proto_msgTypes[1]
+	mi := &file_common_v1_types_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -104,7 +48,7 @@ func (x *PaginationRequest) String() string {
 func (*PaginationRequest) ProtoMessage() {}
 
 func (x *PaginationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_common_v1_types_proto_msgTypes[1]
+	mi := &file_common_v1_types_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -117,7 +61,7 @@ func (x *PaginationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PaginationRequest.ProtoReflect.Descriptor instead.
 func (*PaginationRequest) Descriptor() ([]byte, []int) {
-	return file_common_v1_types_proto_rawDescGZIP(), []int{1}
+	return file_common_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *PaginationRequest) GetPageSize() int32 {
@@ -147,7 +91,7 @@ type PaginationResponse struct {
 
 func (x *PaginationResponse) Reset() {
 	*x = PaginationResponse{}
-	mi := &file_common_v1_types_proto_msgTypes[2]
+	mi := &file_common_v1_types_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -159,7 +103,7 @@ func (x *PaginationResponse) String() string {
 func (*PaginationResponse) ProtoMessage() {}
 
 func (x *PaginationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_common_v1_types_proto_msgTypes[2]
+	mi := &file_common_v1_types_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -172,7 +116,7 @@ func (x *PaginationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PaginationResponse.ProtoReflect.Descriptor instead.
 func (*PaginationResponse) Descriptor() ([]byte, []int) {
-	return file_common_v1_types_proto_rawDescGZIP(), []int{2}
+	return file_common_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *PaginationResponse) GetNextPageToken() string {
@@ -193,11 +137,7 @@ var File_common_v1_types_proto protoreflect.FileDescriptor
 
 const file_common_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"\x15common/v1/types.proto\x12\x11content.common.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"I\n" +
-	"\tEntityRef\x12\x1f\n" +
-	"\ventity_type\x18\x01 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x02 \x01(\tR\bentityId\"O\n" +
+	"\x15common/v1/types.proto\x12\x11content.common.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"O\n" +
 	"\x11PaginationRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
@@ -221,11 +161,10 @@ func file_common_v1_types_proto_rawDescGZIP() []byte {
 	return file_common_v1_types_proto_rawDescData
 }
 
-var file_common_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_common_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_common_v1_types_proto_goTypes = []any{
-	(*EntityRef)(nil),          // 0: content.common.v1.EntityRef
-	(*PaginationRequest)(nil),  // 1: content.common.v1.PaginationRequest
-	(*PaginationResponse)(nil), // 2: content.common.v1.PaginationResponse
+	(*PaginationRequest)(nil),  // 0: content.common.v1.PaginationRequest
+	(*PaginationResponse)(nil), // 1: content.common.v1.PaginationResponse
 }
 var file_common_v1_types_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -246,7 +185,7 @@ func file_common_v1_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_v1_types_proto_rawDesc), len(file_common_v1_types_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

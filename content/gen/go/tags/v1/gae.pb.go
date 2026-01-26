@@ -39,9 +39,8 @@ type TagDatastore struct {
 	Color        string `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
 	Description  string `protobuf:"bytes,8,opt,name=description,proto3" json:"description,omitempty"`
 	DisplayOrder int32  `protobuf:"varint,9,opt,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"`
-	// Ownership
-	OwnerType string `protobuf:"bytes,10,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId   string `protobuf:"bytes,11,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	// Ownership - owner_id in "type:id" format (e.g., "user:123")
+	OwnerId string `protobuf:"bytes,10,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// Stats
 	UsageCount int64 `protobuf:"varint,15,opt,name=usage_count,json=usageCount,proto3" json:"usage_count,omitempty"`
 	// Lifecycle
@@ -138,13 +137,6 @@ func (x *TagDatastore) GetDisplayOrder() int32 {
 	return 0
 }
 
-func (x *TagDatastore) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
-	}
-	return ""
-}
-
 func (x *TagDatastore) GetOwnerId() string {
 	if x != nil {
 		return x.OwnerId
@@ -174,15 +166,14 @@ func (x *TagDatastore) GetCreatorId() string {
 }
 
 // EntityTagDatastore is the Datastore model for EntityTag.
-// Key is composite: tag_id + entity_type + entity_id + tagged_by
+// Key is composite: tag_id + entity_id + tagged_by
 // This allows multiple users to independently apply/remove the same shared tag.
 type EntityTagDatastore struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// All four fields form the logical composite key
+	// All three fields form the logical composite key
 	TagId         string `protobuf:"bytes,1,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
-	EntityType    string `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId      string `protobuf:"bytes,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	TaggedBy      string `protobuf:"bytes,4,opt,name=tagged_by,json=taggedBy,proto3" json:"tagged_by,omitempty"`
+	EntityId      string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	TaggedBy      string `protobuf:"bytes,3,opt,name=tagged_by,json=taggedBy,proto3" json:"tagged_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -224,13 +215,6 @@ func (x *EntityTagDatastore) GetTagId() string {
 	return ""
 }
 
-func (x *EntityTagDatastore) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
-}
-
 func (x *EntityTagDatastore) GetEntityId() string {
 	if x != nil {
 		return x.EntityId
@@ -247,12 +231,12 @@ func (x *EntityTagDatastore) GetTaggedBy() string {
 
 // TagUsageCountsDatastore is the Datastore model for denormalized tag counts.
 type TagUsageCountsDatastore struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	EntityType string                 `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId   string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	TotalCount int64                  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Key is entity_id
+	EntityId   string `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	TotalCount int64  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	// JSON-serialized map of name to count
-	ByName        map[string]int64 `protobuf:"bytes,4,rep,name=by_name,json=byName,proto3" json:"by_name,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	ByName        map[string]int64 `protobuf:"bytes,3,rep,name=by_name,json=byName,proto3" json:"by_name,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -287,13 +271,6 @@ func (*TagUsageCountsDatastore) Descriptor() ([]byte, []int) {
 	return file_tags_v1_gae_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *TagUsageCountsDatastore) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
-}
-
 func (x *TagUsageCountsDatastore) GetEntityId() string {
 	if x != nil {
 		return x.EntityId
@@ -319,7 +296,7 @@ var File_tags_v1_gae_proto protoreflect.FileDescriptor
 
 const file_tags_v1_gae_proto_rawDesc = "" +
 	"\n" +
-	"\x11tags/v1/gae.proto\x12\x0fcontent.tags.v1\x1a\x18dal/v1/annotations.proto\x1a\x14tags/v1/models.proto\"\xd8\x03\n" +
+	"\x11tags/v1/gae.proto\x12\x0fcontent.tags.v1\x1a\x18dal/v1/annotations.proto\x1a\x14tags/v1/models.proto\"\xb9\x03\n" +
 	"\fTagDatastore\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\x92\xa6\x1d\x03r\x01-R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
@@ -328,31 +305,25 @@ const file_tags_v1_gae_proto_rawDesc = "" +
 	"\x10normalized_value\x18\x05 \x01(\tR\x0fnormalizedValue\x12\x14\n" +
 	"\x05color\x18\a \x01(\tR\x05color\x12/\n" +
 	"\vdescription\x18\b \x01(\tB\r\x92\xa6\x1d\tr\anoindexR\vdescription\x12#\n" +
-	"\rdisplay_order\x18\t \x01(\x05R\fdisplayOrder\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\n" +
-	" \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\v \x01(\tR\aownerId\x12\x1f\n" +
+	"\rdisplay_order\x18\t \x01(\x05R\fdisplayOrder\x12\x19\n" +
+	"\bowner_id\x18\n" +
+	" \x01(\tR\aownerId\x12\x1f\n" +
 	"\vusage_count\x18\x0f \x01(\x03R\n" +
 	"usageCount\x12+\n" +
 	"\x12redirect_to_tag_id\x18\x11 \x01(\tR\x0fredirectToTagId\x12\x1d\n" +
 	"\n" +
 	"creator_id\x18\x16 \x01(\tR\tcreatorId:\x1eҦ\x1d\x1a\n" +
-	"\x03Tag*\x13content.tags.v1.Tag\"\xb2\x01\n" +
+	"\x03Tag*\x13content.tags.v1.Tag\"\x91\x01\n" +
 	"\x12EntityTagDatastore\x12\x15\n" +
-	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x1f\n" +
-	"\ventity_type\x18\x02 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x03 \x01(\tR\bentityId\x12\x1b\n" +
-	"\ttagged_by\x18\x04 \x01(\tR\btaggedBy:*Ҧ\x1d&\n" +
-	"\tEntityTag*\x19content.tags.v1.EntityTag\"\xc9\x02\n" +
-	"\x17TagUsageCountsDatastore\x12\x1f\n" +
-	"\ventity_type\x18\x01 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1f\n" +
-	"\vtotal_count\x18\x03 \x01(\x03R\n" +
+	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1b\n" +
+	"\ttagged_by\x18\x03 \x01(\tR\btaggedBy:*Ҧ\x1d&\n" +
+	"\tEntityTag*\x19content.tags.v1.EntityTag\"\xa8\x02\n" +
+	"\x17TagUsageCountsDatastore\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x03R\n" +
 	"totalCount\x12\\\n" +
-	"\aby_name\x18\x04 \x03(\v24.content.tags.v1.TagUsageCountsDatastore.ByNameEntryB\r\x92\xa6\x1d\tr\anoindexR\x06byName\x1a9\n" +
+	"\aby_name\x18\x03 \x03(\v24.content.tags.v1.TagUsageCountsDatastore.ByNameEntryB\r\x92\xa6\x1d\tr\anoindexR\x06byName\x1a9\n" +
 	"\vByNameEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01:6Ҧ\x1d2\n" +

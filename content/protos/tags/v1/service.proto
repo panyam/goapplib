@@ -2,7 +2,6 @@ syntax = "proto3";
 package content.tags.v1;
 
 import "google/api/annotations.proto";
-import "common/v1/types.proto";
 import "tags/v1/models.proto";
 
 option go_package = "github.com/panyam/goapplib/content/gen/go/tags/v1;tagsv1";
@@ -74,7 +73,7 @@ service TagsService {
   // GetEntityTags returns all tags for a specific entity.
   rpc GetEntityTags(GetEntityTagsRequest) returns (GetEntityTagsResponse) {
     option (google.api.http) = {
-      get: "/v1/tags/entity/{entity_type}/{entity_id}"
+      get: "/v1/tags/entity/{entity_id}"
     };
   }
 
@@ -157,9 +156,8 @@ message CreateTagRequest {
   string color = 4;
   string description = 5;
   int32 display_order = 6;
-  // Ownership
-  string owner_type = 7;
-  string owner_id = 8;
+  // Ownership - owner_id in "type:id" format (e.g., "user:123")
+  string owner_id = 7;
   TagScope scope = 9;
 }
 
@@ -205,51 +203,64 @@ message DeleteTagResponse {
 }
 
 message ListTagsRequest {
-  // Filter by owner
-  string owner_type = 1;
-  string owner_id = 2;
+  // Filter by owner - owner_id in "type:id" format (e.g., "user:123")
+  string owner_id = 1;
   // Filter by scope
   TagScope scope = 3;
   // Filter by name (empty = pure tags only, "*" = all, "venue" = specific name)
   string name_filter = 4;
   // Order by: "name", "usage_count", "created_at", "display_order"
   string order_by = 5;
-  content.common.v1.PaginationRequest pagination = 10;
+  PaginationRequest pagination = 10;
 }
 
 message ListTagsResponse {
   repeated Tag tags = 1;
-  content.common.v1.PaginationResponse pagination = 10;
+  PaginationResponse pagination = 10;
+}
+
+// Standard pagination request.
+message PaginationRequest {
+  // Maximum number of items to return
+  int32 page_size = 1;
+  // Token for fetching the next page
+  string page_token = 2;
+}
+
+// Standard pagination response.
+message PaginationResponse {
+  // Token to fetch the next page (empty if no more pages)
+  string next_page_token = 1;
+  // Total count of items
+  int32 total_count = 2;
 }
 
 // === Entity Tagging Messages ===
 
 message TagEntityRequest {
   // Entity to tag
-  string entity_type = 1;
-  string entity_id = 2;
+  string entity_id = 1;
 
   // Option 1: Reference existing tag by ID
-  string tag_id = 3;
+  string tag_id = 2;
 
   // Option 2: Create or find tag inline
   // If tag_id is empty, these fields are used to find or create the tag
-  string name = 4;          // Empty for pure tag
-  string value = 5;         // Required if tag_id is empty
-  TagType type = 6;
-  string color = 7;
+  string name = 3;          // Empty for pure tag
+  string value = 4;         // Required if tag_id is empty
+  TagType type = 5;
+  string color = 6;
 
-  // Ownership for inline tag creation
-  string owner_type = 8;
-  string owner_id = 9;
+  // Ownership for inline tag creation - owner_id in "type:id" format
+  string owner_id = 7;
 
   // Who is applying the tag (defaults to owner)
-  string tagged_by = 10;
+  string tagged_by = 9;
 
   // Visibility of this application (not the tag itself).
   // Allows using a public tag with private application.
   // Defaults to match tag's scope if not specified.
-  EntityTagVisibility visibility = 11;
+  EntityTagVisibility visibility = 10;
 }
 
 message TagEntityResponse {
@@ -262,23 +273,21 @@ message TagEntityResponse {
 }
 
 message UntagEntityRequest {
-  string entity_type = 1;
-  string entity_id = 2;
+  string entity_id = 1;
 
   // Option 1: By tag ID
-  string tag_id = 3;
+  string tag_id = 2;
 
   // Option 2: By name/value (service normalizes these for lookup)
-  string name = 4;
-  string value = 5;
+  string name = 3;
+  string value = 4;
 
-  // Owner context (needed for option 2)
-  string owner_type = 6;
-  string owner_id = 7;
+  // Owner context (needed for option 2) - owner_id in "type:id" format
+  string owner_id = 5;
 
   // Who applied the tag (required - part of uniqueness constraint)
   // Each user removes only their own tag application
-  string tagged_by = 8;
+  string tagged_by = 7;
 }
 
 message UntagEntityResponse {
@@ -286,16 +295,14 @@ message UntagEntityResponse {
 }
 
 message GetEntityTagsRequest {
-  string entity_type = 1;
-  string entity_id = 2;
+  string entity_id = 1;
 
   // Optional: filter by name
   // Empty = all tags, "" (explicit empty) = pure tags only, "venue" = specific name
-  string name_filter = 3;
+  string name_filter = 2;
 
-  // Optional: filter by owner
-  string owner_type = 4;
-  string owner_id = 5;
+  // Optional: filter by owner - owner_id in "type:id" format
+  string owner_id = 3;
 }
 
 message GetEntityTagsResponse {
@@ -309,18 +316,15 @@ message GetEntitiesWithTagRequest {
   // Option 2: By name/value (service normalizes these for lookup)
   string name = 2;
   string value = 3;
-  string owner_type = 4;
-  string owner_id = 5;
+  string owner_id = 4;  // owner_id in "type:id" format
 
-  // Optional: filter by entity type
-  string entity_type_filter = 6;
-
-  content.common.v1.PaginationRequest pagination = 10;
+  PaginationRequest pagination = 10;
 }
 
 message GetEntitiesWithTagResponse {
-  repeated content.common.v1.EntityRef entities = 1;
-  content.common.v1.PaginationResponse pagination = 10;
+  // List of entity IDs that have this tag
+  repeated string entity_ids = 1;
+  PaginationResponse pagination = 10;
 }
 
 // === Batch Operations Messages ===
@@ -332,12 +336,11 @@ message BatchTagEntitiesRequest {
   string name = 2;
   string value = 3;
   TagType type = 4;
-  string owner_type = 5;
-  string owner_id = 6;
+  string owner_id = 5;  // owner_id in "type:id" format
   TagScope scope = 7;
 
-  // Entities to tag
-  repeated content.common.v1.EntityRef entities = 10;
+  // Entity IDs to tag
+  repeated string entity_ids = 10;
 
   // Who is applying the tags
   string tagged_by = 11;
@@ -350,15 +353,15 @@ message BatchTagEntitiesResponse {
 }
 
 message BatchGetEntityTagsRequest {
-  repeated content.common.v1.EntityRef entities = 1;
+  // Entity IDs to get tags for
+  repeated string entity_ids = 1;
 
-  // Optional: filter by owner
-  string owner_type = 2;
-  string owner_id = 3;
+  // Optional: filter by owner - owner_id in "type:id" format
+  string owner_id = 2;
 }
 
 message BatchGetEntityTagsResponse {
-  // Map of "entity_type:entity_id" to list of tags
+  // Map of entity_id to list of tags
   map<string, EntityTagList> entity_tags = 1;
 }
 
@@ -374,9 +377,8 @@ message SearchTagsRequest {
   string query = 1;
   // Filter by name (empty = search all, "" = pure tags, "venue" = specific name)
   string name_filter = 2;
-  // Filter by owner
-  string owner_type = 3;
-  string owner_id = 4;
+  // Filter by owner - owner_id in "type:id" format
+  string owner_id = 3;
   // Include shared/public tags from other owners
   bool include_shared = 5;
   // Maximum results
@@ -390,9 +392,8 @@ message SearchTagsResponse {
 message GetPopularTagsRequest {
   // Filter by name
   string name_filter = 1;
-  // Filter by owner
-  string owner_type = 2;
-  string owner_id = 3;
+  // Filter by owner - owner_id in "type:id" format
+  string owner_id = 2;
   // Include shared/public tags
   bool include_shared = 4;
   // Maximum results
@@ -422,11 +423,10 @@ message PromoteTagRequest {
   // Tag to promote (must be private or shared)
   string source_tag_id = 1;
 
-  // Target scope: where to promote to
-  // - "org:{org_id}" to promote to org shared
-  // - "system" or empty to promote to public
-  string target_owner_type = 2;
-  string target_owner_id = 3;
+  // Target scope: where to promote to - target_owner_id in "type:id" format
+  // - "org:123" to promote to org shared
+  // - "system:" or empty to promote to public
+  string target_owner_id = 2;
 
   // If true and target tag exists, merge into it.
   // If false and target exists, return error.

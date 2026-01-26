@@ -142,18 +142,18 @@ func (x *ReactionType) GetCreatorId() string {
 
 // Like represents a user's reaction to an entity.
 // One reaction per user per entity (changing reaction replaces previous).
+// Note: Entity type is determined by which service/table instance is used,
+// not stored in the record itself.
 type Like struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Unique identifier
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Type of entity being reacted to (e.g., "post", "comment", "video")
-	EntityType string `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
 	// ID of the entity being reacted to
-	EntityId string `protobuf:"bytes,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityId string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// User who created the reaction
-	UserId string `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserId string `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// Type of reaction (references ReactionType.id)
-	ReactionType string `protobuf:"bytes,5,opt,name=reaction_type,json=reactionType,proto3" json:"reaction_type,omitempty"`
+	ReactionType string `protobuf:"bytes,4,opt,name=reaction_type,json=reactionType,proto3" json:"reaction_type,omitempty"`
 	// Metadata
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
@@ -195,13 +195,6 @@ func (*Like) Descriptor() ([]byte, []int) {
 func (x *Like) GetId() string {
 	if x != nil {
 		return x.Id
-	}
-	return ""
-}
-
-func (x *Like) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
 	}
 	return ""
 }
@@ -250,18 +243,17 @@ func (x *Like) GetCreatorId() string {
 
 // LikeCounts provides denormalized reaction counts for fast reads.
 // Updated on every add/remove operation.
+// Note: Entity type is determined by which service/table instance is used.
 type LikeCounts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Type of entity
-	EntityType string `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
 	// ID of the entity
-	EntityId string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityId string `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Total number of reactions across all types
-	TotalCount int64 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	TotalCount int64 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	// Count breakdown by reaction type (e.g., {"like": 10, "love": 3})
-	ByReactionType map[string]int64 `protobuf:"bytes,4,rep,name=by_reaction_type,json=byReactionType,proto3" json:"by_reaction_type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	ByReactionType map[string]int64 `protobuf:"bytes,3,rep,name=by_reaction_type,json=byReactionType,proto3" json:"by_reaction_type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	// Last time counts were updated
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -294,13 +286,6 @@ func (x *LikeCounts) ProtoReflect() protoreflect.Message {
 // Deprecated: Use LikeCounts.ProtoReflect.Descriptor instead.
 func (*LikeCounts) Descriptor() ([]byte, []int) {
 	return file_likes_v1_models_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *LikeCounts) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
 }
 
 func (x *LikeCounts) GetEntityId() string {
@@ -350,31 +335,27 @@ const file_likes_v1_models_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n" +
 	"\n" +
-	"creator_id\x18\f \x01(\tR\tcreatorId\"\xa7\x02\n" +
+	"creator_id\x18\f \x01(\tR\tcreatorId\"\x86\x02\n" +
 	"\x04Like\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
-	"\ventity_type\x18\x02 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x03 \x01(\tR\bentityId\x12\x17\n" +
-	"\auser_id\x18\x04 \x01(\tR\x06userId\x12#\n" +
-	"\rreaction_type\x18\x05 \x01(\tR\freactionType\x129\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12#\n" +
+	"\rreaction_type\x18\x04 \x01(\tR\freactionType\x129\n" +
 	"\n" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n" +
 	"\n" +
-	"creator_id\x18\f \x01(\tR\tcreatorId\"\xc5\x02\n" +
+	"creator_id\x18\f \x01(\tR\tcreatorId\"\xa4\x02\n" +
 	"\n" +
-	"LikeCounts\x12\x1f\n" +
-	"\ventity_type\x18\x01 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1f\n" +
-	"\vtotal_count\x18\x03 \x01(\x03R\n" +
+	"LikeCounts\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x03R\n" +
 	"totalCount\x12Z\n" +
-	"\x10by_reaction_type\x18\x04 \x03(\v20.content.likes.v1.LikeCounts.ByReactionTypeEntryR\x0ebyReactionType\x129\n" +
+	"\x10by_reaction_type\x18\x03 \x03(\v20.content.likes.v1.LikeCounts.ByReactionTypeEntryR\x0ebyReactionType\x129\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1aA\n" +
+	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1aA\n" +
 	"\x13ByReactionTypeEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\xc1\x01\n" +

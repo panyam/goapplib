@@ -96,7 +96,7 @@ func (x *CollectionDatastore) GetColor() string {
 }
 
 // CollectionItemDatastore is the Datastore model for CollectionItem.
-// Key is composite: collection_id + entity_type + entity_id (deterministic for strong consistency)
+// Key is composite: collection_id + entity_id (deterministic for strong consistency)
 type CollectionItemDatastore struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Metadata - not indexed (JSON blob)

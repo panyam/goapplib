@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	dsidx "github.com/panyam/goapplib/datastore"
 	"github.com/panyam/goapplib/content/services/likes"
+	dsidx "github.com/panyam/goapplib/datastore"
 
-	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
 	dsgen "github.com/panyam/goapplib/content/gen/datastore/likes/v1"
+	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -98,22 +98,22 @@ func (p *datastoreLikesStorageProvider) newKey(kind, id string) *datastore.Key {
 func (p *datastoreLikesStorageProvider) SaveLike(ctx context.Context, like *v1.Like) error {
 	dsLike := likeToDatastore(like)
 	// Use deterministic key for strong consistency on lookups
-	key := p.newKey(likeKind, likeKey(like.EntityType, like.EntityId, like.UserId))
+	key := p.newKey(likeKind, likeKey(like.EntityId, like.UserId))
 	_, err := p.client.Put(ctx, key, dsLike)
 	return err
 }
 
 // DeleteLike deletes a like from Datastore.
 // Uses deterministic key for direct deletion.
-func (p *datastoreLikesStorageProvider) DeleteLike(ctx context.Context, entityType, entityID, userID string) error {
-	key := p.newKey(likeKind, likeKey(entityType, entityID, userID))
+func (p *datastoreLikesStorageProvider) DeleteLike(ctx context.Context, entityID, userID string) error {
+	key := p.newKey(likeKind, likeKey(entityID, userID))
 	return p.client.Delete(ctx, key)
 }
 
 // GetLike retrieves a like from Datastore.
 // Uses direct key lookup for strong consistency.
-func (p *datastoreLikesStorageProvider) GetLike(ctx context.Context, entityType, entityID, userID string) (*v1.Like, error) {
-	key := p.newKey(likeKind, likeKey(entityType, entityID, userID))
+func (p *datastoreLikesStorageProvider) GetLike(ctx context.Context, entityID, userID string) (*v1.Like, error) {
+	key := p.newKey(likeKind, likeKey(entityID, userID))
 
 	var dsLike dsgen.LikeDatastore
 	err := p.client.Get(ctx, key, &dsLike)
@@ -131,9 +131,8 @@ func (p *datastoreLikesStorageProvider) GetLike(ctx context.Context, entityType,
 }
 
 // ListLikesByEntity lists likes for an entity.
-func (p *datastoreLikesStorageProvider) ListLikesByEntity(ctx context.Context, entityType, entityID string, reactionType string, limit, offset int) ([]*v1.Like, int, error) {
+func (p *datastoreLikesStorageProvider) ListLikesByEntity(ctx context.Context, entityID string, reactionType string, limit, offset int) ([]*v1.Like, int, error) {
 	query := datastore.NewQuery(likeKind).
-		FilterField("entity_type", "=", entityType).
 		FilterField("entity_id", "=", entityID).
 		Order("-created_at")
 
@@ -172,17 +171,13 @@ func (p *datastoreLikesStorageProvider) ListLikesByEntity(ctx context.Context, e
 }
 
 // ListLikesByUser lists likes by a user.
-func (p *datastoreLikesStorageProvider) ListLikesByUser(ctx context.Context, userID string, entityType string, limit, offset int) ([]*v1.Like, int, error) {
+func (p *datastoreLikesStorageProvider) ListLikesByUser(ctx context.Context, userID string, limit, offset int) ([]*v1.Like, int, error) {
 	query := datastore.NewQuery(likeKind).
 		FilterField("user_id", "=", userID).
 		Order("-created_at")
 
 	if p.namespace != "" {
 		query = query.Namespace(p.namespace)
-	}
-
-	if entityType != "" {
-		query = query.FilterField("entity_type", "=", entityType)
 	}
 
 	// Get total count
@@ -210,8 +205,8 @@ func (p *datastoreLikesStorageProvider) ListLikesByUser(ctx context.Context, use
 }
 
 // GetLikeCounts retrieves like counts for an entity.
-func (p *datastoreLikesStorageProvider) GetLikeCounts(ctx context.Context, entityType, entityID string) (*v1.LikeCounts, error) {
-	key := p.newKey(likeCountsKind, likeCountsKey(entityType, entityID))
+func (p *datastoreLikesStorageProvider) GetLikeCounts(ctx context.Context, entityID string) (*v1.LikeCounts, error) {
+	key := p.newKey(likeCountsKind, likeCountsKey(entityID))
 
 	var dsCounts dsgen.LikeCountsDatastore
 	err := p.client.Get(ctx, key, &dsCounts)
@@ -228,7 +223,7 @@ func (p *datastoreLikesStorageProvider) GetLikeCounts(ctx context.Context, entit
 // SaveLikeCounts saves like counts to Datastore.
 func (p *datastoreLikesStorageProvider) SaveLikeCounts(ctx context.Context, counts *v1.LikeCounts) error {
 	dsCounts := likeCountsToDatastore(counts)
-	key := p.newKey(likeCountsKind, likeCountsKey(counts.EntityType, counts.EntityId))
+	key := p.newKey(likeCountsKind, likeCountsKey(counts.EntityId))
 	_, err := p.client.Put(ctx, key, dsCounts)
 	return err
 }
@@ -282,14 +277,14 @@ func (p *datastoreLikesStorageProvider) ListReactionTypes(ctx context.Context) (
 
 // Helper functions
 
-func likeCountsKey(entityType, entityID string) string {
-	return fmt.Sprintf("%s:%s", entityType, entityID)
+func likeCountsKey(entityID string) string {
+	return entityID
 }
 
 // likeKey generates a deterministic key for a like based on entity and user.
 // This allows direct key lookups which are strongly consistent in Datastore.
-func likeKey(entityType, entityID, userID string) string {
-	return fmt.Sprintf("%s:%s:%s", entityType, entityID, userID)
+func likeKey(entityID, userID string) string {
+	return fmt.Sprintf("%s:%s", entityID, userID)
 }
 
 // Conversion functions for Datastore
@@ -304,7 +299,6 @@ func likeToDatastore(like *v1.Like) *dsgen.LikeDatastore {
 	}
 	return &dsgen.LikeDatastore{
 		Id:           like.Id,
-		EntityType:   like.EntityType,
 		EntityId:     like.EntityId,
 		UserId:       like.UserId,
 		ReactionType: like.ReactionType,
@@ -324,7 +318,6 @@ func likeFromDatastore(dsLike *dsgen.LikeDatastore) *v1.Like {
 	}
 	return &v1.Like{
 		Id:           dsLike.Id,
-		EntityType:   dsLike.EntityType,
 		EntityId:     dsLike.EntityId,
 		UserId:       dsLike.UserId,
 		ReactionType: dsLike.ReactionType,
@@ -340,7 +333,6 @@ func likeCountsToDatastore(counts *v1.LikeCounts) *dsgen.LikeCountsDatastore {
 		updatedAt = counts.UpdatedAt.AsTime()
 	}
 	return &dsgen.LikeCountsDatastore{
-		EntityType:     counts.EntityType,
 		EntityId:       counts.EntityId,
 		TotalCount:     counts.TotalCount,
 		ByReactionType: counts.ByReactionType,
@@ -358,7 +350,6 @@ func likeCountsFromDatastore(dsCounts *dsgen.LikeCountsDatastore) *v1.LikeCounts
 		updatedAt = timestamppb.New(dsCounts.UpdatedAt)
 	}
 	return &v1.LikeCounts{
-		EntityType:     dsCounts.EntityType,
 		EntityId:       dsCounts.EntityId,
 		TotalCount:     dsCounts.TotalCount,
 		ByReactionType: byType,
@@ -418,20 +409,10 @@ func (s *DatastoreLikesService) ServiceName() string {
 // RequiredIndexes returns the composite indexes required by the likes service.
 func (s *DatastoreLikesService) RequiredIndexes() []dsidx.DatastoreIndex {
 	return []dsidx.DatastoreIndex{
-		// For GetLike - find a user's reaction on an entity
-		{
-			Kind: likeKind,
-			Properties: []dsidx.IndexProperty{
-				{Name: "entity_type"},
-				{Name: "entity_id"},
-				{Name: "user_id"},
-			},
-		},
 		// For ListLikesByEntity - list all reactions on an entity
 		{
 			Kind: likeKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "entity_type"},
 				{Name: "entity_id"},
 				{Name: "created_at", Direction: "desc"},
 			},
@@ -440,7 +421,6 @@ func (s *DatastoreLikesService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: likeKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "entity_type"},
 				{Name: "entity_id"},
 				{Name: "reaction_type"},
 				{Name: "created_at", Direction: "desc"},
@@ -454,36 +434,19 @@ func (s *DatastoreLikesService) RequiredIndexes() []dsidx.DatastoreIndex {
 				{Name: "created_at", Direction: "desc"},
 			},
 		},
-		// For ListLikesByUser with entity type filter
-		{
-			Kind: likeKind,
-			Properties: []dsidx.IndexProperty{
-				{Name: "user_id"},
-				{Name: "entity_type"},
-				{Name: "created_at", Direction: "desc"},
-			},
-		},
 	}
 }
 
 // TestQueries returns queries that exercise each required index.
 func (s *DatastoreLikesService) TestQueries() []*datastore.Query {
 	return []*datastore.Query{
-		// GetLike
-		datastore.NewQuery(likeKind).
-			FilterField("entity_type", "=", "__test__").
-			FilterField("entity_id", "=", "__test__").
-			FilterField("user_id", "=", "__test__"),
-
 		// ListLikesByEntity
 		datastore.NewQuery(likeKind).
-			FilterField("entity_type", "=", "__test__").
 			FilterField("entity_id", "=", "__test__").
 			Order("-created_at"),
 
 		// ListLikesByEntity with reaction type
 		datastore.NewQuery(likeKind).
-			FilterField("entity_type", "=", "__test__").
 			FilterField("entity_id", "=", "__test__").
 			FilterField("reaction_type", "=", "__test__").
 			Order("-created_at"),
@@ -491,12 +454,6 @@ func (s *DatastoreLikesService) TestQueries() []*datastore.Query {
 		// ListLikesByUser
 		datastore.NewQuery(likeKind).
 			FilterField("user_id", "=", "__test__").
-			Order("-created_at"),
-
-		// ListLikesByUser with entity type
-		datastore.NewQuery(likeKind).
-			FilterField("user_id", "=", "__test__").
-			FilterField("entity_type", "=", "__test__").
 			Order("-created_at"),
 	}
 }

@@ -38,7 +38,6 @@ import (
 	"sync"
 	"time"
 
-	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -79,26 +78,25 @@ type TagsStorageProvider interface {
 	GetTag(ctx context.Context, id string) (*v1.Tag, error)
 	DeleteTag(ctx context.Context, id string) error
 	ListTags(ctx context.Context, opts ListTagsOptions) ([]*v1.Tag, int, error)
-	FindTagByNormalizedValues(ctx context.Context, ownerType, ownerID, normalizedName, normalizedValue string) (*v1.Tag, error)
+	FindTagByNormalizedValues(ctx context.Context, ownerID, normalizedName, normalizedValue string) (*v1.Tag, error)
 	SearchTags(ctx context.Context, opts SearchTagsOptions) ([]*v1.Tag, error)
 	GetPopularTags(ctx context.Context, opts PopularTagsOptions) ([]*v1.Tag, error)
 
 	// EntityTag operations
 	SaveEntityTag(ctx context.Context, entityTag *v1.EntityTag) error
-	DeleteEntityTag(ctx context.Context, tagID, entityType, entityID, taggedBy string) error
-	GetEntityTag(ctx context.Context, tagID, entityType, entityID, taggedBy string) (*v1.EntityTag, error)
-	ListEntityTagsByEntity(ctx context.Context, entityType, entityID string, opts EntityTagsOptions) ([]*v1.EntityTag, error)
-	ListEntityTagsByTag(ctx context.Context, tagID string, entityTypeFilter string, limit, offset int) ([]*v1.EntityTag, int, error)
+	DeleteEntityTag(ctx context.Context, tagID, entityID, taggedBy string) error
+	GetEntityTag(ctx context.Context, tagID, entityID, taggedBy string) (*v1.EntityTag, error)
+	ListEntityTagsByEntity(ctx context.Context, entityID string, opts EntityTagsOptions) ([]*v1.EntityTag, error)
+	ListEntityTagsByTag(ctx context.Context, tagID string, limit, offset int) ([]*v1.EntityTag, int, error)
 	DeleteEntityTagsByTag(ctx context.Context, tagID string) (int64, error)
 
 	// TagUsageCounts operations (optional - for denormalized counts)
-	GetTagUsageCounts(ctx context.Context, entityType, entityID string) (*v1.TagUsageCounts, error)
+	GetTagUsageCounts(ctx context.Context, entityID string) (*v1.TagUsageCounts, error)
 	SaveTagUsageCounts(ctx context.Context, counts *v1.TagUsageCounts) error
 }
 
 // ListTagsOptions contains options for listing tags.
 type ListTagsOptions struct {
-	OwnerType  string
 	OwnerID    string
 	Scope      v1.TagScope
 	NameFilter string // "" = all, empty string = pure tags, "venue" = specific name
@@ -111,7 +109,6 @@ type ListTagsOptions struct {
 type SearchTagsOptions struct {
 	Query         string
 	NameFilter    string
-	OwnerType     string
 	OwnerID       string
 	IncludeShared bool
 	Limit         int
@@ -120,7 +117,6 @@ type SearchTagsOptions struct {
 // PopularTagsOptions contains options for getting popular tags.
 type PopularTagsOptions struct {
 	NameFilter    string
-	OwnerType     string
 	OwnerID       string
 	IncludeShared bool
 	Limit         int
@@ -129,7 +125,6 @@ type PopularTagsOptions struct {
 // EntityTagsOptions contains options for listing entity tags.
 type EntityTagsOptions struct {
 	NameFilter string
-	OwnerType  string
 	OwnerID    string
 }
 
@@ -178,10 +173,10 @@ func (s *BaseTagsService) CreateTag(ctx context.Context, req *v1.CreateTagReques
 
 	// Check for existing tag with same normalized values for this owner
 	existing, _ := s.StorageProvider.FindTagByNormalizedValues(
-		ctx, req.OwnerType, req.OwnerId, normalizedName, normalizedValue)
+		ctx, req.OwnerId, normalizedName, normalizedValue)
 	if existing != nil {
 		return &v1.CreateTagResponse{
-			Tag:           existing,
+			Tag:            existing,
 			AlreadyExisted: true,
 		}, nil
 	}
@@ -198,7 +193,6 @@ func (s *BaseTagsService) CreateTag(ctx context.Context, req *v1.CreateTagReques
 		Color:           req.Color,
 		Description:     req.Description,
 		DisplayOrder:    req.DisplayOrder,
-		OwnerType:       req.OwnerType,
 		OwnerId:         req.OwnerId,
 		Scope:           req.Scope,
 		Status:          v1.TagStatus_TAG_STATUS_ACTIVE,
@@ -220,7 +214,7 @@ func (s *BaseTagsService) CreateTag(ctx context.Context, req *v1.CreateTagReques
 	s.cacheTag(tag)
 
 	return &v1.CreateTagResponse{
-		Tag:           tag,
+		Tag:            tag,
 		AlreadyExisted: false,
 	}, nil
 }
@@ -340,7 +334,7 @@ func (s *BaseTagsService) DeleteTag(ctx context.Context, req *v1.DeleteTagReques
 	s.invalidateTagCache(req.Id)
 
 	return &v1.DeleteTagResponse{
-		Deleted:         true,
+		Deleted:          true,
 		EntitiesUntagged: entitiesUntagged,
 	}, nil
 }
@@ -358,7 +352,6 @@ func (s *BaseTagsService) ListTags(ctx context.Context, req *v1.ListTagsRequest)
 	}
 
 	opts := ListTagsOptions{
-		OwnerType:  req.OwnerType,
 		OwnerID:    req.OwnerId,
 		Scope:      req.Scope,
 		NameFilter: req.NameFilter,
@@ -379,7 +372,7 @@ func (s *BaseTagsService) ListTags(ctx context.Context, req *v1.ListTagsRequest)
 
 	return &v1.ListTagsResponse{
 		Tags: tags,
-		Pagination: &commonv1.PaginationResponse{
+		Pagination: &v1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},
@@ -388,7 +381,7 @@ func (s *BaseTagsService) ListTags(ctx context.Context, req *v1.ListTagsRequest)
 
 // TagEntity applies a tag to an entity.
 func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityRequest) (*v1.TagEntityResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 
@@ -415,18 +408,17 @@ func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityReques
 
 		// Try to find existing tag
 		tag, _ = s.StorageProvider.FindTagByNormalizedValues(
-			ctx, req.OwnerType, req.OwnerId, normalizedName, normalizedValue)
+			ctx, req.OwnerId, normalizedName, normalizedValue)
 
 		if tag == nil {
 			// Create new tag
 			createResp, err := s.CreateTag(ctx, &v1.CreateTagRequest{
-				Name:       req.Name,
-				Value:      req.Value,
-				Type:       req.Type,
-				Color:      req.Color,
-				OwnerType:  req.OwnerType,
-				OwnerId:    req.OwnerId,
-				Scope:      v1.TagScope_TAG_SCOPE_PRIVATE, // Default to private
+				Name:    req.Name,
+				Value:   req.Value,
+				Type:    req.Type,
+				Color:   req.Color,
+				OwnerId: req.OwnerId,
+				Scope:   v1.TagScope_TAG_SCOPE_PRIVATE, // Default to private
 			})
 			if err != nil {
 				return nil, err
@@ -447,11 +439,11 @@ func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityReques
 	}
 
 	// Check if already tagged by this user
-	existing, _ := s.StorageProvider.GetEntityTag(ctx, tag.Id, req.EntityType, req.EntityId, taggedBy)
+	existing, _ := s.StorageProvider.GetEntityTag(ctx, tag.Id, req.EntityId, taggedBy)
 	if existing != nil {
 		return &v1.TagEntityResponse{
-			Tag:        tag,
-			EntityTag:  existing,
+			Tag:         tag,
+			EntityTag:   existing,
 			NewlyTagged: false,
 		}, nil
 	}
@@ -476,7 +468,6 @@ func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityReques
 	now := time.Now()
 	entityTag := &v1.EntityTag{
 		TagId:      tag.Id,
-		EntityType: req.EntityType,
 		EntityId:   req.EntityId,
 		TaggedBy:   taggedBy,
 		Visibility: visibility,
@@ -497,15 +488,15 @@ func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityReques
 	s.invalidateTagCache(tag.Id)
 
 	return &v1.TagEntityResponse{
-		Tag:        tag,
-		EntityTag:  entityTag,
+		Tag:         tag,
+		EntityTag:   entityTag,
 		NewlyTagged: true,
 	}, nil
 }
 
 // UntagEntity removes a tag from an entity.
 func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRequest) (*v1.UntagEntityResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 	if req.TaggedBy == "" {
@@ -526,7 +517,7 @@ func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRe
 		normalizedValue := s.Normalizer(req.Value)
 
 		tag, _ := s.StorageProvider.FindTagByNormalizedValues(
-			ctx, req.OwnerType, req.OwnerId, normalizedName, normalizedValue)
+			ctx, req.OwnerId, normalizedName, normalizedValue)
 		if tag == nil {
 			return &v1.UntagEntityResponse{Removed: false}, nil
 		}
@@ -534,13 +525,13 @@ func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRe
 	}
 
 	// Check if entity tag exists
-	existing, _ := s.StorageProvider.GetEntityTag(ctx, tagID, req.EntityType, req.EntityId, req.TaggedBy)
+	existing, _ := s.StorageProvider.GetEntityTag(ctx, tagID, req.EntityId, req.TaggedBy)
 	if existing == nil {
 		return &v1.UntagEntityResponse{Removed: false}, nil
 	}
 
 	// Delete entity tag
-	if err := s.StorageProvider.DeleteEntityTag(ctx, tagID, req.EntityType, req.EntityId, req.TaggedBy); err != nil {
+	if err := s.StorageProvider.DeleteEntityTag(ctx, tagID, req.EntityId, req.TaggedBy); err != nil {
 		return nil, err
 	}
 
@@ -561,17 +552,16 @@ func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRe
 
 // GetEntityTags returns all tags for a specific entity.
 func (s *BaseTagsService) GetEntityTags(ctx context.Context, req *v1.GetEntityTagsRequest) (*v1.GetEntityTagsResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 
 	opts := EntityTagsOptions{
 		NameFilter: req.NameFilter,
-		OwnerType:  req.OwnerType,
 		OwnerID:    req.OwnerId,
 	}
 
-	entityTags, err := s.StorageProvider.ListEntityTagsByEntity(ctx, req.EntityType, req.EntityId, opts)
+	entityTags, err := s.StorageProvider.ListEntityTagsByEntity(ctx, req.EntityId, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -604,11 +594,11 @@ func (s *BaseTagsService) GetEntitiesWithTag(ctx context.Context, req *v1.GetEnt
 		normalizedValue := s.Normalizer(req.Value)
 
 		tag, _ := s.StorageProvider.FindTagByNormalizedValues(
-			ctx, req.OwnerType, req.OwnerId, normalizedName, normalizedValue)
+			ctx, req.OwnerId, normalizedName, normalizedValue)
 		if tag == nil {
 			return &v1.GetEntitiesWithTagResponse{
-				Entities:   []*commonv1.EntityRef{},
-				Pagination: &commonv1.PaginationResponse{},
+				EntityIds:  []string{},
+				Pagination: &v1.PaginationResponse{},
 			}, nil
 		}
 		tagID = tag.Id
@@ -624,17 +614,14 @@ func (s *BaseTagsService) GetEntitiesWithTag(ctx context.Context, req *v1.GetEnt
 		fmt.Sscanf(req.Pagination.GetPageToken(), "%d", &offset)
 	}
 
-	entityTags, total, err := s.StorageProvider.ListEntityTagsByTag(ctx, tagID, req.EntityTypeFilter, pageSize, offset)
+	entityTags, total, err := s.StorageProvider.ListEntityTagsByTag(ctx, tagID, pageSize, offset)
 	if err != nil {
 		return nil, err
 	}
 
-	entities := make([]*commonv1.EntityRef, len(entityTags))
+	entityIds := make([]string, len(entityTags))
 	for i, et := range entityTags {
-		entities[i] = &commonv1.EntityRef{
-			EntityType: et.EntityType,
-			EntityId:   et.EntityId,
-		}
+		entityIds[i] = et.EntityId
 	}
 
 	var nextToken string
@@ -643,8 +630,8 @@ func (s *BaseTagsService) GetEntitiesWithTag(ctx context.Context, req *v1.GetEnt
 	}
 
 	return &v1.GetEntitiesWithTagResponse{
-		Entities: entities,
-		Pagination: &commonv1.PaginationResponse{
+		EntityIds: entityIds,
+		Pagination: &v1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},
@@ -674,16 +661,15 @@ func (s *BaseTagsService) BatchTagEntities(ctx context.Context, req *v1.BatchTag
 		normalizedValue := s.Normalizer(req.Value)
 
 		tag, _ = s.StorageProvider.FindTagByNormalizedValues(
-			ctx, req.OwnerType, req.OwnerId, normalizedName, normalizedValue)
+			ctx, req.OwnerId, normalizedName, normalizedValue)
 
 		if tag == nil {
 			createResp, err := s.CreateTag(ctx, &v1.CreateTagRequest{
-				Name:      req.Name,
-				Value:     req.Value,
-				Type:      req.Type,
-				OwnerType: req.OwnerType,
-				OwnerId:   req.OwnerId,
-				Scope:     req.Scope,
+				Name:    req.Name,
+				Value:   req.Value,
+				Type:    req.Type,
+				OwnerId: req.OwnerId,
+				Scope:   req.Scope,
 			})
 			if err != nil {
 				return nil, err
@@ -694,12 +680,11 @@ func (s *BaseTagsService) BatchTagEntities(ctx context.Context, req *v1.BatchTag
 
 	var entitiesTagged, alreadyTagged int64
 
-	for _, entity := range req.Entities {
+	for _, entityId := range req.EntityIds {
 		resp, err := s.TagEntity(ctx, &v1.TagEntityRequest{
-			EntityType: entity.EntityType,
-			EntityId:   entity.EntityId,
-			TagId:      tag.Id,
-			TaggedBy:   req.TaggedBy,
+			EntityId: entityId,
+			TagId:    tag.Id,
+			TaggedBy: req.TaggedBy,
 		})
 		if err != nil {
 			continue // Skip failed ones
@@ -722,18 +707,16 @@ func (s *BaseTagsService) BatchTagEntities(ctx context.Context, req *v1.BatchTag
 func (s *BaseTagsService) BatchGetEntityTags(ctx context.Context, req *v1.BatchGetEntityTagsRequest) (*v1.BatchGetEntityTagsResponse, error) {
 	result := make(map[string]*v1.EntityTagList)
 
-	for _, entity := range req.Entities {
+	for _, entityId := range req.EntityIds {
 		resp, err := s.GetEntityTags(ctx, &v1.GetEntityTagsRequest{
-			EntityType: entity.EntityType,
-			EntityId:   entity.EntityId,
-			OwnerType:  req.OwnerType,
-			OwnerId:    req.OwnerId,
+			EntityId: entityId,
+			OwnerId:  req.OwnerId,
 		})
 		if err != nil {
 			continue
 		}
 
-		key := fmt.Sprintf("%s:%s", entity.EntityType, entity.EntityId)
+		key := entityId
 		result[key] = &v1.EntityTagList{Tags: resp.Tags}
 	}
 
@@ -750,7 +733,6 @@ func (s *BaseTagsService) SearchTags(ctx context.Context, req *v1.SearchTagsRequ
 	opts := SearchTagsOptions{
 		Query:         req.Query,
 		NameFilter:    req.NameFilter,
-		OwnerType:     req.OwnerType,
 		OwnerID:       req.OwnerId,
 		IncludeShared: req.IncludeShared,
 		Limit:         limit,
@@ -773,7 +755,6 @@ func (s *BaseTagsService) GetPopularTags(ctx context.Context, req *v1.GetPopular
 
 	opts := PopularTagsOptions{
 		NameFilter:    req.NameFilter,
-		OwnerType:     req.OwnerType,
 		OwnerID:       req.OwnerId,
 		IncludeShared: req.IncludeShared,
 		Limit:         limit,
@@ -804,7 +785,7 @@ func (s *BaseTagsService) MergeTags(ctx context.Context, req *v1.MergeTagsReques
 	}
 
 	// Get all entity tags for source
-	entityTags, _, err := s.StorageProvider.ListEntityTagsByTag(ctx, req.SourceTagId, "", 10000, 0)
+	entityTags, _, err := s.StorageProvider.ListEntityTagsByTag(ctx, req.SourceTagId, 10000, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -814,7 +795,7 @@ func (s *BaseTagsService) MergeTags(ctx context.Context, req *v1.MergeTagsReques
 	// Re-tag each entity with target tag
 	for _, et := range entityTags {
 		// Check if already tagged with target
-		existing, _ := s.StorageProvider.GetEntityTag(ctx, req.TargetTagId, et.EntityType, et.EntityId, et.TaggedBy)
+		existing, _ := s.StorageProvider.GetEntityTag(ctx, req.TargetTagId, et.EntityId, et.TaggedBy)
 		if existing != nil {
 			continue // Skip if already tagged
 		}
@@ -822,7 +803,6 @@ func (s *BaseTagsService) MergeTags(ctx context.Context, req *v1.MergeTagsReques
 		// Create new entity tag for target
 		newET := &v1.EntityTag{
 			TagId:      req.TargetTagId,
-			EntityType: et.EntityType,
 			EntityId:   et.EntityId,
 			TaggedBy:   et.TaggedBy,
 			Visibility: et.Visibility,
@@ -880,7 +860,7 @@ func (s *BaseTagsService) PromoteTag(ctx context.Context, req *v1.PromoteTagRequ
 	normalizedValue := sourceTag.NormalizedValue
 
 	targetTag, _ := s.StorageProvider.FindTagByNormalizedValues(
-		ctx, req.TargetOwnerType, req.TargetOwnerId, normalizedName, normalizedValue)
+		ctx, req.TargetOwnerId, normalizedName, normalizedValue)
 
 	mergedIntoExisting := false
 	if targetTag != nil {
@@ -899,7 +879,6 @@ func (s *BaseTagsService) PromoteTag(ctx context.Context, req *v1.PromoteTagRequ
 			Type:        sourceTag.Type,
 			Color:       sourceTag.Color,
 			Description: sourceTag.Description,
-			OwnerType:   req.TargetOwnerType,
 			OwnerId:     req.TargetOwnerId,
 			Scope:       v1.TagScope_TAG_SCOPE_PUBLIC,
 		})
@@ -913,7 +892,7 @@ func (s *BaseTagsService) PromoteTag(ctx context.Context, req *v1.PromoteTagRequ
 	}
 
 	// Migrate entity tags
-	entityTags, _, _ := s.StorageProvider.ListEntityTagsByTag(ctx, req.SourceTagId, "", 10000, 0)
+	entityTags, _, _ := s.StorageProvider.ListEntityTagsByTag(ctx, req.SourceTagId, 10000, 0)
 
 	var entityTagsMigrated int64
 	newVisibility := req.NewVisibility
@@ -923,14 +902,13 @@ func (s *BaseTagsService) PromoteTag(ctx context.Context, req *v1.PromoteTagRequ
 
 	for _, et := range entityTags {
 		// Check if already exists on target
-		existing, _ := s.StorageProvider.GetEntityTag(ctx, targetTag.Id, et.EntityType, et.EntityId, et.TaggedBy)
+		existing, _ := s.StorageProvider.GetEntityTag(ctx, targetTag.Id, et.EntityId, et.TaggedBy)
 		if existing != nil {
 			continue
 		}
 
 		newET := &v1.EntityTag{
 			TagId:      targetTag.Id,
-			EntityType: et.EntityType,
 			EntityId:   et.EntityId,
 			TaggedBy:   et.TaggedBy,
 			Visibility: newVisibility,
@@ -960,10 +938,10 @@ func (s *BaseTagsService) PromoteTag(ctx context.Context, req *v1.PromoteTagRequ
 	s.invalidateTagCache(targetTag.Id)
 
 	return &v1.PromoteTagResponse{
-		Tag:                 targetTag,
-		SourceTag:           sourceTag,
-		EntityTagsMigrated:  entityTagsMigrated,
-		MergedIntoExisting:  mergedIntoExisting,
+		Tag:                targetTag,
+		SourceTag:          sourceTag,
+		EntityTagsMigrated: entityTagsMigrated,
+		MergedIntoExisting: mergedIntoExisting,
 	}, nil
 }
 
@@ -1003,7 +981,7 @@ func generateID() string {
 var (
 	ErrTagIDRequired    = &TagsError{Message: "tag id is required"}
 	ErrValueRequired    = &TagsError{Message: "value is required"}
-	ErrEntityRequired   = &TagsError{Message: "entity_type and entity_id are required"}
+	ErrEntityRequired   = &TagsError{Message: "entity_id is required"}
 	ErrTaggedByRequired = &TagsError{Message: "tagged_by is required"}
 	ErrTagNotFound      = &TagsError{Message: "tag not found"}
 	ErrTagMigrating     = &TagsError{Message: "tag is currently being migrated, new applications not allowed"}

@@ -75,9 +75,6 @@ func (p *gormCollectionsStorageProvider) ListCollections(ctx context.Context, op
 	query := p.db.WithContext(ctx).Model(&gormgen.CollectionGORM{})
 
 	// Apply filters
-	if opts.OwnerType != "" {
-		query = query.Where("owner_type = ?", opts.OwnerType)
-	}
 	if opts.OwnerID != "" {
 		query = query.Where("owner_id = ?", opts.OwnerID)
 	}
@@ -129,11 +126,11 @@ func (p *gormCollectionsStorageProvider) ListCollections(ctx context.Context, op
 }
 
 // FindCollectionByName finds a collection by its normalized name within a parent.
-func (p *gormCollectionsStorageProvider) FindCollectionByName(ctx context.Context, ownerType, ownerID, parentID, normalizedName string) (*v1.Collection, error) {
+func (p *gormCollectionsStorageProvider) FindCollectionByName(ctx context.Context, ownerID, parentID, normalizedName string) (*v1.Collection, error) {
 	var gormColl gormgen.CollectionGORM
 	err := p.db.WithContext(ctx).
-		Where("owner_type = ? AND owner_id = ? AND parent_id = ? AND normalized_name = ?",
-			ownerType, ownerID, parentID, normalizedName).
+		Where("owner_id = ? AND parent_id = ? AND normalized_name = ?",
+			ownerID, parentID, normalizedName).
 		Where("status = ?", v1.CollectionStatus_COLLECTION_STATUS_ACTIVE).
 		First(&gormColl).Error
 	if err != nil {
@@ -216,11 +213,11 @@ func (p *gormCollectionsStorageProvider) SaveCollectionItem(ctx context.Context,
 }
 
 // GetCollectionItem retrieves a collection item.
-func (p *gormCollectionsStorageProvider) GetCollectionItem(ctx context.Context, collectionID, entityType, entityID string) (*v1.CollectionItem, error) {
+func (p *gormCollectionsStorageProvider) GetCollectionItem(ctx context.Context, collectionID, entityID string) (*v1.CollectionItem, error) {
 	var gormItem gormgen.CollectionItemGORM
 	err := p.db.WithContext(ctx).
-		Where("collection_id = ? AND entity_type = ? AND entity_id = ?",
-			collectionID, entityType, entityID).
+		Where("collection_id = ? AND entity_id = ?",
+			collectionID, entityID).
 		First(&gormItem).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -232,10 +229,10 @@ func (p *gormCollectionsStorageProvider) GetCollectionItem(ctx context.Context, 
 }
 
 // DeleteCollectionItem deletes a collection item from the database.
-func (p *gormCollectionsStorageProvider) DeleteCollectionItem(ctx context.Context, collectionID, entityType, entityID string) error {
+func (p *gormCollectionsStorageProvider) DeleteCollectionItem(ctx context.Context, collectionID, entityID string) error {
 	return p.db.WithContext(ctx).
-		Where("collection_id = ? AND entity_type = ? AND entity_id = ?",
-			collectionID, entityType, entityID).
+		Where("collection_id = ? AND entity_id = ?",
+			collectionID, entityID).
 		Delete(&gormgen.CollectionItemGORM{}).Error
 }
 
@@ -246,10 +243,6 @@ func (p *gormCollectionsStorageProvider) ListCollectionItems(ctx context.Context
 
 	query := p.db.WithContext(ctx).Model(&gormgen.CollectionItemGORM{}).
 		Where("collection_id = ?", collectionID)
-
-	if opts.EntityTypeFilter != "" {
-		query = query.Where("entity_type = ?", opts.EntityTypeFilter)
-	}
 
 	// Count total
 	if err := query.Count(&total).Error; err != nil {
@@ -290,11 +283,11 @@ func (p *gormCollectionsStorageProvider) ListCollectionItems(ctx context.Context
 }
 
 // ListEntityCollections returns all collections that contain an entity.
-func (p *gormCollectionsStorageProvider) ListEntityCollections(ctx context.Context, entityType, entityID string, opts collections.EntityCollectionsOptions) ([]*v1.Collection, error) {
+func (p *gormCollectionsStorageProvider) ListEntityCollections(ctx context.Context, entityID string, opts collections.EntityCollectionsOptions) ([]*v1.Collection, error) {
 	var gormItems []gormgen.CollectionItemGORM
 
 	query := p.db.WithContext(ctx).
-		Where("entity_type = ? AND entity_id = ?", entityType, entityID)
+		Where("entity_id = ?", entityID)
 
 	if err := query.Find(&gormItems).Error; err != nil {
 		return nil, err
@@ -309,9 +302,6 @@ func (p *gormCollectionsStorageProvider) ListEntityCollections(ctx context.Conte
 		}
 
 		// Filter by owner if specified
-		if opts.OwnerType != "" && collection.OwnerType != opts.OwnerType {
-			continue
-		}
 		if opts.OwnerID != "" && collection.OwnerId != opts.OwnerID {
 			continue
 		}
@@ -335,8 +325,8 @@ func (p *gormCollectionsStorageProvider) UpdateItemOrders(ctx context.Context, c
 	for _, order := range orders {
 		result := p.db.WithContext(ctx).
 			Model(&gormgen.CollectionItemGORM{}).
-			Where("collection_id = ? AND entity_type = ? AND entity_id = ?",
-				collectionID, order.EntityType, order.EntityId).
+			Where("collection_id = ? AND entity_id = ?",
+				collectionID, order.EntityId).
 			Update("display_order", order.DisplayOrder)
 
 		if result.Error != nil {

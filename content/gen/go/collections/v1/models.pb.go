@@ -181,7 +181,7 @@ func (SortField) EnumDescriptor() ([]byte, []int) {
 // - Path stores ancestor IDs for efficient subtree queries
 // - Type is a simple string for flexibility (folder, playlist, album, etc.)
 //
-// Uniqueness: (owner_type, owner_id, parent_id, normalized_name)
+// Uniqueness: (owner_id, parent_id, normalized_name)
 // must be unique to prevent duplicate sibling collections.
 type Collection struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -194,9 +194,9 @@ type Collection struct {
 	NormalizedName string `protobuf:"bytes,3,opt,name=normalized_name,json=normalizedName,proto3" json:"normalized_name,omitempty"`
 	// Optional description
 	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	// Ownership
-	OwnerType string `protobuf:"bytes,10,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"` // "user", "org", "system"
-	OwnerId   string `protobuf:"bytes,11,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`       // ID of owner
+	// Ownership - owner_id identifies who owns the collection.
+	// Format: "type:id" (e.g., "user:123", "org:456", "system:default")
+	OwnerId string `protobuf:"bytes,10,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// Hierarchy
 	// Parent collection ID (empty = root collection)
 	ParentId string `protobuf:"bytes,15,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
@@ -283,13 +283,6 @@ func (x *Collection) GetNormalizedName() string {
 func (x *Collection) GetDescription() string {
 	if x != nil {
 		return x.Description
-	}
-	return ""
-}
-
-func (x *Collection) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
 	}
 	return ""
 }
@@ -402,15 +395,15 @@ func (x *Collection) GetCreatorId() string {
 // CollectionItem represents an entity added to a collection.
 // This is the join table that allows any entity to be in multiple collections.
 //
-// Composite Key: (collection_id, entity_type, entity_id) - enforces uniqueness.
+// Composite Key: (collection_id, entity_id) - enforces uniqueness.
 // An entity can only be in a collection once, but can be in multiple collections.
+// Note: Entity type is determined by which service/table instance is used.
 type CollectionItem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The collection this item belongs to
 	CollectionId string `protobuf:"bytes,1,opt,name=collection_id,json=collectionId,proto3" json:"collection_id,omitempty"`
 	// Entity being added to collection
-	EntityType string `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"` // e.g., "document", "post", "song"
-	EntityId   string `protobuf:"bytes,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityId string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Order within the collection (for manual ordering)
 	DisplayOrder int32 `protobuf:"varint,10,opt,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"`
 	// Who added this item
@@ -460,13 +453,6 @@ func (x *CollectionItem) GetCollectionId() string {
 	return ""
 }
 
-func (x *CollectionItem) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
-}
-
 func (x *CollectionItem) GetEntityId() string {
 	if x != nil {
 		return x.EntityId
@@ -506,17 +492,15 @@ var File_collections_v1_models_proto protoreflect.FileDescriptor
 
 const file_collections_v1_models_proto_rawDesc = "" +
 	"\n" +
-	"\x1bcollections/v1/models.proto\x12\x16content.collections.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc4\x05\n" +
+	"\x1bcollections/v1/models.proto\x12\x16content.collections.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa5\x05\n" +
 	"\n" +
 	"Collection\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
 	"\x0fnormalized_name\x18\x03 \x01(\tR\x0enormalizedName\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\n" +
-	" \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\v \x01(\tR\aownerId\x12\x1b\n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x19\n" +
+	"\bowner_id\x18\n" +
+	" \x01(\tR\aownerId\x12\x1b\n" +
 	"\tparent_id\x18\x0f \x01(\tR\bparentId\x12\x12\n" +
 	"\x04path\x18\x10 \x03(\tR\x04path\x12\x14\n" +
 	"\x05depth\x18\x11 \x01(\x05R\x05depth\x12#\n" +
@@ -537,12 +521,10 @@ const file_collections_v1_models_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x183 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n" +
 	"\n" +
-	"creator_id\x184 \x01(\tR\tcreatorId\"\x86\x02\n" +
+	"creator_id\x184 \x01(\tR\tcreatorId\"\xe5\x01\n" +
 	"\x0eCollectionItem\x12#\n" +
-	"\rcollection_id\x18\x01 \x01(\tR\fcollectionId\x12\x1f\n" +
-	"\ventity_type\x18\x02 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x03 \x01(\tR\bentityId\x12#\n" +
+	"\rcollection_id\x18\x01 \x01(\tR\fcollectionId\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12#\n" +
 	"\rdisplay_order\x18\n" +
 	" \x01(\x05R\fdisplayOrder\x12\x19\n" +
 	"\badded_by\x18\x0f \x01(\tR\aaddedBy\x125\n" +

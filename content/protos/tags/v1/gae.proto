@@ -33,9 +33,8 @@ message TagDatastore {
   }];
   int32 display_order = 9;
 
-  // Ownership
-  string owner_type = 10;
-  string owner_id = 11;
+  // Ownership - owner_id in "type:id" format (e.g., "user:123")
+  string owner_id = 10;
 
   // Stats
   int64 usage_count = 15;
@@ -49,7 +48,7 @@ message TagDatastore {
 }
 
 // EntityTagDatastore is the Datastore model for EntityTag.
-// Key is composite: tag_id + entity_type + entity_id + tagged_by
+// Key is composite: tag_id + entity_id + tagged_by
 // This allows multiple users to independently apply/remove the same shared tag.
 message EntityTagDatastore {
   option (dal.v1.datastore_options) = {
@@ -57,11 +56,10 @@ message EntityTagDatastore {
     kind: "EntityTag"
   };
 
-  // All four fields form the logical composite key
+  // All three fields form the logical composite key
   string tag_id = 1;
-  string entity_type = 2;
-  string entity_id = 3;
-  string tagged_by = 4;
+  string entity_id = 2;
+  string tagged_by = 3;
 }
 
 // TagUsageCountsDatastore is the Datastore model for denormalized tag counts.
@@ -72,12 +70,12 @@ message TagUsageCountsDatastore {
     implement_property_loader: true
   };
 
-  string entity_type = 1;
-  string entity_id = 2;
-  int64 total_count = 3;
+  // Key is entity_id
+  string entity_id = 1;
+  int64 total_count = 2;
 
   // JSON-serialized map of name to count
-  map<string, int64> by_name = 4 [(dal.v1.column) = {
+  map<string, int64> by_name = 3 [(dal.v1.column) = {
     datastore_tags: ["noindex"]
   }];
 }

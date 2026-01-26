@@ -43,8 +43,6 @@ type LikeDatastore struct {
 
 	Id string `datastore:"-"`
 
-	EntityType string `datastore:"entity_type"`
-
 	EntityId string `datastore:"entity_id"`
 
 	UserId string `datastore:"user_id"`
@@ -66,8 +64,6 @@ func (*LikeDatastore) Kind() string {
 // LikeCountsDatastore is the Datastore entity for the source message.
 type LikeCountsDatastore struct {
 	Key *datastore.Key `datastore:"-"`
-
-	EntityType string `datastore:"entity_type"`
 
 	EntityId string `datastore:"entity_id"`
 
@@ -115,8 +111,6 @@ func (m *LikeCountsDatastore) saveNonMapFields() ([]datastore.Property, error) {
 	type nonMapFields struct {
 		Key *datastore.Key `datastore:"-"`
 
-		EntityType string `datastore:"entity_type"`
-
 		EntityId string `datastore:"entity_id"`
 
 		TotalCount int64 `datastore:"total_count"`
@@ -127,8 +121,6 @@ func (m *LikeCountsDatastore) saveNonMapFields() ([]datastore.Property, error) {
 	tmp := nonMapFields{
 
 		Key: m.Key,
-
-		EntityType: m.EntityType,
 
 		EntityId: m.EntityId,
 
@@ -163,8 +155,6 @@ func (m *LikeCountsDatastore) Load(props []datastore.Property) error {
 	type nonMapFields struct {
 		Key *datastore.Key `datastore:"-"`
 
-		EntityType string `datastore:"entity_type"`
-
 		EntityId string `datastore:"entity_id"`
 
 		TotalCount int64 `datastore:"total_count"`
@@ -180,8 +170,6 @@ func (m *LikeCountsDatastore) Load(props []datastore.Property) error {
 	// Copy non-map fields back
 
 	m.Key = tmp.Key
-
-	m.EntityType = tmp.EntityType
 
 	m.EntityId = tmp.EntityId
 

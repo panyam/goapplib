@@ -259,12 +259,6 @@ func (d *LikeGORMDAL) BatchGet(ctx context.Context, db *gorm.DB, ids []string) (
 	return out, err
 }
 
-// LikeCountsKey represents the composite primary key for v1.LikeCountsGORM
-type LikeCountsKey struct {
-	EntityType string
-	EntityId   string
-}
-
 // LikeCountsGORMDAL provides database access helper methods for v1.LikeCountsGORM.
 type LikeCountsGORMDAL struct {
 	// TableName overrides the table for all operations.
@@ -325,16 +319,13 @@ func (d *LikeCountsGORMDAL) Update(ctx context.Context, db *gorm.DB, obj *v1.Lik
 //	dal.Save(ctx, db.Where("version = ?", oldVersion), obj)
 func (d *LikeCountsGORMDAL) Save(ctx context.Context, db *gorm.DB, obj *v1.LikeCountsGORM) error {
 	// Validate primary key(s)
-	if obj.EntityType == "" {
-		return errors.New("primary key 'EntityType' cannot be empty")
-	}
 	if obj.EntityId == "" {
 		return errors.New("primary key 'EntityId' cannot be empty")
 	}
 
 	// Check if record exists by trying to fetch it
 	var existing v1.LikeCountsGORM
-	err := d.db(db).First(&existing, "entity_type = ?", "entity_id = ?", obj.EntityType, obj.EntityId).Error
+	err := d.db(db).First(&existing, "entity_id = ?", obj.EntityId).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -354,11 +345,11 @@ func (d *LikeCountsGORMDAL) Save(ctx context.Context, db *gorm.DB, obj *v1.LikeC
 	return d.db(db).Save(obj).Error
 }
 
-// Get retrieves a v1.LikeCountsGORM record by primary keys.
+// Get retrieves a v1.LikeCountsGORM record by primary key.
 // Returns (nil, nil) if the record is not found (not an error).
-func (d *LikeCountsGORMDAL) Get(ctx context.Context, db *gorm.DB, entityType string, entityId string) (*v1.LikeCountsGORM, error) {
+func (d *LikeCountsGORMDAL) Get(ctx context.Context, db *gorm.DB, entityId string) (*v1.LikeCountsGORM, error) {
 	var out v1.LikeCountsGORM
-	err := d.db(db).First(&out, "entity_type = ? AND entity_id = ?", entityType, entityId).Error
+	err := d.db(db).First(&out, "entity_id = ?", entityId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -368,9 +359,9 @@ func (d *LikeCountsGORMDAL) Get(ctx context.Context, db *gorm.DB, entityType str
 	return &out, nil
 }
 
-// Delete removes a v1.LikeCountsGORM record by primary keys.
-func (d *LikeCountsGORMDAL) Delete(ctx context.Context, db *gorm.DB, entityType string, entityId string) error {
-	return d.db(db).Where("entity_type = ? AND entity_id = ?", entityType, entityId).Delete(&v1.LikeCountsGORM{}).Error
+// Delete removes a v1.LikeCountsGORM record by primary key.
+func (d *LikeCountsGORMDAL) Delete(ctx context.Context, db *gorm.DB, entityId string) error {
+	return d.db(db).Where("entity_id = ?", entityId).Delete(&v1.LikeCountsGORM{}).Error
 }
 
 // List retrieves multiple v1.LikeCountsGORM records using the provided query.
@@ -381,20 +372,14 @@ func (d *LikeCountsGORMDAL) List(ctx context.Context, query *gorm.DB) ([]*v1.Lik
 	return out, err
 }
 
-// BatchGet retrieves multiple v1.LikeCountsGORM records by primary keys.
+// BatchGet retrieves multiple v1.LikeCountsGORM records by primary key.
 // Results are returned in the order provided by the database (not necessarily the input order).
-func (d *LikeCountsGORMDAL) BatchGet(ctx context.Context, db *gorm.DB, keys []LikeCountsKey) ([]*v1.LikeCountsGORM, error) {
-	if len(keys) == 0 {
+func (d *LikeCountsGORMDAL) BatchGet(ctx context.Context, db *gorm.DB, entityIds []string) ([]*v1.LikeCountsGORM, error) {
+	if len(entityIds) == 0 {
 		return []*v1.LikeCountsGORM{}, nil
 	}
 
-	// Build OR query for each key combination
-	query := d.db(db).Where("1 = 0") // Start with false condition
-	for _, key := range keys {
-		query = query.Or("entity_type = ? AND entity_id = ?", key.EntityType, key.EntityId)
-	}
-
 	var out []*v1.LikeCountsGORM
-	err := query.Find(&out).Error
+	err := d.db(db).Where("entity_id IN ?", entityIds).Find(&out).Error
 	return out, err
 }

@@ -112,10 +112,9 @@ func (x *ReactionTypeGORM) GetIsDefault() bool {
 type LikeGORM struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId      string                 `protobuf:"bytes,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	UserId        string                 `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ReactionType  string                 `protobuf:"bytes,5,opt,name=reaction_type,json=reactionType,proto3" json:"reaction_type,omitempty"`
+	EntityId      string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ReactionType  string                 `protobuf:"bytes,4,opt,name=reaction_type,json=reactionType,proto3" json:"reaction_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -157,13 +156,6 @@ func (x *LikeGORM) GetId() string {
 	return ""
 }
 
-func (x *LikeGORM) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
-}
-
 func (x *LikeGORM) GetEntityId() string {
 	if x != nil {
 		return x.EntityId
@@ -188,11 +180,10 @@ func (x *LikeGORM) GetReactionType() string {
 // LikeCountsGORM is the GORM model for denormalized like counts.
 type LikeCountsGORM struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
-	EntityType string                 `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId   string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	TotalCount int64                  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	EntityId   string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	TotalCount int64                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	// JSON-serialized map of reaction type to count
-	ByReactionType map[string]int64 `protobuf:"bytes,4,rep,name=by_reaction_type,json=byReactionType,proto3" json:"by_reaction_type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	ByReactionType map[string]int64 `protobuf:"bytes,3,rep,name=by_reaction_type,json=byReactionType,proto3" json:"by_reaction_type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -225,13 +216,6 @@ func (x *LikeCountsGORM) ProtoReflect() protoreflect.Message {
 // Deprecated: Use LikeCountsGORM.ProtoReflect.Descriptor instead.
 func (*LikeCountsGORM) Descriptor() ([]byte, []int) {
 	return file_likes_v1_gorm_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *LikeCountsGORM) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
 }
 
 func (x *LikeCountsGORM) GetEntityId() string {
@@ -269,25 +253,20 @@ const file_likes_v1_gorm_proto_rawDesc = "" +
 	"\rdisplay_order\x18\x05 \x01(\x05R\fdisplayOrder\x12\x1d\n" +
 	"\n" +
 	"is_default\x18\x06 \x01(\bR\tisDefault:3ʦ\x1d/\n" +
-	"\x1dcontent.likes.v1.ReactionType\x12\x0ereaction_types\"\xb9\x03\n" +
+	"\x1dcontent.likes.v1.ReactionType\x12\x0ereaction_types\"\xc7\x02\n" +
 	"\bLikeGORM\x12 \n" +
 	"\x02id\x18\x01 \x01(\tB\x10\x92\xa6\x1d\fR\n" +
-	"primaryKeyR\x02id\x12p\n" +
-	"\ventity_type\x18\x02 \x01(\tBO\x92\xa6\x1dKR!index:idx_likes_entity,priority:1R&index:idx_likes_user_entity,priority:1R\n" +
-	"entityType\x12l\n" +
-	"\tentity_id\x18\x03 \x01(\tBO\x92\xa6\x1dKR!index:idx_likes_entity,priority:2R&index:idx_likes_user_entity,priority:2R\bentityId\x12b\n" +
-	"\auser_id\x18\x04 \x01(\tBI\x92\xa6\x1dER\x14index:idx_likes_userR-index:idx_likes_user_entity,priority:3,uniqueR\x06userId\x12#\n" +
-	"\rreaction_type\x18\x05 \x01(\tR\freactionType:\"ʦ\x1d\x1e\n" +
-	"\x15content.likes.v1.Like\x12\x05likes\"\x89\x03\n" +
-	"\x0eLikeCountsGORM\x121\n" +
-	"\ventity_type\x18\x01 \x01(\tB\x10\x92\xa6\x1d\fR\n" +
-	"primaryKeyR\n" +
-	"entityType\x12-\n" +
-	"\tentity_id\x18\x02 \x01(\tB\x10\x92\xa6\x1d\fR\n" +
+	"primaryKeyR\x02id\x12l\n" +
+	"\tentity_id\x18\x02 \x01(\tBO\x92\xa6\x1dKR!index:idx_likes_entity,priority:1R&index:idx_likes_user_entity,priority:1R\bentityId\x12b\n" +
+	"\auser_id\x18\x03 \x01(\tBI\x92\xa6\x1dER\x14index:idx_likes_userR-index:idx_likes_user_entity,priority:2,uniqueR\x06userId\x12#\n" +
+	"\rreaction_type\x18\x04 \x01(\tR\freactionType:\"ʦ\x1d\x1e\n" +
+	"\x15content.likes.v1.Like\x12\x05likes\"\xd6\x02\n" +
+	"\x0eLikeCountsGORM\x12-\n" +
+	"\tentity_id\x18\x01 \x01(\tB\x10\x92\xa6\x1d\fR\n" +
 	"primaryKeyR\bentityId\x12\x1f\n" +
-	"\vtotal_count\x18\x03 \x01(\x03R\n" +
+	"\vtotal_count\x18\x02 \x01(\x03R\n" +
 	"totalCount\x12\x80\x01\n" +
-	"\x10by_reaction_type\x18\x04 \x03(\v24.content.likes.v1.LikeCountsGORM.ByReactionTypeEntryB \x92\xa6\x1d\x1cR\x0fserializer:jsonR\ttype:textR\x0ebyReactionType\x1aA\n" +
+	"\x10by_reaction_type\x18\x03 \x03(\v24.content.likes.v1.LikeCountsGORM.ByReactionTypeEntryB \x92\xa6\x1d\x1cR\x0fserializer:jsonR\ttype:textR\x0ebyReactionType\x1aA\n" +
 	"\x13ByReactionTypeEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01:.ʦ\x1d*\n" +

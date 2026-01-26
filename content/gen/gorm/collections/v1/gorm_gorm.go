@@ -13,8 +13,8 @@ type CollectionGORM struct {
 	Name           string `gorm:"index:idx_collections_owner_parent_name,priority:4"`
 	NormalizedName string `gorm:"index:idx_collections_owner_parent_name,priority:5"`
 	Description    string
-	OwnerType      string   `gorm:"index:idx_collections_owner_parent,priority:1;index:idx_collections_owner_parent_name,priority:1"`
 	OwnerId        string   `gorm:"index:idx_collections_owner_parent,priority:2;index:idx_collections_owner_parent_name,priority:2"`
+	OwnerType      string   `gorm:"index:idx_collections_owner_parent,priority:1;index:idx_collections_owner_parent_name,priority:1"`
 	ParentId       string   `gorm:"index:idx_collections_parent;index:idx_collections_owner_parent,priority:3;index:idx_collections_owner_parent_name,priority:3"`
 	Path           []string `gorm:"serializer:json;type:text"`
 	Depth          int32    `gorm:"index:idx_collections_depth"`
@@ -39,8 +39,7 @@ func (*CollectionGORM) TableName() string {
 // CollectionItemGORM is the GORM model for content.collections.v1.CollectionItem
 type CollectionItemGORM struct {
 	CollectionId string `gorm:"primaryKey;index:idx_collection_items_collection,priority:1"`
-	EntityType   string `gorm:"primaryKey;index:idx_collection_items_entity,priority:1;index:idx_collection_items_collection,priority:2"`
-	EntityId     string `gorm:"primaryKey;index:idx_collection_items_entity,priority:2"`
+	EntityId     string `gorm:"primaryKey;index:idx_collection_items_entity,priority:1;index:idx_collection_items_collection,priority:2"`
 	DisplayOrder int32  `gorm:"index:idx_collection_items_collection,priority:3"`
 	AddedBy      string
 	AddedAt      time.Time

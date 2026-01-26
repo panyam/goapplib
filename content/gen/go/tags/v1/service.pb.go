@@ -11,7 +11,6 @@ import (
 	sync "sync"
 	unsafe "unsafe"
 
-	v1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -36,9 +35,8 @@ type CreateTagRequest struct {
 	Color        string `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
 	Description  string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	DisplayOrder int32  `protobuf:"varint,6,opt,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"`
-	// Ownership
-	OwnerType     string   `protobuf:"bytes,7,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId       string   `protobuf:"bytes,8,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	// Ownership - owner_id in "type:id" format (e.g., "user:123")
+	OwnerId       string   `protobuf:"bytes,7,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	Scope         TagScope `protobuf:"varint,9,opt,name=scope,proto3,enum=content.tags.v1.TagScope" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -114,13 +112,6 @@ func (x *CreateTagRequest) GetDisplayOrder() int32 {
 		return x.DisplayOrder
 	}
 	return 0
-}
-
-func (x *CreateTagRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
-	}
-	return ""
 }
 
 func (x *CreateTagRequest) GetOwnerId() string {
@@ -488,16 +479,15 @@ func (x *DeleteTagResponse) GetEntitiesUntagged() int64 {
 
 type ListTagsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Filter by owner
-	OwnerType string `protobuf:"bytes,1,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId   string `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	// Filter by owner - owner_id in "type:id" format (e.g., "user:123")
+	OwnerId string `protobuf:"bytes,1,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// Filter by scope
 	Scope TagScope `protobuf:"varint,3,opt,name=scope,proto3,enum=content.tags.v1.TagScope" json:"scope,omitempty"`
 	// Filter by name (empty = pure tags only, "*" = all, "venue" = specific name)
 	NameFilter string `protobuf:"bytes,4,opt,name=name_filter,json=nameFilter,proto3" json:"name_filter,omitempty"`
 	// Order by: "name", "usage_count", "created_at", "display_order"
-	OrderBy       string                `protobuf:"bytes,5,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
-	Pagination    *v1.PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	OrderBy       string             `protobuf:"bytes,5,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
+	Pagination    *PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -532,13 +522,6 @@ func (*ListTagsRequest) Descriptor() ([]byte, []int) {
 	return file_tags_v1_service_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *ListTagsRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
-	}
-	return ""
-}
-
 func (x *ListTagsRequest) GetOwnerId() string {
 	if x != nil {
 		return x.OwnerId
@@ -567,7 +550,7 @@ func (x *ListTagsRequest) GetOrderBy() string {
 	return ""
 }
 
-func (x *ListTagsRequest) GetPagination() *v1.PaginationRequest {
+func (x *ListTagsRequest) GetPagination() *PaginationRequest {
 	if x != nil {
 		return x.Pagination
 	}
@@ -577,7 +560,7 @@ func (x *ListTagsRequest) GetPagination() *v1.PaginationRequest {
 type ListTagsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Tags          []*Tag                 `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty"`
-	Pagination    *v1.PaginationResponse `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination    *PaginationResponse    `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -619,42 +602,150 @@ func (x *ListTagsResponse) GetTags() []*Tag {
 	return nil
 }
 
-func (x *ListTagsResponse) GetPagination() *v1.PaginationResponse {
+func (x *ListTagsResponse) GetPagination() *PaginationResponse {
 	if x != nil {
 		return x.Pagination
 	}
 	return nil
 }
 
+// Standard pagination request.
+type PaginationRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Maximum number of items to return
+	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Token for fetching the next page
+	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PaginationRequest) Reset() {
+	*x = PaginationRequest{}
+	mi := &file_tags_v1_service_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PaginationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PaginationRequest) ProtoMessage() {}
+
+func (x *PaginationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tags_v1_service_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PaginationRequest.ProtoReflect.Descriptor instead.
+func (*PaginationRequest) Descriptor() ([]byte, []int) {
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PaginationRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *PaginationRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+// Standard pagination response.
+type PaginationResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Token to fetch the next page (empty if no more pages)
+	NextPageToken string `protobuf:"bytes,1,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	// Total count of items
+	TotalCount    int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PaginationResponse) Reset() {
+	*x = PaginationResponse{}
+	mi := &file_tags_v1_service_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PaginationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PaginationResponse) ProtoMessage() {}
+
+func (x *PaginationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_tags_v1_service_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PaginationResponse.ProtoReflect.Descriptor instead.
+func (*PaginationResponse) Descriptor() ([]byte, []int) {
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *PaginationResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *PaginationResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
 type TagEntityRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Entity to tag
-	EntityType string `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId   string `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityId string `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Option 1: Reference existing tag by ID
-	TagId string `protobuf:"bytes,3,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
+	TagId string `protobuf:"bytes,2,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
 	// Option 2: Create or find tag inline
 	// If tag_id is empty, these fields are used to find or create the tag
-	Name  string  `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`   // Empty for pure tag
-	Value string  `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"` // Required if tag_id is empty
-	Type  TagType `protobuf:"varint,6,opt,name=type,proto3,enum=content.tags.v1.TagType" json:"type,omitempty"`
-	Color string  `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
-	// Ownership for inline tag creation
-	OwnerType string `protobuf:"bytes,8,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId   string `protobuf:"bytes,9,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	Name  string  `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`   // Empty for pure tag
+	Value string  `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"` // Required if tag_id is empty
+	Type  TagType `protobuf:"varint,5,opt,name=type,proto3,enum=content.tags.v1.TagType" json:"type,omitempty"`
+	Color string  `protobuf:"bytes,6,opt,name=color,proto3" json:"color,omitempty"`
+	// Ownership for inline tag creation - owner_id in "type:id" format
+	OwnerId string `protobuf:"bytes,7,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// Who is applying the tag (defaults to owner)
-	TaggedBy string `protobuf:"bytes,10,opt,name=tagged_by,json=taggedBy,proto3" json:"tagged_by,omitempty"`
+	TaggedBy string `protobuf:"bytes,9,opt,name=tagged_by,json=taggedBy,proto3" json:"tagged_by,omitempty"`
 	// Visibility of this application (not the tag itself).
 	// Allows using a public tag with private application.
 	// Defaults to match tag's scope if not specified.
-	Visibility    EntityTagVisibility `protobuf:"varint,11,opt,name=visibility,proto3,enum=content.tags.v1.EntityTagVisibility" json:"visibility,omitempty"`
+	Visibility    EntityTagVisibility `protobuf:"varint,10,opt,name=visibility,proto3,enum=content.tags.v1.EntityTagVisibility" json:"visibility,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TagEntityRequest) Reset() {
 	*x = TagEntityRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[10]
+	mi := &file_tags_v1_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -666,7 +757,7 @@ func (x *TagEntityRequest) String() string {
 func (*TagEntityRequest) ProtoMessage() {}
 
 func (x *TagEntityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[10]
+	mi := &file_tags_v1_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -679,14 +770,7 @@ func (x *TagEntityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagEntityRequest.ProtoReflect.Descriptor instead.
 func (*TagEntityRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *TagEntityRequest) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TagEntityRequest) GetEntityId() string {
@@ -731,13 +815,6 @@ func (x *TagEntityRequest) GetColor() string {
 	return ""
 }
 
-func (x *TagEntityRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
-	}
-	return ""
-}
-
 func (x *TagEntityRequest) GetOwnerId() string {
 	if x != nil {
 		return x.OwnerId
@@ -773,7 +850,7 @@ type TagEntityResponse struct {
 
 func (x *TagEntityResponse) Reset() {
 	*x = TagEntityResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[11]
+	mi := &file_tags_v1_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -785,7 +862,7 @@ func (x *TagEntityResponse) String() string {
 func (*TagEntityResponse) ProtoMessage() {}
 
 func (x *TagEntityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[11]
+	mi := &file_tags_v1_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -798,7 +875,7 @@ func (x *TagEntityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagEntityResponse.ProtoReflect.Descriptor instead.
 func (*TagEntityResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{11}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TagEntityResponse) GetTag() *Tag {
@@ -823,27 +900,25 @@ func (x *TagEntityResponse) GetNewlyTagged() bool {
 }
 
 type UntagEntityRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	EntityType string                 `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId   string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	EntityId string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Option 1: By tag ID
-	TagId string `protobuf:"bytes,3,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
+	TagId string `protobuf:"bytes,2,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
 	// Option 2: By name/value (service normalizes these for lookup)
-	Name  string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Value string `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
-	// Owner context (needed for option 2)
-	OwnerType string `protobuf:"bytes,6,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId   string `protobuf:"bytes,7,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	Name  string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Value string `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	// Owner context (needed for option 2) - owner_id in "type:id" format
+	OwnerId string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// Who applied the tag (required - part of uniqueness constraint)
 	// Each user removes only their own tag application
-	TaggedBy      string `protobuf:"bytes,8,opt,name=tagged_by,json=taggedBy,proto3" json:"tagged_by,omitempty"`
+	TaggedBy      string `protobuf:"bytes,7,opt,name=tagged_by,json=taggedBy,proto3" json:"tagged_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UntagEntityRequest) Reset() {
 	*x = UntagEntityRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[12]
+	mi := &file_tags_v1_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -855,7 +930,7 @@ func (x *UntagEntityRequest) String() string {
 func (*UntagEntityRequest) ProtoMessage() {}
 
 func (x *UntagEntityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[12]
+	mi := &file_tags_v1_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -868,14 +943,7 @@ func (x *UntagEntityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UntagEntityRequest.ProtoReflect.Descriptor instead.
 func (*UntagEntityRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *UntagEntityRequest) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *UntagEntityRequest) GetEntityId() string {
@@ -906,13 +974,6 @@ func (x *UntagEntityRequest) GetValue() string {
 	return ""
 }
 
-func (x *UntagEntityRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
-	}
-	return ""
-}
-
 func (x *UntagEntityRequest) GetOwnerId() string {
 	if x != nil {
 		return x.OwnerId
@@ -936,7 +997,7 @@ type UntagEntityResponse struct {
 
 func (x *UntagEntityResponse) Reset() {
 	*x = UntagEntityResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[13]
+	mi := &file_tags_v1_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -948,7 +1009,7 @@ func (x *UntagEntityResponse) String() string {
 func (*UntagEntityResponse) ProtoMessage() {}
 
 func (x *UntagEntityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[13]
+	mi := &file_tags_v1_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -961,7 +1022,7 @@ func (x *UntagEntityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UntagEntityResponse.ProtoReflect.Descriptor instead.
 func (*UntagEntityResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{13}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UntagEntityResponse) GetRemoved() bool {
@@ -972,22 +1033,20 @@ func (x *UntagEntityResponse) GetRemoved() bool {
 }
 
 type GetEntityTagsRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	EntityType string                 `protobuf:"bytes,1,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId   string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	EntityId string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	// Optional: filter by name
 	// Empty = all tags, "" (explicit empty) = pure tags only, "venue" = specific name
-	NameFilter string `protobuf:"bytes,3,opt,name=name_filter,json=nameFilter,proto3" json:"name_filter,omitempty"`
-	// Optional: filter by owner
-	OwnerType     string `protobuf:"bytes,4,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId       string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	NameFilter string `protobuf:"bytes,2,opt,name=name_filter,json=nameFilter,proto3" json:"name_filter,omitempty"`
+	// Optional: filter by owner - owner_id in "type:id" format
+	OwnerId       string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetEntityTagsRequest) Reset() {
 	*x = GetEntityTagsRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[14]
+	mi := &file_tags_v1_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -999,7 +1058,7 @@ func (x *GetEntityTagsRequest) String() string {
 func (*GetEntityTagsRequest) ProtoMessage() {}
 
 func (x *GetEntityTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[14]
+	mi := &file_tags_v1_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1012,14 +1071,7 @@ func (x *GetEntityTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEntityTagsRequest.ProtoReflect.Descriptor instead.
 func (*GetEntityTagsRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{14}
-}
-
-func (x *GetEntityTagsRequest) GetEntityType() string {
-	if x != nil {
-		return x.EntityType
-	}
-	return ""
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetEntityTagsRequest) GetEntityId() string {
@@ -1032,13 +1084,6 @@ func (x *GetEntityTagsRequest) GetEntityId() string {
 func (x *GetEntityTagsRequest) GetNameFilter() string {
 	if x != nil {
 		return x.NameFilter
-	}
-	return ""
-}
-
-func (x *GetEntityTagsRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
 	}
 	return ""
 }
@@ -1059,7 +1104,7 @@ type GetEntityTagsResponse struct {
 
 func (x *GetEntityTagsResponse) Reset() {
 	*x = GetEntityTagsResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[15]
+	mi := &file_tags_v1_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1071,7 +1116,7 @@ func (x *GetEntityTagsResponse) String() string {
 func (*GetEntityTagsResponse) ProtoMessage() {}
 
 func (x *GetEntityTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[15]
+	mi := &file_tags_v1_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1084,7 +1129,7 @@ func (x *GetEntityTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEntityTagsResponse.ProtoReflect.Descriptor instead.
 func (*GetEntityTagsResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{15}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetEntityTagsResponse) GetTags() []*Tag {
@@ -1099,20 +1144,17 @@ type GetEntitiesWithTagRequest struct {
 	// Option 1: By tag ID
 	TagId string `protobuf:"bytes,1,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
 	// Option 2: By name/value (service normalizes these for lookup)
-	Name      string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Value     string `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-	OwnerType string `protobuf:"bytes,4,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId   string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
-	// Optional: filter by entity type
-	EntityTypeFilter string                `protobuf:"bytes,6,opt,name=entity_type_filter,json=entityTypeFilter,proto3" json:"entity_type_filter,omitempty"`
-	Pagination       *v1.PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	Name          string             `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Value         string             `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	OwnerId       string             `protobuf:"bytes,4,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"` // owner_id in "type:id" format
+	Pagination    *PaginationRequest `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetEntitiesWithTagRequest) Reset() {
 	*x = GetEntitiesWithTagRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[16]
+	mi := &file_tags_v1_service_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1124,7 +1166,7 @@ func (x *GetEntitiesWithTagRequest) String() string {
 func (*GetEntitiesWithTagRequest) ProtoMessage() {}
 
 func (x *GetEntitiesWithTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[16]
+	mi := &file_tags_v1_service_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1137,7 +1179,7 @@ func (x *GetEntitiesWithTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEntitiesWithTagRequest.ProtoReflect.Descriptor instead.
 func (*GetEntitiesWithTagRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{16}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetEntitiesWithTagRequest) GetTagId() string {
@@ -1161,13 +1203,6 @@ func (x *GetEntitiesWithTagRequest) GetValue() string {
 	return ""
 }
 
-func (x *GetEntitiesWithTagRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
-	}
-	return ""
-}
-
 func (x *GetEntitiesWithTagRequest) GetOwnerId() string {
 	if x != nil {
 		return x.OwnerId
@@ -1175,14 +1210,7 @@ func (x *GetEntitiesWithTagRequest) GetOwnerId() string {
 	return ""
 }
 
-func (x *GetEntitiesWithTagRequest) GetEntityTypeFilter() string {
-	if x != nil {
-		return x.EntityTypeFilter
-	}
-	return ""
-}
-
-func (x *GetEntitiesWithTagRequest) GetPagination() *v1.PaginationRequest {
+func (x *GetEntitiesWithTagRequest) GetPagination() *PaginationRequest {
 	if x != nil {
 		return x.Pagination
 	}
@@ -1190,16 +1218,17 @@ func (x *GetEntitiesWithTagRequest) GetPagination() *v1.PaginationRequest {
 }
 
 type GetEntitiesWithTagResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Entities      []*v1.EntityRef        `protobuf:"bytes,1,rep,name=entities,proto3" json:"entities,omitempty"`
-	Pagination    *v1.PaginationResponse `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// List of entity IDs that have this tag
+	EntityIds     []string            `protobuf:"bytes,1,rep,name=entity_ids,json=entityIds,proto3" json:"entity_ids,omitempty"`
+	Pagination    *PaginationResponse `protobuf:"bytes,10,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetEntitiesWithTagResponse) Reset() {
 	*x = GetEntitiesWithTagResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[17]
+	mi := &file_tags_v1_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1211,7 +1240,7 @@ func (x *GetEntitiesWithTagResponse) String() string {
 func (*GetEntitiesWithTagResponse) ProtoMessage() {}
 
 func (x *GetEntitiesWithTagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[17]
+	mi := &file_tags_v1_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1224,17 +1253,17 @@ func (x *GetEntitiesWithTagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEntitiesWithTagResponse.ProtoReflect.Descriptor instead.
 func (*GetEntitiesWithTagResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{17}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{19}
 }
 
-func (x *GetEntitiesWithTagResponse) GetEntities() []*v1.EntityRef {
+func (x *GetEntitiesWithTagResponse) GetEntityIds() []string {
 	if x != nil {
-		return x.Entities
+		return x.EntityIds
 	}
 	return nil
 }
 
-func (x *GetEntitiesWithTagResponse) GetPagination() *v1.PaginationResponse {
+func (x *GetEntitiesWithTagResponse) GetPagination() *PaginationResponse {
 	if x != nil {
 		return x.Pagination
 	}
@@ -1246,14 +1275,13 @@ type BatchTagEntitiesRequest struct {
 	// Tag to apply (by ID)
 	TagId string `protobuf:"bytes,1,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
 	// Or by name/value (for inline creation)
-	Name      string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Value     string   `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-	Type      TagType  `protobuf:"varint,4,opt,name=type,proto3,enum=content.tags.v1.TagType" json:"type,omitempty"`
-	OwnerType string   `protobuf:"bytes,5,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId   string   `protobuf:"bytes,6,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
-	Scope     TagScope `protobuf:"varint,7,opt,name=scope,proto3,enum=content.tags.v1.TagScope" json:"scope,omitempty"`
-	// Entities to tag
-	Entities []*v1.EntityRef `protobuf:"bytes,10,rep,name=entities,proto3" json:"entities,omitempty"`
+	Name    string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Value   string   `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Type    TagType  `protobuf:"varint,4,opt,name=type,proto3,enum=content.tags.v1.TagType" json:"type,omitempty"`
+	OwnerId string   `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"` // owner_id in "type:id" format
+	Scope   TagScope `protobuf:"varint,7,opt,name=scope,proto3,enum=content.tags.v1.TagScope" json:"scope,omitempty"`
+	// Entity IDs to tag
+	EntityIds []string `protobuf:"bytes,10,rep,name=entity_ids,json=entityIds,proto3" json:"entity_ids,omitempty"`
 	// Who is applying the tags
 	TaggedBy      string `protobuf:"bytes,11,opt,name=tagged_by,json=taggedBy,proto3" json:"tagged_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1262,7 +1290,7 @@ type BatchTagEntitiesRequest struct {
 
 func (x *BatchTagEntitiesRequest) Reset() {
 	*x = BatchTagEntitiesRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[18]
+	mi := &file_tags_v1_service_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1274,7 +1302,7 @@ func (x *BatchTagEntitiesRequest) String() string {
 func (*BatchTagEntitiesRequest) ProtoMessage() {}
 
 func (x *BatchTagEntitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[18]
+	mi := &file_tags_v1_service_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1287,7 +1315,7 @@ func (x *BatchTagEntitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchTagEntitiesRequest.ProtoReflect.Descriptor instead.
 func (*BatchTagEntitiesRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{18}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *BatchTagEntitiesRequest) GetTagId() string {
@@ -1318,13 +1346,6 @@ func (x *BatchTagEntitiesRequest) GetType() TagType {
 	return TagType_TAG_TYPE_UNSPECIFIED
 }
 
-func (x *BatchTagEntitiesRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
-	}
-	return ""
-}
-
 func (x *BatchTagEntitiesRequest) GetOwnerId() string {
 	if x != nil {
 		return x.OwnerId
@@ -1339,9 +1360,9 @@ func (x *BatchTagEntitiesRequest) GetScope() TagScope {
 	return TagScope_TAG_SCOPE_UNSPECIFIED
 }
 
-func (x *BatchTagEntitiesRequest) GetEntities() []*v1.EntityRef {
+func (x *BatchTagEntitiesRequest) GetEntityIds() []string {
 	if x != nil {
-		return x.Entities
+		return x.EntityIds
 	}
 	return nil
 }
@@ -1364,7 +1385,7 @@ type BatchTagEntitiesResponse struct {
 
 func (x *BatchTagEntitiesResponse) Reset() {
 	*x = BatchTagEntitiesResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[19]
+	mi := &file_tags_v1_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1376,7 +1397,7 @@ func (x *BatchTagEntitiesResponse) String() string {
 func (*BatchTagEntitiesResponse) ProtoMessage() {}
 
 func (x *BatchTagEntitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[19]
+	mi := &file_tags_v1_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1389,7 +1410,7 @@ func (x *BatchTagEntitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchTagEntitiesResponse.ProtoReflect.Descriptor instead.
 func (*BatchTagEntitiesResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{19}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *BatchTagEntitiesResponse) GetTag() *Tag {
@@ -1414,18 +1435,18 @@ func (x *BatchTagEntitiesResponse) GetAlreadyTagged() int64 {
 }
 
 type BatchGetEntityTagsRequest struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	Entities []*v1.EntityRef        `protobuf:"bytes,1,rep,name=entities,proto3" json:"entities,omitempty"`
-	// Optional: filter by owner
-	OwnerType     string `protobuf:"bytes,2,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId       string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Entity IDs to get tags for
+	EntityIds []string `protobuf:"bytes,1,rep,name=entity_ids,json=entityIds,proto3" json:"entity_ids,omitempty"`
+	// Optional: filter by owner - owner_id in "type:id" format
+	OwnerId       string `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BatchGetEntityTagsRequest) Reset() {
 	*x = BatchGetEntityTagsRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[20]
+	mi := &file_tags_v1_service_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1437,7 +1458,7 @@ func (x *BatchGetEntityTagsRequest) String() string {
 func (*BatchGetEntityTagsRequest) ProtoMessage() {}
 
 func (x *BatchGetEntityTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[20]
+	mi := &file_tags_v1_service_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1450,21 +1471,14 @@ func (x *BatchGetEntityTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchGetEntityTagsRequest.ProtoReflect.Descriptor instead.
 func (*BatchGetEntityTagsRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{20}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *BatchGetEntityTagsRequest) GetEntities() []*v1.EntityRef {
+func (x *BatchGetEntityTagsRequest) GetEntityIds() []string {
 	if x != nil {
-		return x.Entities
+		return x.EntityIds
 	}
 	return nil
-}
-
-func (x *BatchGetEntityTagsRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
-	}
-	return ""
 }
 
 func (x *BatchGetEntityTagsRequest) GetOwnerId() string {
@@ -1476,7 +1490,7 @@ func (x *BatchGetEntityTagsRequest) GetOwnerId() string {
 
 type BatchGetEntityTagsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Map of "entity_type:entity_id" to list of tags
+	// Map of entity_id to list of tags
 	EntityTags    map[string]*EntityTagList `protobuf:"bytes,1,rep,name=entity_tags,json=entityTags,proto3" json:"entity_tags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1484,7 +1498,7 @@ type BatchGetEntityTagsResponse struct {
 
 func (x *BatchGetEntityTagsResponse) Reset() {
 	*x = BatchGetEntityTagsResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[21]
+	mi := &file_tags_v1_service_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1496,7 +1510,7 @@ func (x *BatchGetEntityTagsResponse) String() string {
 func (*BatchGetEntityTagsResponse) ProtoMessage() {}
 
 func (x *BatchGetEntityTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[21]
+	mi := &file_tags_v1_service_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1509,7 +1523,7 @@ func (x *BatchGetEntityTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchGetEntityTagsResponse.ProtoReflect.Descriptor instead.
 func (*BatchGetEntityTagsResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{21}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *BatchGetEntityTagsResponse) GetEntityTags() map[string]*EntityTagList {
@@ -1529,7 +1543,7 @@ type EntityTagList struct {
 
 func (x *EntityTagList) Reset() {
 	*x = EntityTagList{}
-	mi := &file_tags_v1_service_proto_msgTypes[22]
+	mi := &file_tags_v1_service_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1541,7 +1555,7 @@ func (x *EntityTagList) String() string {
 func (*EntityTagList) ProtoMessage() {}
 
 func (x *EntityTagList) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[22]
+	mi := &file_tags_v1_service_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1554,7 +1568,7 @@ func (x *EntityTagList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntityTagList.ProtoReflect.Descriptor instead.
 func (*EntityTagList) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{22}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *EntityTagList) GetTags() []*Tag {
@@ -1570,9 +1584,8 @@ type SearchTagsRequest struct {
 	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	// Filter by name (empty = search all, "" = pure tags, "venue" = specific name)
 	NameFilter string `protobuf:"bytes,2,opt,name=name_filter,json=nameFilter,proto3" json:"name_filter,omitempty"`
-	// Filter by owner
-	OwnerType string `protobuf:"bytes,3,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId   string `protobuf:"bytes,4,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	// Filter by owner - owner_id in "type:id" format
+	OwnerId string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// Include shared/public tags from other owners
 	IncludeShared bool `protobuf:"varint,5,opt,name=include_shared,json=includeShared,proto3" json:"include_shared,omitempty"`
 	// Maximum results
@@ -1583,7 +1596,7 @@ type SearchTagsRequest struct {
 
 func (x *SearchTagsRequest) Reset() {
 	*x = SearchTagsRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[23]
+	mi := &file_tags_v1_service_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1595,7 +1608,7 @@ func (x *SearchTagsRequest) String() string {
 func (*SearchTagsRequest) ProtoMessage() {}
 
 func (x *SearchTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[23]
+	mi := &file_tags_v1_service_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1608,7 +1621,7 @@ func (x *SearchTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchTagsRequest.ProtoReflect.Descriptor instead.
 func (*SearchTagsRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{23}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SearchTagsRequest) GetQuery() string {
@@ -1621,13 +1634,6 @@ func (x *SearchTagsRequest) GetQuery() string {
 func (x *SearchTagsRequest) GetNameFilter() string {
 	if x != nil {
 		return x.NameFilter
-	}
-	return ""
-}
-
-func (x *SearchTagsRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
 	}
 	return ""
 }
@@ -1662,7 +1668,7 @@ type SearchTagsResponse struct {
 
 func (x *SearchTagsResponse) Reset() {
 	*x = SearchTagsResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[24]
+	mi := &file_tags_v1_service_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1674,7 +1680,7 @@ func (x *SearchTagsResponse) String() string {
 func (*SearchTagsResponse) ProtoMessage() {}
 
 func (x *SearchTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[24]
+	mi := &file_tags_v1_service_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1687,7 +1693,7 @@ func (x *SearchTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchTagsResponse.ProtoReflect.Descriptor instead.
 func (*SearchTagsResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{24}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SearchTagsResponse) GetTags() []*Tag {
@@ -1701,9 +1707,8 @@ type GetPopularTagsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Filter by name
 	NameFilter string `protobuf:"bytes,1,opt,name=name_filter,json=nameFilter,proto3" json:"name_filter,omitempty"`
-	// Filter by owner
-	OwnerType string `protobuf:"bytes,2,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"`
-	OwnerId   string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	// Filter by owner - owner_id in "type:id" format
+	OwnerId string `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// Include shared/public tags
 	IncludeShared bool `protobuf:"varint,4,opt,name=include_shared,json=includeShared,proto3" json:"include_shared,omitempty"`
 	// Maximum results
@@ -1714,7 +1719,7 @@ type GetPopularTagsRequest struct {
 
 func (x *GetPopularTagsRequest) Reset() {
 	*x = GetPopularTagsRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[25]
+	mi := &file_tags_v1_service_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1726,7 +1731,7 @@ func (x *GetPopularTagsRequest) String() string {
 func (*GetPopularTagsRequest) ProtoMessage() {}
 
 func (x *GetPopularTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[25]
+	mi := &file_tags_v1_service_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1739,19 +1744,12 @@ func (x *GetPopularTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPopularTagsRequest.ProtoReflect.Descriptor instead.
 func (*GetPopularTagsRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{25}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetPopularTagsRequest) GetNameFilter() string {
 	if x != nil {
 		return x.NameFilter
-	}
-	return ""
-}
-
-func (x *GetPopularTagsRequest) GetOwnerType() string {
-	if x != nil {
-		return x.OwnerType
 	}
 	return ""
 }
@@ -1786,7 +1784,7 @@ type GetPopularTagsResponse struct {
 
 func (x *GetPopularTagsResponse) Reset() {
 	*x = GetPopularTagsResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[26]
+	mi := &file_tags_v1_service_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1798,7 +1796,7 @@ func (x *GetPopularTagsResponse) String() string {
 func (*GetPopularTagsResponse) ProtoMessage() {}
 
 func (x *GetPopularTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[26]
+	mi := &file_tags_v1_service_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1811,7 +1809,7 @@ func (x *GetPopularTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPopularTagsResponse.ProtoReflect.Descriptor instead.
 func (*GetPopularTagsResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{26}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetPopularTagsResponse) GetTags() []*Tag {
@@ -1833,7 +1831,7 @@ type MergeTagsRequest struct {
 
 func (x *MergeTagsRequest) Reset() {
 	*x = MergeTagsRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[27]
+	mi := &file_tags_v1_service_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1845,7 +1843,7 @@ func (x *MergeTagsRequest) String() string {
 func (*MergeTagsRequest) ProtoMessage() {}
 
 func (x *MergeTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[27]
+	mi := &file_tags_v1_service_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1858,7 +1856,7 @@ func (x *MergeTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MergeTagsRequest.ProtoReflect.Descriptor instead.
 func (*MergeTagsRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{27}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *MergeTagsRequest) GetSourceTagId() string {
@@ -1887,7 +1885,7 @@ type MergeTagsResponse struct {
 
 func (x *MergeTagsResponse) Reset() {
 	*x = MergeTagsResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[28]
+	mi := &file_tags_v1_service_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1899,7 +1897,7 @@ func (x *MergeTagsResponse) String() string {
 func (*MergeTagsResponse) ProtoMessage() {}
 
 func (x *MergeTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[28]
+	mi := &file_tags_v1_service_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1912,7 +1910,7 @@ func (x *MergeTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MergeTagsResponse.ProtoReflect.Descriptor instead.
 func (*MergeTagsResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{28}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *MergeTagsResponse) GetTag() *Tag {
@@ -1934,11 +1932,10 @@ type PromoteTagRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Tag to promote (must be private or shared)
 	SourceTagId string `protobuf:"bytes,1,opt,name=source_tag_id,json=sourceTagId,proto3" json:"source_tag_id,omitempty"`
-	// Target scope: where to promote to
-	// - "org:{org_id}" to promote to org shared
-	// - "system" or empty to promote to public
-	TargetOwnerType string `protobuf:"bytes,2,opt,name=target_owner_type,json=targetOwnerType,proto3" json:"target_owner_type,omitempty"`
-	TargetOwnerId   string `protobuf:"bytes,3,opt,name=target_owner_id,json=targetOwnerId,proto3" json:"target_owner_id,omitempty"`
+	// Target scope: where to promote to - target_owner_id in "type:id" format
+	// - "org:123" to promote to org shared
+	// - "system:" or empty to promote to public
+	TargetOwnerId string `protobuf:"bytes,2,opt,name=target_owner_id,json=targetOwnerId,proto3" json:"target_owner_id,omitempty"`
 	// If true and target tag exists, merge into it.
 	// If false and target exists, return error.
 	MergeIfExists bool `protobuf:"varint,4,opt,name=merge_if_exists,json=mergeIfExists,proto3" json:"merge_if_exists,omitempty"`
@@ -1950,7 +1947,7 @@ type PromoteTagRequest struct {
 
 func (x *PromoteTagRequest) Reset() {
 	*x = PromoteTagRequest{}
-	mi := &file_tags_v1_service_proto_msgTypes[29]
+	mi := &file_tags_v1_service_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1962,7 +1959,7 @@ func (x *PromoteTagRequest) String() string {
 func (*PromoteTagRequest) ProtoMessage() {}
 
 func (x *PromoteTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[29]
+	mi := &file_tags_v1_service_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1975,19 +1972,12 @@ func (x *PromoteTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoteTagRequest.ProtoReflect.Descriptor instead.
 func (*PromoteTagRequest) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{29}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *PromoteTagRequest) GetSourceTagId() string {
 	if x != nil {
 		return x.SourceTagId
-	}
-	return ""
-}
-
-func (x *PromoteTagRequest) GetTargetOwnerType() string {
-	if x != nil {
-		return x.TargetOwnerType
 	}
 	return ""
 }
@@ -2029,7 +2019,7 @@ type PromoteTagResponse struct {
 
 func (x *PromoteTagResponse) Reset() {
 	*x = PromoteTagResponse{}
-	mi := &file_tags_v1_service_proto_msgTypes[30]
+	mi := &file_tags_v1_service_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2041,7 +2031,7 @@ func (x *PromoteTagResponse) String() string {
 func (*PromoteTagResponse) ProtoMessage() {}
 
 func (x *PromoteTagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tags_v1_service_proto_msgTypes[30]
+	mi := &file_tags_v1_service_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2054,7 +2044,7 @@ func (x *PromoteTagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoteTagResponse.ProtoReflect.Descriptor instead.
 func (*PromoteTagResponse) Descriptor() ([]byte, []int) {
-	return file_tags_v1_service_proto_rawDescGZIP(), []int{30}
+	return file_tags_v1_service_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *PromoteTagResponse) GetTag() *Tag {
@@ -2089,17 +2079,15 @@ var File_tags_v1_service_proto protoreflect.FileDescriptor
 
 const file_tags_v1_service_proto_rawDesc = "" +
 	"\n" +
-	"\x15tags/v1/service.proto\x12\x0fcontent.tags.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x15common/v1/types.proto\x1a\x14tags/v1/models.proto\"\xb2\x02\n" +
+	"\x15tags/v1/service.proto\x12\x0fcontent.tags.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x14tags/v1/models.proto\"\x93\x02\n" +
 	"\x10CreateTagRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12,\n" +
 	"\x04type\x18\x03 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x14\n" +
 	"\x05color\x18\x04 \x01(\tR\x05color\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12#\n" +
-	"\rdisplay_order\x18\x06 \x01(\x05R\fdisplayOrder\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\a \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\b \x01(\tR\aownerId\x12/\n" +
+	"\rdisplay_order\x18\x06 \x01(\x05R\fdisplayOrder\x12\x19\n" +
+	"\bowner_id\x18\a \x01(\tR\aownerId\x12/\n" +
 	"\x05scope\x18\t \x01(\x0e2\x19.content.tags.v1.TagScopeR\x05scope\"d\n" +
 	"\x11CreateTagResponse\x12&\n" +
 	"\x03tag\x18\x01 \x01(\v2\x14.content.tags.v1.TagR\x03tag\x12'\n" +
@@ -2119,110 +2107,100 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\x14remove_from_entities\x18\x02 \x01(\bR\x12removeFromEntities\"Z\n" +
 	"\x11DeleteTagResponse\x12\x18\n" +
 	"\adeleted\x18\x01 \x01(\bR\adeleted\x12+\n" +
-	"\x11entities_untagged\x18\x02 \x01(\x03R\x10entitiesUntagged\"\xfe\x01\n" +
-	"\x0fListTagsRequest\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\x01 \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\x02 \x01(\tR\aownerId\x12/\n" +
+	"\x11entities_untagged\x18\x02 \x01(\x03R\x10entitiesUntagged\"\xdd\x01\n" +
+	"\x0fListTagsRequest\x12\x19\n" +
+	"\bowner_id\x18\x01 \x01(\tR\aownerId\x12/\n" +
 	"\x05scope\x18\x03 \x01(\x0e2\x19.content.tags.v1.TagScopeR\x05scope\x12\x1f\n" +
 	"\vname_filter\x18\x04 \x01(\tR\n" +
 	"nameFilter\x12\x19\n" +
-	"\border_by\x18\x05 \x01(\tR\aorderBy\x12D\n" +
+	"\border_by\x18\x05 \x01(\tR\aorderBy\x12B\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2$.content.common.v1.PaginationRequestR\n" +
-	"pagination\"\x83\x01\n" +
+	" \x01(\v2\".content.tags.v1.PaginationRequestR\n" +
+	"pagination\"\x81\x01\n" +
 	"\x10ListTagsResponse\x12(\n" +
-	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\x12E\n" +
+	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\x12C\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2%.content.common.v1.PaginationResponseR\n" +
-	"pagination\"\xf2\x02\n" +
-	"\x10TagEntityRequest\x12\x1f\n" +
-	"\ventity_type\x18\x01 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x15\n" +
-	"\x06tag_id\x18\x03 \x01(\tR\x05tagId\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name\x12\x14\n" +
-	"\x05value\x18\x05 \x01(\tR\x05value\x12,\n" +
-	"\x04type\x18\x06 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x14\n" +
-	"\x05color\x18\a \x01(\tR\x05color\x12\x1d\n" +
+	" \x01(\v2#.content.tags.v1.PaginationResponseR\n" +
+	"pagination\"O\n" +
+	"\x11PaginationRequest\x12\x1b\n" +
+	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"owner_type\x18\b \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\t \x01(\tR\aownerId\x12\x1b\n" +
-	"\ttagged_by\x18\n" +
-	" \x01(\tR\btaggedBy\x12D\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\"]\n" +
+	"\x12PaginationResponse\x12&\n" +
+	"\x0fnext_page_token\x18\x01 \x01(\tR\rnextPageToken\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\"\xb2\x02\n" +
+	"\x10TagEntityRequest\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x15\n" +
+	"\x06tag_id\x18\x02 \x01(\tR\x05tagId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x14\n" +
+	"\x05value\x18\x04 \x01(\tR\x05value\x12,\n" +
+	"\x04type\x18\x05 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x14\n" +
+	"\x05color\x18\x06 \x01(\tR\x05color\x12\x19\n" +
+	"\bowner_id\x18\a \x01(\tR\aownerId\x12\x1b\n" +
+	"\ttagged_by\x18\t \x01(\tR\btaggedBy\x12D\n" +
 	"\n" +
-	"visibility\x18\v \x01(\x0e2$.content.tags.v1.EntityTagVisibilityR\n" +
+	"visibility\x18\n" +
+	" \x01(\x0e2$.content.tags.v1.EntityTagVisibilityR\n" +
 	"visibility\"\x99\x01\n" +
 	"\x11TagEntityResponse\x12&\n" +
 	"\x03tag\x18\x01 \x01(\v2\x14.content.tags.v1.TagR\x03tag\x129\n" +
 	"\n" +
 	"entity_tag\x18\x02 \x01(\v2\x1a.content.tags.v1.EntityTagR\tentityTag\x12!\n" +
-	"\fnewly_tagged\x18\x03 \x01(\bR\vnewlyTagged\"\xea\x01\n" +
-	"\x12UntagEntityRequest\x12\x1f\n" +
-	"\ventity_type\x18\x01 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x15\n" +
-	"\x06tag_id\x18\x03 \x01(\tR\x05tagId\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name\x12\x14\n" +
-	"\x05value\x18\x05 \x01(\tR\x05value\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\x06 \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\a \x01(\tR\aownerId\x12\x1b\n" +
-	"\ttagged_by\x18\b \x01(\tR\btaggedBy\"/\n" +
+	"\fnewly_tagged\x18\x03 \x01(\bR\vnewlyTagged\"\xaa\x01\n" +
+	"\x12UntagEntityRequest\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x15\n" +
+	"\x06tag_id\x18\x02 \x01(\tR\x05tagId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x14\n" +
+	"\x05value\x18\x04 \x01(\tR\x05value\x12\x19\n" +
+	"\bowner_id\x18\x05 \x01(\tR\aownerId\x12\x1b\n" +
+	"\ttagged_by\x18\a \x01(\tR\btaggedBy\"/\n" +
 	"\x13UntagEntityResponse\x12\x18\n" +
-	"\aremoved\x18\x01 \x01(\bR\aremoved\"\xaf\x01\n" +
-	"\x14GetEntityTagsRequest\x12\x1f\n" +
-	"\ventity_type\x18\x01 \x01(\tR\n" +
-	"entityType\x12\x1b\n" +
-	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x1f\n" +
-	"\vname_filter\x18\x03 \x01(\tR\n" +
-	"nameFilter\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\x04 \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\x05 \x01(\tR\aownerId\"A\n" +
+	"\aremoved\x18\x01 \x01(\bR\aremoved\"o\n" +
+	"\x14GetEntityTagsRequest\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x1f\n" +
+	"\vname_filter\x18\x02 \x01(\tR\n" +
+	"nameFilter\x12\x19\n" +
+	"\bowner_id\x18\x03 \x01(\tR\aownerId\"A\n" +
 	"\x15GetEntityTagsResponse\x12(\n" +
-	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\x8a\x02\n" +
+	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\xbb\x01\n" +
 	"\x19GetEntitiesWithTagRequest\x12\x15\n" +
 	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05value\x18\x03 \x01(\tR\x05value\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\x04 \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\x05 \x01(\tR\aownerId\x12,\n" +
-	"\x12entity_type_filter\x18\x06 \x01(\tR\x10entityTypeFilter\x12D\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\x12\x19\n" +
+	"\bowner_id\x18\x04 \x01(\tR\aownerId\x12B\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2$.content.common.v1.PaginationRequestR\n" +
-	"pagination\"\x9d\x01\n" +
-	"\x1aGetEntitiesWithTagResponse\x128\n" +
-	"\bentities\x18\x01 \x03(\v2\x1c.content.common.v1.EntityRefR\bentities\x12E\n" +
+	" \x01(\v2\".content.tags.v1.PaginationRequestR\n" +
+	"pagination\"\x80\x01\n" +
+	"\x1aGetEntitiesWithTagResponse\x12\x1d\n" +
+	"\n" +
+	"entity_ids\x18\x01 \x03(\tR\tentityIds\x12C\n" +
 	"\n" +
 	"pagination\x18\n" +
-	" \x01(\v2%.content.common.v1.PaginationResponseR\n" +
-	"pagination\"\xca\x02\n" +
+	" \x01(\v2#.content.tags.v1.PaginationResponseR\n" +
+	"pagination\"\x90\x02\n" +
 	"\x17BatchTagEntitiesRequest\x12\x15\n" +
 	"\x06tag_id\x18\x01 \x01(\tR\x05tagId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05value\x18\x03 \x01(\tR\x05value\x12,\n" +
-	"\x04type\x18\x04 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x1d\n" +
+	"\x04type\x18\x04 \x01(\x0e2\x18.content.tags.v1.TagTypeR\x04type\x12\x19\n" +
+	"\bowner_id\x18\x05 \x01(\tR\aownerId\x12/\n" +
+	"\x05scope\x18\a \x01(\x0e2\x19.content.tags.v1.TagScopeR\x05scope\x12\x1d\n" +
 	"\n" +
-	"owner_type\x18\x05 \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\x06 \x01(\tR\aownerId\x12/\n" +
-	"\x05scope\x18\a \x01(\x0e2\x19.content.tags.v1.TagScopeR\x05scope\x128\n" +
-	"\bentities\x18\n" +
-	" \x03(\v2\x1c.content.common.v1.EntityRefR\bentities\x12\x1b\n" +
+	"entity_ids\x18\n" +
+	" \x03(\tR\tentityIds\x12\x1b\n" +
 	"\ttagged_by\x18\v \x01(\tR\btaggedBy\"\x92\x01\n" +
 	"\x18BatchTagEntitiesResponse\x12&\n" +
 	"\x03tag\x18\x01 \x01(\v2\x14.content.tags.v1.TagR\x03tag\x12'\n" +
 	"\x0fentities_tagged\x18\x02 \x01(\x03R\x0eentitiesTagged\x12%\n" +
-	"\x0ealready_tagged\x18\x03 \x01(\x03R\ralreadyTagged\"\x8f\x01\n" +
-	"\x19BatchGetEntityTagsRequest\x128\n" +
-	"\bentities\x18\x01 \x03(\v2\x1c.content.common.v1.EntityRefR\bentities\x12\x1d\n" +
+	"\x0ealready_tagged\x18\x03 \x01(\x03R\ralreadyTagged\"U\n" +
+	"\x19BatchGetEntityTagsRequest\x12\x1d\n" +
 	"\n" +
-	"owner_type\x18\x02 \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\x03 \x01(\tR\aownerId\"\xd9\x01\n" +
+	"entity_ids\x18\x01 \x03(\tR\tentityIds\x12\x19\n" +
+	"\bowner_id\x18\x02 \x01(\tR\aownerId\"\xd9\x01\n" +
 	"\x1aBatchGetEntityTagsResponse\x12\\\n" +
 	"\ventity_tags\x18\x01 \x03(\v2;.content.tags.v1.BatchGetEntityTagsResponse.EntityTagsEntryR\n" +
 	"entityTags\x1a]\n" +
@@ -2230,24 +2208,20 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
 	"\x05value\x18\x02 \x01(\v2\x1e.content.tags.v1.EntityTagListR\x05value:\x028\x01\"9\n" +
 	"\rEntityTagList\x12(\n" +
-	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\xc1\x01\n" +
+	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\xa2\x01\n" +
 	"\x11SearchTagsRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x1f\n" +
 	"\vname_filter\x18\x02 \x01(\tR\n" +
-	"nameFilter\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\x03 \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\x04 \x01(\tR\aownerId\x12%\n" +
+	"nameFilter\x12\x19\n" +
+	"\bowner_id\x18\x03 \x01(\tR\aownerId\x12%\n" +
 	"\x0einclude_shared\x18\x05 \x01(\bR\rincludeShared\x12\x14\n" +
 	"\x05limit\x18\x06 \x01(\x05R\x05limit\">\n" +
 	"\x12SearchTagsResponse\x12(\n" +
-	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\xaf\x01\n" +
+	"\x04tags\x18\x01 \x03(\v2\x14.content.tags.v1.TagR\x04tags\"\x90\x01\n" +
 	"\x15GetPopularTagsRequest\x12\x1f\n" +
 	"\vname_filter\x18\x01 \x01(\tR\n" +
-	"nameFilter\x12\x1d\n" +
-	"\n" +
-	"owner_type\x18\x02 \x01(\tR\townerType\x12\x19\n" +
-	"\bowner_id\x18\x03 \x01(\tR\aownerId\x12%\n" +
+	"nameFilter\x12\x19\n" +
+	"\bowner_id\x18\x02 \x01(\tR\aownerId\x12%\n" +
 	"\x0einclude_shared\x18\x04 \x01(\bR\rincludeShared\x12\x14\n" +
 	"\x05limit\x18\x05 \x01(\x05R\x05limit\"B\n" +
 	"\x16GetPopularTagsResponse\x12(\n" +
@@ -2257,11 +2231,10 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\rtarget_tag_id\x18\x02 \x01(\tR\vtargetTagId\"h\n" +
 	"\x11MergeTagsResponse\x12&\n" +
 	"\x03tag\x18\x01 \x01(\v2\x14.content.tags.v1.TagR\x03tag\x12+\n" +
-	"\x11entities_retagged\x18\x02 \x01(\x03R\x10entitiesRetagged\"\x80\x02\n" +
+	"\x11entities_retagged\x18\x02 \x01(\x03R\x10entitiesRetagged\"\xd4\x01\n" +
 	"\x11PromoteTagRequest\x12\"\n" +
-	"\rsource_tag_id\x18\x01 \x01(\tR\vsourceTagId\x12*\n" +
-	"\x11target_owner_type\x18\x02 \x01(\tR\x0ftargetOwnerType\x12&\n" +
-	"\x0ftarget_owner_id\x18\x03 \x01(\tR\rtargetOwnerId\x12&\n" +
+	"\rsource_tag_id\x18\x01 \x01(\tR\vsourceTagId\x12&\n" +
+	"\x0ftarget_owner_id\x18\x02 \x01(\tR\rtargetOwnerId\x12&\n" +
 	"\x0fmerge_if_exists\x18\x04 \x01(\bR\rmergeIfExists\x12K\n" +
 	"\x0enew_visibility\x18\x05 \x01(\x0e2$.content.tags.v1.EntityTagVisibilityR\rnewVisibility\"\xd5\x01\n" +
 	"\x12PromoteTagResponse\x12&\n" +
@@ -2269,7 +2242,7 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"source_tag\x18\x02 \x01(\v2\x14.content.tags.v1.TagR\tsourceTag\x120\n" +
 	"\x14entity_tags_migrated\x18\x03 \x01(\x03R\x12entityTagsMigrated\x120\n" +
-	"\x14merged_into_existing\x18\x04 \x01(\bR\x12mergedIntoExisting2\x93\x0e\n" +
+	"\x14merged_into_existing\x18\x04 \x01(\bR\x12mergedIntoExisting2\x85\x0e\n" +
 	"\vTagsService\x12g\n" +
 	"\tCreateTag\x12!.content.tags.v1.CreateTagRequest\x1a\".content.tags.v1.CreateTagResponse\"\x13\x82\xd3\xe4\x93\x02\r:\x01*\"\b/v1/tags\x12`\n" +
 	"\x06GetTag\x12\x1e.content.tags.v1.GetTagRequest\x1a\x1f.content.tags.v1.GetTagResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/v1/tags/{id}\x12p\n" +
@@ -2278,8 +2251,8 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\bListTags\x12 .content.tags.v1.ListTagsRequest\x1a!.content.tags.v1.ListTagsResponse\"\x10\x82\xd3\xe4\x93\x02\n" +
 	"\x12\b/v1/tags\x12n\n" +
 	"\tTagEntity\x12!.content.tags.v1.TagEntityRequest\x1a\".content.tags.v1.TagEntityResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/tags/entity\x12q\n" +
-	"\vUntagEntity\x12#.content.tags.v1.UntagEntityRequest\x1a$.content.tags.v1.UntagEntityResponse\"\x17\x82\xd3\xe4\x93\x02\x11*\x0f/v1/tags/entity\x12\x91\x01\n" +
-	"\rGetEntityTags\x12%.content.tags.v1.GetEntityTagsRequest\x1a&.content.tags.v1.GetEntityTagsResponse\"1\x82\xd3\xe4\x93\x02+\x12)/v1/tags/entity/{entity_type}/{entity_id}\x12\x91\x01\n" +
+	"\vUntagEntity\x12#.content.tags.v1.UntagEntityRequest\x1a$.content.tags.v1.UntagEntityResponse\"\x17\x82\xd3\xe4\x93\x02\x11*\x0f/v1/tags/entity\x12\x83\x01\n" +
+	"\rGetEntityTags\x12%.content.tags.v1.GetEntityTagsRequest\x1a&.content.tags.v1.GetEntityTagsResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/v1/tags/entity/{entity_id}\x12\x91\x01\n" +
 	"\x12GetEntitiesWithTag\x12*.content.tags.v1.GetEntitiesWithTagRequest\x1a+.content.tags.v1.GetEntitiesWithTagResponse\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/v1/tags/{tag_id}/entities\x12\x86\x01\n" +
 	"\x10BatchTagEntities\x12(.content.tags.v1.BatchTagEntitiesRequest\x1a).content.tags.v1.BatchTagEntitiesResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/v1/tags/batch/tag\x12\x94\x01\n" +
 	"\x12BatchGetEntityTags\x12*.content.tags.v1.BatchGetEntityTagsRequest\x1a+.content.tags.v1.BatchGetEntityTagsResponse\"%\x82\xd3\xe4\x93\x02\x1f:\x01*\"\x1a/v1/tags/batch/entity-tags\x12n\n" +
@@ -2303,7 +2276,7 @@ func file_tags_v1_service_proto_rawDescGZIP() []byte {
 	return file_tags_v1_service_proto_rawDescData
 }
 
-var file_tags_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_tags_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_tags_v1_service_proto_goTypes = []any{
 	(*CreateTagRequest)(nil),           // 0: content.tags.v1.CreateTagRequest
 	(*CreateTagResponse)(nil),          // 1: content.tags.v1.CreateTagResponse
@@ -2315,105 +2288,101 @@ var file_tags_v1_service_proto_goTypes = []any{
 	(*DeleteTagResponse)(nil),          // 7: content.tags.v1.DeleteTagResponse
 	(*ListTagsRequest)(nil),            // 8: content.tags.v1.ListTagsRequest
 	(*ListTagsResponse)(nil),           // 9: content.tags.v1.ListTagsResponse
-	(*TagEntityRequest)(nil),           // 10: content.tags.v1.TagEntityRequest
-	(*TagEntityResponse)(nil),          // 11: content.tags.v1.TagEntityResponse
-	(*UntagEntityRequest)(nil),         // 12: content.tags.v1.UntagEntityRequest
-	(*UntagEntityResponse)(nil),        // 13: content.tags.v1.UntagEntityResponse
-	(*GetEntityTagsRequest)(nil),       // 14: content.tags.v1.GetEntityTagsRequest
-	(*GetEntityTagsResponse)(nil),      // 15: content.tags.v1.GetEntityTagsResponse
-	(*GetEntitiesWithTagRequest)(nil),  // 16: content.tags.v1.GetEntitiesWithTagRequest
-	(*GetEntitiesWithTagResponse)(nil), // 17: content.tags.v1.GetEntitiesWithTagResponse
-	(*BatchTagEntitiesRequest)(nil),    // 18: content.tags.v1.BatchTagEntitiesRequest
-	(*BatchTagEntitiesResponse)(nil),   // 19: content.tags.v1.BatchTagEntitiesResponse
-	(*BatchGetEntityTagsRequest)(nil),  // 20: content.tags.v1.BatchGetEntityTagsRequest
-	(*BatchGetEntityTagsResponse)(nil), // 21: content.tags.v1.BatchGetEntityTagsResponse
-	(*EntityTagList)(nil),              // 22: content.tags.v1.EntityTagList
-	(*SearchTagsRequest)(nil),          // 23: content.tags.v1.SearchTagsRequest
-	(*SearchTagsResponse)(nil),         // 24: content.tags.v1.SearchTagsResponse
-	(*GetPopularTagsRequest)(nil),      // 25: content.tags.v1.GetPopularTagsRequest
-	(*GetPopularTagsResponse)(nil),     // 26: content.tags.v1.GetPopularTagsResponse
-	(*MergeTagsRequest)(nil),           // 27: content.tags.v1.MergeTagsRequest
-	(*MergeTagsResponse)(nil),          // 28: content.tags.v1.MergeTagsResponse
-	(*PromoteTagRequest)(nil),          // 29: content.tags.v1.PromoteTagRequest
-	(*PromoteTagResponse)(nil),         // 30: content.tags.v1.PromoteTagResponse
-	nil,                                // 31: content.tags.v1.BatchGetEntityTagsResponse.EntityTagsEntry
-	(TagType)(0),                       // 32: content.tags.v1.TagType
-	(TagScope)(0),                      // 33: content.tags.v1.TagScope
-	(*Tag)(nil),                        // 34: content.tags.v1.Tag
-	(*v1.PaginationRequest)(nil),       // 35: content.common.v1.PaginationRequest
-	(*v1.PaginationResponse)(nil),      // 36: content.common.v1.PaginationResponse
+	(*PaginationRequest)(nil),          // 10: content.tags.v1.PaginationRequest
+	(*PaginationResponse)(nil),         // 11: content.tags.v1.PaginationResponse
+	(*TagEntityRequest)(nil),           // 12: content.tags.v1.TagEntityRequest
+	(*TagEntityResponse)(nil),          // 13: content.tags.v1.TagEntityResponse
+	(*UntagEntityRequest)(nil),         // 14: content.tags.v1.UntagEntityRequest
+	(*UntagEntityResponse)(nil),        // 15: content.tags.v1.UntagEntityResponse
+	(*GetEntityTagsRequest)(nil),       // 16: content.tags.v1.GetEntityTagsRequest
+	(*GetEntityTagsResponse)(nil),      // 17: content.tags.v1.GetEntityTagsResponse
+	(*GetEntitiesWithTagRequest)(nil),  // 18: content.tags.v1.GetEntitiesWithTagRequest
+	(*GetEntitiesWithTagResponse)(nil), // 19: content.tags.v1.GetEntitiesWithTagResponse
+	(*BatchTagEntitiesRequest)(nil),    // 20: content.tags.v1.BatchTagEntitiesRequest
+	(*BatchTagEntitiesResponse)(nil),   // 21: content.tags.v1.BatchTagEntitiesResponse
+	(*BatchGetEntityTagsRequest)(nil),  // 22: content.tags.v1.BatchGetEntityTagsRequest
+	(*BatchGetEntityTagsResponse)(nil), // 23: content.tags.v1.BatchGetEntityTagsResponse
+	(*EntityTagList)(nil),              // 24: content.tags.v1.EntityTagList
+	(*SearchTagsRequest)(nil),          // 25: content.tags.v1.SearchTagsRequest
+	(*SearchTagsResponse)(nil),         // 26: content.tags.v1.SearchTagsResponse
+	(*GetPopularTagsRequest)(nil),      // 27: content.tags.v1.GetPopularTagsRequest
+	(*GetPopularTagsResponse)(nil),     // 28: content.tags.v1.GetPopularTagsResponse
+	(*MergeTagsRequest)(nil),           // 29: content.tags.v1.MergeTagsRequest
+	(*MergeTagsResponse)(nil),          // 30: content.tags.v1.MergeTagsResponse
+	(*PromoteTagRequest)(nil),          // 31: content.tags.v1.PromoteTagRequest
+	(*PromoteTagResponse)(nil),         // 32: content.tags.v1.PromoteTagResponse
+	nil,                                // 33: content.tags.v1.BatchGetEntityTagsResponse.EntityTagsEntry
+	(TagType)(0),                       // 34: content.tags.v1.TagType
+	(TagScope)(0),                      // 35: content.tags.v1.TagScope
+	(*Tag)(nil),                        // 36: content.tags.v1.Tag
 	(EntityTagVisibility)(0),           // 37: content.tags.v1.EntityTagVisibility
 	(*EntityTag)(nil),                  // 38: content.tags.v1.EntityTag
-	(*v1.EntityRef)(nil),               // 39: content.common.v1.EntityRef
 }
 var file_tags_v1_service_proto_depIdxs = []int32{
-	32, // 0: content.tags.v1.CreateTagRequest.type:type_name -> content.tags.v1.TagType
-	33, // 1: content.tags.v1.CreateTagRequest.scope:type_name -> content.tags.v1.TagScope
-	34, // 2: content.tags.v1.CreateTagResponse.tag:type_name -> content.tags.v1.Tag
-	34, // 3: content.tags.v1.GetTagResponse.tag:type_name -> content.tags.v1.Tag
-	34, // 4: content.tags.v1.UpdateTagRequest.tag:type_name -> content.tags.v1.Tag
-	34, // 5: content.tags.v1.UpdateTagResponse.tag:type_name -> content.tags.v1.Tag
-	33, // 6: content.tags.v1.ListTagsRequest.scope:type_name -> content.tags.v1.TagScope
-	35, // 7: content.tags.v1.ListTagsRequest.pagination:type_name -> content.common.v1.PaginationRequest
-	34, // 8: content.tags.v1.ListTagsResponse.tags:type_name -> content.tags.v1.Tag
-	36, // 9: content.tags.v1.ListTagsResponse.pagination:type_name -> content.common.v1.PaginationResponse
-	32, // 10: content.tags.v1.TagEntityRequest.type:type_name -> content.tags.v1.TagType
+	34, // 0: content.tags.v1.CreateTagRequest.type:type_name -> content.tags.v1.TagType
+	35, // 1: content.tags.v1.CreateTagRequest.scope:type_name -> content.tags.v1.TagScope
+	36, // 2: content.tags.v1.CreateTagResponse.tag:type_name -> content.tags.v1.Tag
+	36, // 3: content.tags.v1.GetTagResponse.tag:type_name -> content.tags.v1.Tag
+	36, // 4: content.tags.v1.UpdateTagRequest.tag:type_name -> content.tags.v1.Tag
+	36, // 5: content.tags.v1.UpdateTagResponse.tag:type_name -> content.tags.v1.Tag
+	35, // 6: content.tags.v1.ListTagsRequest.scope:type_name -> content.tags.v1.TagScope
+	10, // 7: content.tags.v1.ListTagsRequest.pagination:type_name -> content.tags.v1.PaginationRequest
+	36, // 8: content.tags.v1.ListTagsResponse.tags:type_name -> content.tags.v1.Tag
+	11, // 9: content.tags.v1.ListTagsResponse.pagination:type_name -> content.tags.v1.PaginationResponse
+	34, // 10: content.tags.v1.TagEntityRequest.type:type_name -> content.tags.v1.TagType
 	37, // 11: content.tags.v1.TagEntityRequest.visibility:type_name -> content.tags.v1.EntityTagVisibility
-	34, // 12: content.tags.v1.TagEntityResponse.tag:type_name -> content.tags.v1.Tag
+	36, // 12: content.tags.v1.TagEntityResponse.tag:type_name -> content.tags.v1.Tag
 	38, // 13: content.tags.v1.TagEntityResponse.entity_tag:type_name -> content.tags.v1.EntityTag
-	34, // 14: content.tags.v1.GetEntityTagsResponse.tags:type_name -> content.tags.v1.Tag
-	35, // 15: content.tags.v1.GetEntitiesWithTagRequest.pagination:type_name -> content.common.v1.PaginationRequest
-	39, // 16: content.tags.v1.GetEntitiesWithTagResponse.entities:type_name -> content.common.v1.EntityRef
-	36, // 17: content.tags.v1.GetEntitiesWithTagResponse.pagination:type_name -> content.common.v1.PaginationResponse
-	32, // 18: content.tags.v1.BatchTagEntitiesRequest.type:type_name -> content.tags.v1.TagType
-	33, // 19: content.tags.v1.BatchTagEntitiesRequest.scope:type_name -> content.tags.v1.TagScope
-	39, // 20: content.tags.v1.BatchTagEntitiesRequest.entities:type_name -> content.common.v1.EntityRef
-	34, // 21: content.tags.v1.BatchTagEntitiesResponse.tag:type_name -> content.tags.v1.Tag
-	39, // 22: content.tags.v1.BatchGetEntityTagsRequest.entities:type_name -> content.common.v1.EntityRef
-	31, // 23: content.tags.v1.BatchGetEntityTagsResponse.entity_tags:type_name -> content.tags.v1.BatchGetEntityTagsResponse.EntityTagsEntry
-	34, // 24: content.tags.v1.EntityTagList.tags:type_name -> content.tags.v1.Tag
-	34, // 25: content.tags.v1.SearchTagsResponse.tags:type_name -> content.tags.v1.Tag
-	34, // 26: content.tags.v1.GetPopularTagsResponse.tags:type_name -> content.tags.v1.Tag
-	34, // 27: content.tags.v1.MergeTagsResponse.tag:type_name -> content.tags.v1.Tag
-	37, // 28: content.tags.v1.PromoteTagRequest.new_visibility:type_name -> content.tags.v1.EntityTagVisibility
-	34, // 29: content.tags.v1.PromoteTagResponse.tag:type_name -> content.tags.v1.Tag
-	34, // 30: content.tags.v1.PromoteTagResponse.source_tag:type_name -> content.tags.v1.Tag
-	22, // 31: content.tags.v1.BatchGetEntityTagsResponse.EntityTagsEntry.value:type_name -> content.tags.v1.EntityTagList
-	0,  // 32: content.tags.v1.TagsService.CreateTag:input_type -> content.tags.v1.CreateTagRequest
-	2,  // 33: content.tags.v1.TagsService.GetTag:input_type -> content.tags.v1.GetTagRequest
-	4,  // 34: content.tags.v1.TagsService.UpdateTag:input_type -> content.tags.v1.UpdateTagRequest
-	6,  // 35: content.tags.v1.TagsService.DeleteTag:input_type -> content.tags.v1.DeleteTagRequest
-	8,  // 36: content.tags.v1.TagsService.ListTags:input_type -> content.tags.v1.ListTagsRequest
-	10, // 37: content.tags.v1.TagsService.TagEntity:input_type -> content.tags.v1.TagEntityRequest
-	12, // 38: content.tags.v1.TagsService.UntagEntity:input_type -> content.tags.v1.UntagEntityRequest
-	14, // 39: content.tags.v1.TagsService.GetEntityTags:input_type -> content.tags.v1.GetEntityTagsRequest
-	16, // 40: content.tags.v1.TagsService.GetEntitiesWithTag:input_type -> content.tags.v1.GetEntitiesWithTagRequest
-	18, // 41: content.tags.v1.TagsService.BatchTagEntities:input_type -> content.tags.v1.BatchTagEntitiesRequest
-	20, // 42: content.tags.v1.TagsService.BatchGetEntityTags:input_type -> content.tags.v1.BatchGetEntityTagsRequest
-	23, // 43: content.tags.v1.TagsService.SearchTags:input_type -> content.tags.v1.SearchTagsRequest
-	25, // 44: content.tags.v1.TagsService.GetPopularTags:input_type -> content.tags.v1.GetPopularTagsRequest
-	27, // 45: content.tags.v1.TagsService.MergeTags:input_type -> content.tags.v1.MergeTagsRequest
-	29, // 46: content.tags.v1.TagsService.PromoteTag:input_type -> content.tags.v1.PromoteTagRequest
-	1,  // 47: content.tags.v1.TagsService.CreateTag:output_type -> content.tags.v1.CreateTagResponse
-	3,  // 48: content.tags.v1.TagsService.GetTag:output_type -> content.tags.v1.GetTagResponse
-	5,  // 49: content.tags.v1.TagsService.UpdateTag:output_type -> content.tags.v1.UpdateTagResponse
-	7,  // 50: content.tags.v1.TagsService.DeleteTag:output_type -> content.tags.v1.DeleteTagResponse
-	9,  // 51: content.tags.v1.TagsService.ListTags:output_type -> content.tags.v1.ListTagsResponse
-	11, // 52: content.tags.v1.TagsService.TagEntity:output_type -> content.tags.v1.TagEntityResponse
-	13, // 53: content.tags.v1.TagsService.UntagEntity:output_type -> content.tags.v1.UntagEntityResponse
-	15, // 54: content.tags.v1.TagsService.GetEntityTags:output_type -> content.tags.v1.GetEntityTagsResponse
-	17, // 55: content.tags.v1.TagsService.GetEntitiesWithTag:output_type -> content.tags.v1.GetEntitiesWithTagResponse
-	19, // 56: content.tags.v1.TagsService.BatchTagEntities:output_type -> content.tags.v1.BatchTagEntitiesResponse
-	21, // 57: content.tags.v1.TagsService.BatchGetEntityTags:output_type -> content.tags.v1.BatchGetEntityTagsResponse
-	24, // 58: content.tags.v1.TagsService.SearchTags:output_type -> content.tags.v1.SearchTagsResponse
-	26, // 59: content.tags.v1.TagsService.GetPopularTags:output_type -> content.tags.v1.GetPopularTagsResponse
-	28, // 60: content.tags.v1.TagsService.MergeTags:output_type -> content.tags.v1.MergeTagsResponse
-	30, // 61: content.tags.v1.TagsService.PromoteTag:output_type -> content.tags.v1.PromoteTagResponse
-	47, // [47:62] is the sub-list for method output_type
-	32, // [32:47] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	36, // 14: content.tags.v1.GetEntityTagsResponse.tags:type_name -> content.tags.v1.Tag
+	10, // 15: content.tags.v1.GetEntitiesWithTagRequest.pagination:type_name -> content.tags.v1.PaginationRequest
+	11, // 16: content.tags.v1.GetEntitiesWithTagResponse.pagination:type_name -> content.tags.v1.PaginationResponse
+	34, // 17: content.tags.v1.BatchTagEntitiesRequest.type:type_name -> content.tags.v1.TagType
+	35, // 18: content.tags.v1.BatchTagEntitiesRequest.scope:type_name -> content.tags.v1.TagScope
+	36, // 19: content.tags.v1.BatchTagEntitiesResponse.tag:type_name -> content.tags.v1.Tag
+	33, // 20: content.tags.v1.BatchGetEntityTagsResponse.entity_tags:type_name -> content.tags.v1.BatchGetEntityTagsResponse.EntityTagsEntry
+	36, // 21: content.tags.v1.EntityTagList.tags:type_name -> content.tags.v1.Tag
+	36, // 22: content.tags.v1.SearchTagsResponse.tags:type_name -> content.tags.v1.Tag
+	36, // 23: content.tags.v1.GetPopularTagsResponse.tags:type_name -> content.tags.v1.Tag
+	36, // 24: content.tags.v1.MergeTagsResponse.tag:type_name -> content.tags.v1.Tag
+	37, // 25: content.tags.v1.PromoteTagRequest.new_visibility:type_name -> content.tags.v1.EntityTagVisibility
+	36, // 26: content.tags.v1.PromoteTagResponse.tag:type_name -> content.tags.v1.Tag
+	36, // 27: content.tags.v1.PromoteTagResponse.source_tag:type_name -> content.tags.v1.Tag
+	24, // 28: content.tags.v1.BatchGetEntityTagsResponse.EntityTagsEntry.value:type_name -> content.tags.v1.EntityTagList
+	0,  // 29: content.tags.v1.TagsService.CreateTag:input_type -> content.tags.v1.CreateTagRequest
+	2,  // 30: content.tags.v1.TagsService.GetTag:input_type -> content.tags.v1.GetTagRequest
+	4,  // 31: content.tags.v1.TagsService.UpdateTag:input_type -> content.tags.v1.UpdateTagRequest
+	6,  // 32: content.tags.v1.TagsService.DeleteTag:input_type -> content.tags.v1.DeleteTagRequest
+	8,  // 33: content.tags.v1.TagsService.ListTags:input_type -> content.tags.v1.ListTagsRequest
+	12, // 34: content.tags.v1.TagsService.TagEntity:input_type -> content.tags.v1.TagEntityRequest
+	14, // 35: content.tags.v1.TagsService.UntagEntity:input_type -> content.tags.v1.UntagEntityRequest
+	16, // 36: content.tags.v1.TagsService.GetEntityTags:input_type -> content.tags.v1.GetEntityTagsRequest
+	18, // 37: content.tags.v1.TagsService.GetEntitiesWithTag:input_type -> content.tags.v1.GetEntitiesWithTagRequest
+	20, // 38: content.tags.v1.TagsService.BatchTagEntities:input_type -> content.tags.v1.BatchTagEntitiesRequest
+	22, // 39: content.tags.v1.TagsService.BatchGetEntityTags:input_type -> content.tags.v1.BatchGetEntityTagsRequest
+	25, // 40: content.tags.v1.TagsService.SearchTags:input_type -> content.tags.v1.SearchTagsRequest
+	27, // 41: content.tags.v1.TagsService.GetPopularTags:input_type -> content.tags.v1.GetPopularTagsRequest
+	29, // 42: content.tags.v1.TagsService.MergeTags:input_type -> content.tags.v1.MergeTagsRequest
+	31, // 43: content.tags.v1.TagsService.PromoteTag:input_type -> content.tags.v1.PromoteTagRequest
+	1,  // 44: content.tags.v1.TagsService.CreateTag:output_type -> content.tags.v1.CreateTagResponse
+	3,  // 45: content.tags.v1.TagsService.GetTag:output_type -> content.tags.v1.GetTagResponse
+	5,  // 46: content.tags.v1.TagsService.UpdateTag:output_type -> content.tags.v1.UpdateTagResponse
+	7,  // 47: content.tags.v1.TagsService.DeleteTag:output_type -> content.tags.v1.DeleteTagResponse
+	9,  // 48: content.tags.v1.TagsService.ListTags:output_type -> content.tags.v1.ListTagsResponse
+	13, // 49: content.tags.v1.TagsService.TagEntity:output_type -> content.tags.v1.TagEntityResponse
+	15, // 50: content.tags.v1.TagsService.UntagEntity:output_type -> content.tags.v1.UntagEntityResponse
+	17, // 51: content.tags.v1.TagsService.GetEntityTags:output_type -> content.tags.v1.GetEntityTagsResponse
+	19, // 52: content.tags.v1.TagsService.GetEntitiesWithTag:output_type -> content.tags.v1.GetEntitiesWithTagResponse
+	21, // 53: content.tags.v1.TagsService.BatchTagEntities:output_type -> content.tags.v1.BatchTagEntitiesResponse
+	23, // 54: content.tags.v1.TagsService.BatchGetEntityTags:output_type -> content.tags.v1.BatchGetEntityTagsResponse
+	26, // 55: content.tags.v1.TagsService.SearchTags:output_type -> content.tags.v1.SearchTagsResponse
+	28, // 56: content.tags.v1.TagsService.GetPopularTags:output_type -> content.tags.v1.GetPopularTagsResponse
+	30, // 57: content.tags.v1.TagsService.MergeTags:output_type -> content.tags.v1.MergeTagsResponse
+	32, // 58: content.tags.v1.TagsService.PromoteTag:output_type -> content.tags.v1.PromoteTagResponse
+	44, // [44:59] is the sub-list for method output_type
+	29, // [29:44] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_tags_v1_service_proto_init() }
@@ -2428,7 +2397,7 @@ func file_tags_v1_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tags_v1_service_proto_rawDesc), len(file_tags_v1_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   32,
+			NumMessages:   34,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

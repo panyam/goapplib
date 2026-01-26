@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/collections/v1"
-	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	"github.com/panyam/goapplib/content/services/collections/backends"
 )
 
@@ -38,7 +37,6 @@ func TestCollectionsService_CreateCollection(t *testing.T) {
 	// Create a root collection
 	resp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
 		Name:       "My Folder",
-		OwnerType:  "user",
 		OwnerId:    "user-1",
 		Visibility: v1.CollectionVisibility_COLLECTION_VISIBILITY_PRIVATE,
 	})
@@ -67,9 +65,8 @@ func TestCollectionsService_CreateCollection(t *testing.T) {
 
 	// Create same collection again - should return existing
 	resp2, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "MY FOLDER", // Different case
-		OwnerType: "user",
-		OwnerId:   "user-1",
+		Name:    "MY FOLDER", // Different case
+		OwnerId: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("CreateCollection (duplicate) failed: %v", err)
@@ -90,9 +87,8 @@ func TestCollectionsService_NestedCollections(t *testing.T) {
 
 	// Create root collection
 	rootResp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "Root",
-		OwnerType: "user",
-		OwnerId:   "user-nested",
+		Name:    "Root",
+		OwnerId: "user-nested",
 	})
 	if err != nil {
 		t.Fatalf("CreateCollection (root) failed: %v", err)
@@ -101,10 +97,9 @@ func TestCollectionsService_NestedCollections(t *testing.T) {
 
 	// Create child collection
 	childResp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "Child",
-		OwnerType: "user",
-		OwnerId:   "user-nested",
-		ParentId:  rootID,
+		Name:     "Child",
+		OwnerId:  "user-nested",
+		ParentId: rootID,
 	})
 	if err != nil {
 		t.Fatalf("CreateCollection (child) failed: %v", err)
@@ -122,10 +117,9 @@ func TestCollectionsService_NestedCollections(t *testing.T) {
 
 	// Create grandchild collection
 	grandchildResp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "Grandchild",
-		OwnerType: "user",
-		OwnerId:   "user-nested",
-		ParentId:  childResp.Collection.Id,
+		Name:     "Grandchild",
+		OwnerId:  "user-nested",
+		ParentId: childResp.Collection.Id,
 	})
 	if err != nil {
 		t.Fatalf("CreateCollection (grandchild) failed: %v", err)
@@ -161,21 +155,18 @@ func TestCollectionsService_GetCollectionPath(t *testing.T) {
 
 	// Create hierarchy: Root -> Child -> Grandchild
 	rootResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "RootPath",
-		OwnerType: "user",
-		OwnerId:   "user-path",
+		Name:    "RootPath",
+		OwnerId: "user-path",
 	})
 	childResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "ChildPath",
-		OwnerType: "user",
-		OwnerId:   "user-path",
-		ParentId:  rootResp.Collection.Id,
+		Name:     "ChildPath",
+		OwnerId:  "user-path",
+		ParentId: rootResp.Collection.Id,
 	})
 	grandchildResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "GrandchildPath",
-		OwnerType: "user",
-		OwnerId:   "user-path",
-		ParentId:  childResp.Collection.Id,
+		Name:     "GrandchildPath",
+		OwnerId:  "user-path",
+		ParentId: childResp.Collection.Id,
 	})
 
 	// Get path for grandchild
@@ -207,10 +198,9 @@ func TestCollectionsService_AddRemoveItems(t *testing.T) {
 
 	// Create collection
 	collResp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "My Playlist",
-		OwnerType: "user",
-		OwnerId:   "user-items",
-		Type:      "playlist",
+		Name:    "My Playlist",
+		OwnerId: "user-items",
+		Type:    "playlist",
 	})
 	if err != nil {
 		t.Fatalf("CreateCollection failed: %v", err)
@@ -220,7 +210,6 @@ func TestCollectionsService_AddRemoveItems(t *testing.T) {
 	// Add items
 	addResp, err := service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 		CollectionId: collID,
-		EntityType:   "song",
 		EntityId:     "song-1",
 		AddedBy:      "user-items",
 	})
@@ -237,7 +226,6 @@ func TestCollectionsService_AddRemoveItems(t *testing.T) {
 	// Add same item again - should not be newly added
 	addResp2, err := service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 		CollectionId: collID,
-		EntityType:   "song",
 		EntityId:     "song-1",
 		AddedBy:      "user-items",
 	})
@@ -251,7 +239,6 @@ func TestCollectionsService_AddRemoveItems(t *testing.T) {
 	// Add another item
 	addResp3, err := service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 		CollectionId: collID,
-		EntityType:   "song",
 		EntityId:     "song-2",
 		AddedBy:      "user-items",
 	})
@@ -274,7 +261,6 @@ func TestCollectionsService_AddRemoveItems(t *testing.T) {
 	// Remove item
 	removeResp, err := service.RemoveFromCollection(ctx, &v1.RemoveFromCollectionRequest{
 		CollectionId: collID,
-		EntityType:   "song",
 		EntityId:     "song-1",
 	})
 	if err != nil {
@@ -301,16 +287,14 @@ func TestCollectionsService_GetCollectionItems(t *testing.T) {
 
 	// Create collection and add items
 	collResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "My Album",
-		OwnerType: "user",
-		OwnerId:   "user-album",
+		Name:    "My Album",
+		OwnerId: "user-album",
 	})
 	collID := collResp.Collection.Id
 
 	for i := 1; i <= 5; i++ {
 		_, err := service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 			CollectionId: collID,
-			EntityType:   "photo",
 			EntityId:     fmt.Sprintf("photo-%d", i),
 			AddedBy:      "user-album",
 		})
@@ -347,45 +331,38 @@ func TestCollectionsService_GetEntityCollections(t *testing.T) {
 
 	// Create multiple collections
 	coll1, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "FavoritesDS",
-		OwnerType: "user",
-		OwnerId:   "user-entity",
+		Name:    "FavoritesDS",
+		OwnerId: "user-entity",
 	})
 	coll2, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "To ReadDS",
-		OwnerType: "user",
-		OwnerId:   "user-entity",
+		Name:    "To ReadDS",
+		OwnerId: "user-entity",
 	})
 	coll3, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "Other User's CollectionDS",
-		OwnerType: "user",
-		OwnerId:   "user-entity-2",
+		Name:    "Other User's CollectionDS",
+		OwnerId: "user-entity-2",
 	})
 
 	// Add same entity to multiple collections
 	service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 		CollectionId: coll1.Collection.Id,
-		EntityType:   "book",
 		EntityId:     "book-ds-1",
 		AddedBy:      "user-entity",
 	})
 	service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 		CollectionId: coll2.Collection.Id,
-		EntityType:   "book",
 		EntityId:     "book-ds-1",
 		AddedBy:      "user-entity",
 	})
 	service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 		CollectionId: coll3.Collection.Id,
-		EntityType:   "book",
 		EntityId:     "book-ds-1",
 		AddedBy:      "user-entity-2",
 	})
 
 	// Get all collections containing the book
 	resp, err := service.GetEntityCollections(ctx, &v1.GetEntityCollectionsRequest{
-		EntityType: "book",
-		EntityId:   "book-ds-1",
+		EntityId: "book-ds-1",
 	})
 	if err != nil {
 		t.Fatalf("GetEntityCollections failed: %v", err)
@@ -397,10 +374,8 @@ func TestCollectionsService_GetEntityCollections(t *testing.T) {
 
 	// Get collections filtered by owner
 	respFiltered, err := service.GetEntityCollections(ctx, &v1.GetEntityCollectionsRequest{
-		EntityType: "book",
-		EntityId:   "book-ds-1",
-		OwnerType:  "user",
-		OwnerId:    "user-entity",
+		EntityId: "book-ds-1",
+		OwnerId:  "user-entity",
 	})
 	if err != nil {
 		t.Fatalf("GetEntityCollections (filtered) failed: %v", err)
@@ -418,28 +393,24 @@ func TestCollectionsService_ListCollections(t *testing.T) {
 
 	// Create root collections for user-list-1
 	service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "User1 Folder1DS",
-		OwnerType: "user",
-		OwnerId:   "user-list-1",
+		Name:    "User1 Folder1DS",
+		OwnerId: "user-list-1",
 	})
 	service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "User1 Folder2DS",
-		OwnerType: "user",
-		OwnerId:   "user-list-1",
+		Name:    "User1 Folder2DS",
+		OwnerId: "user-list-1",
 	})
 
 	// Create root collection for user-list-2
 	service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "User2 FolderDS",
-		OwnerType: "user",
-		OwnerId:   "user-list-2",
+		Name:    "User2 FolderDS",
+		OwnerId: "user-list-2",
 	})
 
 	// List root collections for user-list-1
 	resp, err := service.ListCollections(ctx, &v1.ListCollectionsRequest{
-		OwnerType: "user",
-		OwnerId:   "user-list-1",
-		ParentId:  "", // Root collections
+		OwnerId:  "user-list-1",
+		ParentId: "", // Root collections
 	})
 	if err != nil {
 		t.Fatalf("ListCollections failed: %v", err)
@@ -457,15 +428,13 @@ func TestCollectionsService_DeleteCollection(t *testing.T) {
 
 	// Create collection with items
 	collResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "To DeleteDS",
-		OwnerType: "user",
-		OwnerId:   "user-delete",
+		Name:    "To DeleteDS",
+		OwnerId: "user-delete",
 	})
 	collID := collResp.Collection.Id
 
 	service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 		CollectionId: collID,
-		EntityType:   "doc",
 		EntityId:     "doc-ds-1",
 		AddedBy:      "user-delete",
 	})
@@ -508,20 +477,17 @@ func TestCollectionsService_MoveCollection(t *testing.T) {
 
 	// Create hierarchy: FolderA -> SubFolder, FolderB
 	folderA, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "Folder ADS",
-		OwnerType: "user",
-		OwnerId:   "user-move",
+		Name:    "Folder ADS",
+		OwnerId: "user-move",
 	})
 	subFolder, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "SubFolderDS",
-		OwnerType: "user",
-		OwnerId:   "user-move",
-		ParentId:  folderA.Collection.Id,
+		Name:     "SubFolderDS",
+		OwnerId:  "user-move",
+		ParentId: folderA.Collection.Id,
 	})
 	folderB, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "Folder BDS",
-		OwnerType: "user",
-		OwnerId:   "user-move",
+		Name:    "Folder BDS",
+		OwnerId: "user-move",
 	})
 
 	// Move SubFolder from FolderA to FolderB
@@ -560,21 +526,18 @@ func TestCollectionsService_CircularReferencePrevention(t *testing.T) {
 
 	// Create hierarchy: A -> B -> C
 	collA, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "ADS",
-		OwnerType: "user",
-		OwnerId:   "user-circular",
+		Name:    "ADS",
+		OwnerId: "user-circular",
 	})
 	collB, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "BDS",
-		OwnerType: "user",
-		OwnerId:   "user-circular",
-		ParentId:  collA.Collection.Id,
+		Name:     "BDS",
+		OwnerId:  "user-circular",
+		ParentId: collA.Collection.Id,
 	})
 	collC, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "CDS",
-		OwnerType: "user",
-		OwnerId:   "user-circular",
-		ParentId:  collB.Collection.Id,
+		Name:     "CDS",
+		OwnerId:  "user-circular",
+		ParentId: collB.Collection.Id,
 	})
 
 	// Try to move A into C (would create circular reference)
@@ -603,16 +566,14 @@ func TestCollectionsService_ReorderItems(t *testing.T) {
 
 	// Create collection and add items
 	collResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "PlaylistDS",
-		OwnerType: "user",
-		OwnerId:   "user-reorder",
+		Name:    "PlaylistDS",
+		OwnerId: "user-reorder",
 	})
 	collID := collResp.Collection.Id
 
 	for i := 1; i <= 3; i++ {
 		service.AddToCollection(ctx, &v1.AddToCollectionRequest{
 			CollectionId: collID,
-			EntityType:   "song",
 			EntityId:     fmt.Sprintf("song-ds-%d", i),
 			AddedBy:      "user-reorder",
 		})
@@ -622,8 +583,8 @@ func TestCollectionsService_ReorderItems(t *testing.T) {
 	_, err := service.ReorderItems(ctx, &v1.ReorderItemsRequest{
 		CollectionId: collID,
 		ItemOrders: []*v1.ItemOrder{
-			{EntityType: "song", EntityId: "song-ds-3", DisplayOrder: 1},
-			{EntityType: "song", EntityId: "song-ds-1", DisplayOrder: 3},
+			{EntityId: "song-ds-3", DisplayOrder: 1},
+			{EntityId: "song-ds-1", DisplayOrder: 3},
 		},
 	})
 	if err != nil {
@@ -650,10 +611,9 @@ func TestCollectionsService_CollectionType(t *testing.T) {
 
 	for _, typ := range types {
 		resp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-			Name:      fmt.Sprintf("My %sDS", typ),
-			OwnerType: "user",
-			OwnerId:   "user-type",
-			Type:      typ,
+			Name:    fmt.Sprintf("My %sDS", typ),
+			OwnerId: "user-type",
+			Type:    typ,
 		})
 		if err != nil {
 			t.Fatalf("CreateCollection failed for type %s: %v", typ, err)
@@ -672,19 +632,18 @@ func TestCollectionsService_BatchOperations(t *testing.T) {
 
 	// Create collection
 	collResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
-		Name:      "Batch TestDS",
-		OwnerType: "user",
-		OwnerId:   "user-batch",
+		Name:    "Batch TestDS",
+		OwnerId: "user-batch",
 	})
 	collID := collResp.Collection.Id
 
 	// Batch add items
 	batchAddResp, err := service.BatchAddToCollection(ctx, &v1.BatchAddToCollectionRequest{
 		CollectionId: collID,
-		Entities: []*commonv1.EntityRef{
-			{EntityType: "item", EntityId: "item-ds-1"},
-			{EntityType: "item", EntityId: "item-ds-2"},
-			{EntityType: "item", EntityId: "item-ds-3"},
+		EntityIds: []string{
+			"item-ds-1",
+			"item-ds-2",
+			"item-ds-3",
 		},
 		AddedBy: "user-batch",
 	})
@@ -699,9 +658,9 @@ func TestCollectionsService_BatchOperations(t *testing.T) {
 	// Batch add same items again
 	batchAddResp2, err := service.BatchAddToCollection(ctx, &v1.BatchAddToCollectionRequest{
 		CollectionId: collID,
-		Entities: []*commonv1.EntityRef{
-			{EntityType: "item", EntityId: "item-ds-1"},
-			{EntityType: "item", EntityId: "item-ds-4"},
+		EntityIds: []string{
+			"item-ds-1",
+			"item-ds-4",
 		},
 		AddedBy: "user-batch",
 	})

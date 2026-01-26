@@ -46,7 +46,6 @@ service.InitializeCache()
 
 // Add a reaction
 resp, err := service.AddReaction(ctx, &v1.AddReactionRequest{
-    EntityType:   "post",
     EntityId:     "post-123",
     UserId:       "user-456",
     ReactionType: "like",
@@ -69,7 +68,6 @@ service.InitializeCache()
 
 // Add a reaction
 resp, err := service.AddReaction(ctx, &v1.AddReactionRequest{
-    EntityType:   "post",
     EntityId:     "post-123",
     UserId:       "user-456",
     ReactionType: "love",

@@ -5,14 +5,9 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/panyam/goapplib/content/gen/go/common/v1;commonv1";
 
-// Generic entity reference used across all content services.
-// This pattern allows attaching metadata (likes, tags, notes, etc.) to any entity.
-message EntityRef {
-  // Type of the entity (e.g., "document", "post", "video", "song")
-  string entity_type = 1;
-  // Unique identifier within the entity type
-  string entity_id = 2;
-}
+// Note: EntityRef has been removed. Each service instance now handles a single
+// entity type, determined by table/kind name at construction time.
+// Entity identification is done via entity_id only.
 
 // Standard pagination request used across all list operations.
 message PaginationRequest {

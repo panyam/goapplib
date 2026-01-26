@@ -6,11 +6,11 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/datastore"
-	dsidx "github.com/panyam/goapplib/datastore"
 	"github.com/panyam/goapplib/content/services/collections"
+	dsidx "github.com/panyam/goapplib/datastore"
 
-	v1 "github.com/panyam/goapplib/content/gen/go/collections/v1"
 	dsgen "github.com/panyam/goapplib/content/gen/datastore/collections/v1"
+	v1 "github.com/panyam/goapplib/content/gen/go/collections/v1"
 )
 
 // Default kind names for collections service
@@ -156,9 +156,6 @@ func (p *datastoreCollectionsStorageProvider) ListCollections(ctx context.Contex
 	}
 
 	// Apply filters
-	if opts.OwnerType != "" {
-		query = query.FilterField("owner_type", "=", opts.OwnerType)
-	}
 	if opts.OwnerID != "" {
 		query = query.FilterField("owner_id", "=", opts.OwnerID)
 	}
@@ -218,9 +215,8 @@ func (p *datastoreCollectionsStorageProvider) ListCollections(ctx context.Contex
 }
 
 // FindCollectionByName finds a collection by its normalized name within a parent.
-func (p *datastoreCollectionsStorageProvider) FindCollectionByName(ctx context.Context, ownerType, ownerID, parentID, normalizedName string) (*v1.Collection, error) {
+func (p *datastoreCollectionsStorageProvider) FindCollectionByName(ctx context.Context, ownerID, parentID, normalizedName string) (*v1.Collection, error) {
 	query := datastore.NewQuery(p.collectionKind).
-		FilterField("owner_type", "=", ownerType).
 		FilterField("owner_id", "=", ownerID).
 		FilterField("parent_id", "=", parentID).
 		FilterField("normalized_name", "=", normalizedName).
@@ -311,8 +307,8 @@ func (p *datastoreCollectionsStorageProvider) UpdateCollectionPaths(ctx context.
 }
 
 // collectionItemKey creates a deterministic key string for CollectionItem.
-func collectionItemKey(collectionID, entityType, entityID string) string {
-	return fmt.Sprintf("%s:%s:%s", collectionID, entityType, entityID)
+func collectionItemKey(collectionID, entityID string) string {
+	return fmt.Sprintf("%s:%s", collectionID, entityID)
 }
 
 // SaveCollectionItem saves a collection item to Datastore.
@@ -321,15 +317,15 @@ func (p *datastoreCollectionsStorageProvider) SaveCollectionItem(ctx context.Con
 	if err != nil {
 		return err
 	}
-	keyStr := collectionItemKey(item.CollectionId, item.EntityType, item.EntityId)
+	keyStr := collectionItemKey(item.CollectionId, item.EntityId)
 	key := p.newKey(p.collectionItemKind, keyStr)
 	_, err = p.client.Put(ctx, key, dsItem)
 	return err
 }
 
 // GetCollectionItem retrieves a collection item.
-func (p *datastoreCollectionsStorageProvider) GetCollectionItem(ctx context.Context, collectionID, entityType, entityID string) (*v1.CollectionItem, error) {
-	keyStr := collectionItemKey(collectionID, entityType, entityID)
+func (p *datastoreCollectionsStorageProvider) GetCollectionItem(ctx context.Context, collectionID, entityID string) (*v1.CollectionItem, error) {
+	keyStr := collectionItemKey(collectionID, entityID)
 	key := p.newKey(p.collectionItemKind, keyStr)
 
 	var dsItem dsgen.CollectionItemDatastore
@@ -345,8 +341,8 @@ func (p *datastoreCollectionsStorageProvider) GetCollectionItem(ctx context.Cont
 }
 
 // DeleteCollectionItem deletes a collection item from Datastore.
-func (p *datastoreCollectionsStorageProvider) DeleteCollectionItem(ctx context.Context, collectionID, entityType, entityID string) error {
-	keyStr := collectionItemKey(collectionID, entityType, entityID)
+func (p *datastoreCollectionsStorageProvider) DeleteCollectionItem(ctx context.Context, collectionID, entityID string) error {
+	keyStr := collectionItemKey(collectionID, entityID)
 	key := p.newKey(p.collectionItemKind, keyStr)
 	return p.client.Delete(ctx, key)
 }
@@ -358,10 +354,6 @@ func (p *datastoreCollectionsStorageProvider) ListCollectionItems(ctx context.Co
 
 	if p.namespace != "" {
 		query = query.Namespace(p.namespace)
-	}
-
-	if opts.EntityTypeFilter != "" {
-		query = query.FilterField("entity_type", "=", opts.EntityTypeFilter)
 	}
 
 	// Get total count
@@ -410,9 +402,8 @@ func (p *datastoreCollectionsStorageProvider) ListCollectionItems(ctx context.Co
 }
 
 // ListEntityCollections returns all collections that contain an entity.
-func (p *datastoreCollectionsStorageProvider) ListEntityCollections(ctx context.Context, entityType, entityID string, opts collections.EntityCollectionsOptions) ([]*v1.Collection, error) {
+func (p *datastoreCollectionsStorageProvider) ListEntityCollections(ctx context.Context, entityID string, opts collections.EntityCollectionsOptions) ([]*v1.Collection, error) {
 	query := datastore.NewQuery(p.collectionItemKind).
-		FilterField("entity_type", "=", entityType).
 		FilterField("entity_id", "=", entityID)
 
 	if p.namespace != "" {
@@ -434,9 +425,6 @@ func (p *datastoreCollectionsStorageProvider) ListEntityCollections(ctx context.
 		}
 
 		// Filter by owner if specified
-		if opts.OwnerType != "" && collection.OwnerType != opts.OwnerType {
-			continue
-		}
 		if opts.OwnerID != "" && collection.OwnerId != opts.OwnerID {
 			continue
 		}
@@ -479,7 +467,7 @@ func (p *datastoreCollectionsStorageProvider) UpdateItemOrders(ctx context.Conte
 	var updated int64
 
 	for _, order := range orders {
-		item, err := p.GetCollectionItem(ctx, collectionID, order.EntityType, order.EntityId)
+		item, err := p.GetCollectionItem(ctx, collectionID, order.EntityId)
 		if err != nil || item == nil {
 			continue
 		}
@@ -532,7 +520,6 @@ func (s *DatastoreCollectionsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.collectionKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "parent_id"},
 				{Name: "status"},
@@ -543,7 +530,6 @@ func (s *DatastoreCollectionsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.collectionKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "parent_id"},
 				{Name: "status"},
@@ -554,7 +540,6 @@ func (s *DatastoreCollectionsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.collectionKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "parent_id"},
 				{Name: "status"},
@@ -565,7 +550,6 @@ func (s *DatastoreCollectionsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.collectionKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "parent_id"},
 				{Name: "normalized_name"},
@@ -596,23 +580,7 @@ func (s *DatastoreCollectionsService) RequiredIndexes() []dsidx.DatastoreIndex {
 				{Name: "added_at", Direction: "desc"},
 			},
 		},
-		// For ListCollectionItems with entity type filter
-		{
-			Kind: s.collectionItemKind,
-			Properties: []dsidx.IndexProperty{
-				{Name: "collection_id"},
-				{Name: "entity_type"},
-				{Name: "display_order"},
-			},
-		},
 		// For ListEntityCollections - find collections containing entity
-		{
-			Kind: s.collectionItemKind,
-			Properties: []dsidx.IndexProperty{
-				{Name: "entity_type"},
-				{Name: "entity_id"},
-			},
-		},
 		// For GetMaxDisplayOrder - get max order in collection
 		{
 			Kind: s.collectionItemKind,
@@ -629,7 +597,6 @@ func (s *DatastoreCollectionsService) TestQueries() []*datastore.Query {
 	return []*datastore.Query{
 		// ListCollections by display_order
 		datastore.NewQuery(s.collectionKind).
-			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("parent_id", "=", "").
 			FilterField("status", "=", int32(v1.CollectionStatus_COLLECTION_STATUS_ACTIVE)).
@@ -637,7 +604,6 @@ func (s *DatastoreCollectionsService) TestQueries() []*datastore.Query {
 
 		// ListCollections by created_at
 		datastore.NewQuery(s.collectionKind).
-			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("parent_id", "=", "").
 			FilterField("status", "=", int32(v1.CollectionStatus_COLLECTION_STATUS_ACTIVE)).
@@ -645,7 +611,6 @@ func (s *DatastoreCollectionsService) TestQueries() []*datastore.Query {
 
 		// ListCollections by name
 		datastore.NewQuery(s.collectionKind).
-			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("parent_id", "=", "").
 			FilterField("status", "=", int32(v1.CollectionStatus_COLLECTION_STATUS_ACTIVE)).
@@ -653,7 +618,6 @@ func (s *DatastoreCollectionsService) TestQueries() []*datastore.Query {
 
 		// FindCollectionByName
 		datastore.NewQuery(s.collectionKind).
-			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("parent_id", "=", "").
 			FilterField("normalized_name", "=", "__test__").
@@ -674,15 +638,8 @@ func (s *DatastoreCollectionsService) TestQueries() []*datastore.Query {
 			FilterField("collection_id", "=", "__test__").
 			Order("-added_at"),
 
-		// ListCollectionItems with entity type filter
-		datastore.NewQuery(s.collectionItemKind).
-			FilterField("collection_id", "=", "__test__").
-			FilterField("entity_type", "=", "__test__").
-			Order("display_order"),
-
 		// ListEntityCollections
 		datastore.NewQuery(s.collectionItemKind).
-			FilterField("entity_type", "=", "__test__").
 			FilterField("entity_id", "=", "__test__"),
 
 		// GetMaxDisplayOrder

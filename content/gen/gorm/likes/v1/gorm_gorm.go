@@ -26,9 +26,8 @@ func (*ReactionTypeGORM) TableName() string {
 // LikeGORM is the GORM model for content.likes.v1.Like
 type LikeGORM struct {
 	Id           string `gorm:"primaryKey"`
-	EntityType   string `gorm:"index:idx_likes_entity,priority:1;index:idx_likes_user_entity,priority:1"`
-	EntityId     string `gorm:"index:idx_likes_entity,priority:2;index:idx_likes_user_entity,priority:2"`
-	UserId       string `gorm:"index:idx_likes_user;index:idx_likes_user_entity,priority:3,unique"`
+	EntityId     string `gorm:"index:idx_likes_entity,priority:1;index:idx_likes_user_entity,priority:1"`
+	UserId       string `gorm:"index:idx_likes_user;index:idx_likes_user_entity,priority:2,unique"`
 	ReactionType string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -42,7 +41,6 @@ func (*LikeGORM) TableName() string {
 
 // LikeCountsGORM is the GORM model for content.likes.v1.LikeCounts
 type LikeCountsGORM struct {
-	EntityType     string `gorm:"primaryKey"`
 	EntityId       string `gorm:"primaryKey"`
 	TotalCount     int64
 	ByReactionType map[string]int64 `gorm:"serializer:json;type:text"`

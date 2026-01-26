@@ -31,7 +31,6 @@ func TagToTagGORM(
 		Color:           src.Color,
 		Description:     src.Description,
 		DisplayOrder:    src.DisplayOrder,
-		OwnerType:       src.OwnerType,
 		OwnerId:         src.OwnerId,
 		Scope:           src.Scope,
 		UsageCount:      src.UsageCount,
@@ -84,7 +83,6 @@ func TagFromTagGORM(
 		Color:           src.Color,
 		Description:     src.Description,
 		DisplayOrder:    src.DisplayOrder,
-		OwnerType:       src.OwnerType,
 		OwnerId:         src.OwnerId,
 		Scope:           src.Scope,
 		UsageCount:      src.UsageCount,
@@ -123,7 +121,6 @@ func EntityTagToEntityTagGORM(
 	// Initialize struct with inline values
 	*dest = EntityTagGORM{
 		TagId:      src.TagId,
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TaggedBy:   src.TaggedBy,
 		Visibility: src.Visibility,
@@ -161,7 +158,6 @@ func EntityTagFromEntityTagGORM(
 	// Initialize struct with inline values
 	*dest = v1.EntityTag{
 		TagId:      src.TagId,
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TaggedBy:   src.TaggedBy,
 		Visibility: src.Visibility,
@@ -195,7 +191,6 @@ func TagUsageCountsToTagUsageCountsGORM(
 
 	// Initialize struct with inline values
 	*dest = TagUsageCountsGORM{
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TotalCount: src.TotalCount,
 	}
@@ -235,7 +230,6 @@ func TagUsageCountsFromTagUsageCountsGORM(
 
 	// Initialize struct with inline values
 	*dest = v1.TagUsageCounts{
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TotalCount: src.TotalCount,
 		ByName:     src.ByName,

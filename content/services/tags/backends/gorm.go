@@ -75,9 +75,6 @@ func (p *gormTagsStorageProvider) ListTags(ctx context.Context, opts tags.ListTa
 	query := p.db.WithContext(ctx).Model(&gormgen.TagGORM{})
 
 	// Apply filters
-	if opts.OwnerType != "" {
-		query = query.Where("owner_type = ?", opts.OwnerType)
-	}
 	if opts.OwnerID != "" {
 		query = query.Where("owner_id = ?", opts.OwnerID)
 	}
@@ -124,11 +121,11 @@ func (p *gormTagsStorageProvider) ListTags(ctx context.Context, opts tags.ListTa
 }
 
 // FindTagByNormalizedValues finds a tag by its normalized name and value.
-func (p *gormTagsStorageProvider) FindTagByNormalizedValues(ctx context.Context, ownerType, ownerID, normalizedName, normalizedValue string) (*v1.Tag, error) {
+func (p *gormTagsStorageProvider) FindTagByNormalizedValues(ctx context.Context, ownerID, normalizedName, normalizedValue string) (*v1.Tag, error) {
 	var gormTag gormgen.TagGORM
 	err := p.db.WithContext(ctx).
-		Where("owner_type = ? AND owner_id = ? AND normalized_name = ? AND normalized_value = ?",
-			ownerType, ownerID, normalizedName, normalizedValue).
+		Where("owner_id = ? AND normalized_name = ? AND normalized_value = ?",
+			ownerID, normalizedName, normalizedValue).
 		Where("status = ?", v1.TagStatus_TAG_STATUS_ACTIVE).
 		First(&gormTag).Error
 	if err != nil {
@@ -158,15 +155,15 @@ func (p *gormTagsStorageProvider) SearchTags(ctx context.Context, opts tags.Sear
 	}
 
 	// Owner filter with optional shared tags
-	if opts.OwnerType != "" || opts.OwnerID != "" {
+	if opts.OwnerID != "" {
 		if opts.IncludeShared {
 			query = query.Where(
-				"(owner_type = ? AND owner_id = ?) OR scope IN (?, ?)",
-				opts.OwnerType, opts.OwnerID,
+				"(owner_id = ?) OR scope IN (?, ?)",
+				opts.OwnerID,
 				v1.TagScope_TAG_SCOPE_SHARED, v1.TagScope_TAG_SCOPE_PUBLIC,
 			)
 		} else {
-			query = query.Where("owner_type = ? AND owner_id = ?", opts.OwnerType, opts.OwnerID)
+			query = query.Where("owner_id = ?", opts.OwnerID)
 		}
 	}
 
@@ -202,15 +199,15 @@ func (p *gormTagsStorageProvider) GetPopularTags(ctx context.Context, opts tags.
 	}
 
 	// Owner filter with optional shared tags
-	if opts.OwnerType != "" || opts.OwnerID != "" {
+	if opts.OwnerID != "" {
 		if opts.IncludeShared {
 			query = query.Where(
-				"(owner_type = ? AND owner_id = ?) OR scope IN (?, ?)",
-				opts.OwnerType, opts.OwnerID,
+				"owner_id = ? OR scope IN (?, ?)",
+				opts.OwnerID,
 				v1.TagScope_TAG_SCOPE_SHARED, v1.TagScope_TAG_SCOPE_PUBLIC,
 			)
 		} else {
-			query = query.Where("owner_type = ? AND owner_id = ?", opts.OwnerType, opts.OwnerID)
+			query = query.Where("owner_id = ?", opts.OwnerID)
 		}
 	}
 
@@ -239,19 +236,19 @@ func (p *gormTagsStorageProvider) SaveEntityTag(ctx context.Context, entityTag *
 }
 
 // DeleteEntityTag deletes an entity tag from the database.
-func (p *gormTagsStorageProvider) DeleteEntityTag(ctx context.Context, tagID, entityType, entityID, taggedBy string) error {
+func (p *gormTagsStorageProvider) DeleteEntityTag(ctx context.Context, tagID, entityID, taggedBy string) error {
 	return p.db.WithContext(ctx).
-		Where("tag_id = ? AND entity_type = ? AND entity_id = ? AND tagged_by = ?",
-			tagID, entityType, entityID, taggedBy).
+		Where("tag_id = ? AND entity_id = ? AND tagged_by = ?",
+			tagID, entityID, taggedBy).
 		Delete(&gormgen.EntityTagGORM{}).Error
 }
 
 // GetEntityTag retrieves an entity tag.
-func (p *gormTagsStorageProvider) GetEntityTag(ctx context.Context, tagID, entityType, entityID, taggedBy string) (*v1.EntityTag, error) {
+func (p *gormTagsStorageProvider) GetEntityTag(ctx context.Context, tagID, entityID, taggedBy string) (*v1.EntityTag, error) {
 	var gormET gormgen.EntityTagGORM
 	err := p.db.WithContext(ctx).
-		Where("tag_id = ? AND entity_type = ? AND entity_id = ? AND tagged_by = ?",
-			tagID, entityType, entityID, taggedBy).
+		Where("tag_id = ? AND entity_id = ? AND tagged_by = ?",
+			tagID, entityID, taggedBy).
 		First(&gormET).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -263,21 +260,18 @@ func (p *gormTagsStorageProvider) GetEntityTag(ctx context.Context, tagID, entit
 }
 
 // ListEntityTagsByEntity lists entity tags for an entity.
-func (p *gormTagsStorageProvider) ListEntityTagsByEntity(ctx context.Context, entityType, entityID string, opts tags.EntityTagsOptions) ([]*v1.EntityTag, error) {
+func (p *gormTagsStorageProvider) ListEntityTagsByEntity(ctx context.Context, entityID string, opts tags.EntityTagsOptions) ([]*v1.EntityTag, error) {
 	var gormETs []gormgen.EntityTagGORM
 
 	query := p.db.WithContext(ctx).Model(&gormgen.EntityTagGORM{}).
-		Where("entity_type = ? AND entity_id = ?", entityType, entityID)
+		Where("entity_id = ?", entityID)
 
 	// We need to join with tags table to filter by name and owner
-	if opts.NameFilter != "" || opts.OwnerType != "" || opts.OwnerID != "" {
+	if opts.NameFilter != "" || opts.OwnerID != "" {
 		query = query.Joins("JOIN tags ON tags.id = entity_tags.tag_id")
 
 		if opts.NameFilter != "" && opts.NameFilter != "*" {
 			query = query.Where("tags.normalized_name = ?", opts.NameFilter)
-		}
-		if opts.OwnerType != "" {
-			query = query.Where("tags.owner_type = ?", opts.OwnerType)
 		}
 		if opts.OwnerID != "" {
 			query = query.Where("tags.owner_id = ?", opts.OwnerID)
@@ -297,16 +291,12 @@ func (p *gormTagsStorageProvider) ListEntityTagsByEntity(ctx context.Context, en
 }
 
 // ListEntityTagsByTag lists entity tags for a tag.
-func (p *gormTagsStorageProvider) ListEntityTagsByTag(ctx context.Context, tagID string, entityTypeFilter string, limit, offset int) ([]*v1.EntityTag, int, error) {
+func (p *gormTagsStorageProvider) ListEntityTagsByTag(ctx context.Context, tagID string, limit, offset int) ([]*v1.EntityTag, int, error) {
 	var gormETs []gormgen.EntityTagGORM
 	var total int64
 
 	query := p.db.WithContext(ctx).Model(&gormgen.EntityTagGORM{}).
 		Where("tag_id = ?", tagID)
-
-	if entityTypeFilter != "" {
-		query = query.Where("entity_type = ?", entityTypeFilter)
-	}
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -331,10 +321,10 @@ func (p *gormTagsStorageProvider) DeleteEntityTagsByTag(ctx context.Context, tag
 }
 
 // GetTagUsageCounts retrieves usage counts for an entity.
-func (p *gormTagsStorageProvider) GetTagUsageCounts(ctx context.Context, entityType, entityID string) (*v1.TagUsageCounts, error) {
+func (p *gormTagsStorageProvider) GetTagUsageCounts(ctx context.Context, entityID string) (*v1.TagUsageCounts, error) {
 	var gormCounts gormgen.TagUsageCountsGORM
 	err := p.db.WithContext(ctx).
-		Where("entity_type = ? AND entity_id = ?", entityType, entityID).
+		Where("entity_id = ?", entityID).
 		First(&gormCounts).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -371,7 +361,6 @@ func tagToGORM(tag *v1.Tag) *gormgen.TagGORM {
 		Color:           tag.Color,
 		Description:     tag.Description,
 		DisplayOrder:    tag.DisplayOrder,
-		OwnerType:       tag.OwnerType,
 		OwnerId:         tag.OwnerId,
 		Scope:           tag.Scope,
 		UsageCount:      tag.UsageCount,
@@ -401,7 +390,6 @@ func tagFromGORM(gormTag *gormgen.TagGORM) *v1.Tag {
 		Color:           gormTag.Color,
 		Description:     gormTag.Description,
 		DisplayOrder:    gormTag.DisplayOrder,
-		OwnerType:       gormTag.OwnerType,
 		OwnerId:         gormTag.OwnerId,
 		Scope:           gormTag.Scope,
 		UsageCount:      gormTag.UsageCount,
@@ -420,7 +408,6 @@ func entityTagToGORM(et *v1.EntityTag) *gormgen.EntityTagGORM {
 	}
 	return &gormgen.EntityTagGORM{
 		TagId:      et.TagId,
-		EntityType: et.EntityType,
 		EntityId:   et.EntityId,
 		TaggedBy:   et.TaggedBy,
 		Visibility: et.Visibility,
@@ -435,7 +422,6 @@ func entityTagFromGORM(gormET *gormgen.EntityTagGORM) *v1.EntityTag {
 	}
 	return &v1.EntityTag{
 		TagId:      gormET.TagId,
-		EntityType: gormET.EntityType,
 		EntityId:   gormET.EntityId,
 		TaggedBy:   gormET.TaggedBy,
 		Visibility: gormET.Visibility,
@@ -449,7 +435,6 @@ func tagUsageCountsToGORM(counts *v1.TagUsageCounts) *gormgen.TagUsageCountsGORM
 		updatedAt = counts.UpdatedAt.AsTime()
 	}
 	return &gormgen.TagUsageCountsGORM{
-		EntityType: counts.EntityType,
 		EntityId:   counts.EntityId,
 		TotalCount: counts.TotalCount,
 		ByName:     counts.ByName,
@@ -467,7 +452,6 @@ func tagUsageCountsFromGORM(gormCounts *gormgen.TagUsageCountsGORM) *v1.TagUsage
 		updatedAt = timestamppb.New(gormCounts.UpdatedAt)
 	}
 	return &v1.TagUsageCounts{
-		EntityType: gormCounts.EntityType,
 		EntityId:   gormCounts.EntityId,
 		TotalCount: gormCounts.TotalCount,
 		ByName:     byName,

@@ -137,7 +137,6 @@ func (d *CollectionGORMDAL) BatchGet(ctx context.Context, db *gorm.DB, ids []str
 // CollectionItemKey represents the composite primary key for v1.CollectionItemGORM
 type CollectionItemKey struct {
 	CollectionId string
-	EntityType   string
 	EntityId     string
 }
 
@@ -204,16 +203,13 @@ func (d *CollectionItemGORMDAL) Save(ctx context.Context, db *gorm.DB, obj *v1.C
 	if obj.CollectionId == "" {
 		return errors.New("primary key 'CollectionId' cannot be empty")
 	}
-	if obj.EntityType == "" {
-		return errors.New("primary key 'EntityType' cannot be empty")
-	}
 	if obj.EntityId == "" {
 		return errors.New("primary key 'EntityId' cannot be empty")
 	}
 
 	// Check if record exists by trying to fetch it
 	var existing v1.CollectionItemGORM
-	err := d.db(db).First(&existing, "collection_id = ?", "entity_type = ?", "entity_id = ?", obj.CollectionId, obj.EntityType, obj.EntityId).Error
+	err := d.db(db).First(&existing, "collection_id = ?", "entity_id = ?", obj.CollectionId, obj.EntityId).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -235,9 +231,9 @@ func (d *CollectionItemGORMDAL) Save(ctx context.Context, db *gorm.DB, obj *v1.C
 
 // Get retrieves a v1.CollectionItemGORM record by primary keys.
 // Returns (nil, nil) if the record is not found (not an error).
-func (d *CollectionItemGORMDAL) Get(ctx context.Context, db *gorm.DB, collectionId string, entityType string, entityId string) (*v1.CollectionItemGORM, error) {
+func (d *CollectionItemGORMDAL) Get(ctx context.Context, db *gorm.DB, collectionId string, entityId string) (*v1.CollectionItemGORM, error) {
 	var out v1.CollectionItemGORM
-	err := d.db(db).First(&out, "collection_id = ? AND entity_type = ? AND entity_id = ?", collectionId, entityType, entityId).Error
+	err := d.db(db).First(&out, "collection_id = ? AND entity_id = ?", collectionId, entityId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -248,8 +244,8 @@ func (d *CollectionItemGORMDAL) Get(ctx context.Context, db *gorm.DB, collection
 }
 
 // Delete removes a v1.CollectionItemGORM record by primary keys.
-func (d *CollectionItemGORMDAL) Delete(ctx context.Context, db *gorm.DB, collectionId string, entityType string, entityId string) error {
-	return d.db(db).Where("collection_id = ? AND entity_type = ? AND entity_id = ?", collectionId, entityType, entityId).Delete(&v1.CollectionItemGORM{}).Error
+func (d *CollectionItemGORMDAL) Delete(ctx context.Context, db *gorm.DB, collectionId string, entityId string) error {
+	return d.db(db).Where("collection_id = ? AND entity_id = ?", collectionId, entityId).Delete(&v1.CollectionItemGORM{}).Error
 }
 
 // List retrieves multiple v1.CollectionItemGORM records using the provided query.
@@ -270,7 +266,7 @@ func (d *CollectionItemGORMDAL) BatchGet(ctx context.Context, db *gorm.DB, keys 
 	// Build OR query for each key combination
 	query := d.db(db).Where("1 = 0") // Start with false condition
 	for _, key := range keys {
-		query = query.Or("collection_id = ? AND entity_type = ? AND entity_id = ?", key.CollectionId, key.EntityType, key.EntityId)
+		query = query.Or("collection_id = ? AND entity_id = ?", key.CollectionId, key.EntityId)
 	}
 
 	var out []*v1.CollectionItemGORM

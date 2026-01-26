@@ -5,7 +5,6 @@ indexes:
 
 - kind: EntityTag
   properties:
-  - name: entity_type
   - name: entity_id
   - name: created_at
     direction: desc
@@ -19,13 +18,11 @@ indexes:
 - kind: EntityTag
   properties:
   - name: tag_id
-  - name: entity_type
   - name: created_at
     direction: desc
 
 - kind: Tag
   properties:
-  - name: owner_type
   - name: owner_id
   - name: status
   - name: created_at
@@ -33,7 +30,6 @@ indexes:
 
 - kind: Tag
   properties:
-  - name: owner_type
   - name: owner_id
   - name: status
   - name: usage_count
@@ -41,7 +37,6 @@ indexes:
 
 - kind: Tag
   properties:
-  - name: owner_type
   - name: owner_id
   - name: normalized_name
   - name: status
@@ -50,7 +45,6 @@ indexes:
 
 - kind: Tag
   properties:
-  - name: owner_type
   - name: owner_id
   - name: normalized_name
   - name: normalized_value
@@ -58,7 +52,6 @@ indexes:
 
 - kind: Tag
   properties:
-  - name: owner_type
   - name: owner_id
   - name: status
   - name: usage_count
@@ -68,7 +61,6 @@ indexes:
 - kind: Tag
   properties:
   - name: owner_id
-  - name: owner_type
   - name: status
   - name: normalized_value
 

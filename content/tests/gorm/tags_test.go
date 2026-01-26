@@ -27,10 +27,9 @@ func TestTagsService_CreateTag(t *testing.T) {
 
 	// Create a pure tag (no name, just value)
 	resp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
-		Value:     "Favorites",
-		OwnerType: "user",
-		OwnerId:   "user-1",
-		Scope:     v1.TagScope_TAG_SCOPE_PRIVATE,
+		Value:   "Favorites",
+		OwnerId: "user-1",
+		Scope:   v1.TagScope_TAG_SCOPE_PRIVATE,
 	})
 	if err != nil {
 		t.Fatalf("CreateTag failed: %v", err)
@@ -51,9 +50,8 @@ func TestTagsService_CreateTag(t *testing.T) {
 
 	// Create same tag again - should return existing
 	resp2, err := service.CreateTag(ctx, &v1.CreateTagRequest{
-		Value:     "FAVORITES", // Different case
-		OwnerType: "user",
-		OwnerId:   "user-1",
+		Value:   "FAVORITES", // Different case
+		OwnerId: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("CreateTag (duplicate) failed: %v", err)
@@ -74,11 +72,10 @@ func TestTagsService_CreateMetadataTag(t *testing.T) {
 
 	// Create a metadata tag (name="venue", value="Wembley Stadium")
 	resp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
-		Name:      "venue",
-		Value:     "Wembley Stadium",
-		OwnerType: "user",
-		OwnerId:   "user-1",
-		Scope:     v1.TagScope_TAG_SCOPE_PRIVATE,
+		Name:    "venue",
+		Value:   "Wembley Stadium",
+		OwnerId: "user-1",
+		Scope:   v1.TagScope_TAG_SCOPE_PRIVATE,
 	})
 	if err != nil {
 		t.Fatalf("CreateTag failed: %v", err)
@@ -102,9 +99,8 @@ func TestTagsService_TagEntity(t *testing.T) {
 
 	// Create a tag first
 	createResp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
-		Value:     "Rock",
-		OwnerType: "user",
-		OwnerId:   "user-1",
+		Value:   "Rock",
+		OwnerId: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("CreateTag failed: %v", err)
@@ -113,10 +109,9 @@ func TestTagsService_TagEntity(t *testing.T) {
 
 	// Tag an entity
 	resp, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-		EntityType: "song",
-		EntityId:   "song-1",
-		TagId:      tagID,
-		TaggedBy:   "user-1",
+		EntityId: "song-1",
+		TagId:    tagID,
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("TagEntity failed: %v", err)
@@ -134,10 +129,9 @@ func TestTagsService_TagEntity(t *testing.T) {
 
 	// Tag same entity again - should not be newly tagged
 	resp2, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-		EntityType: "song",
-		EntityId:   "song-1",
-		TagId:      tagID,
-		TaggedBy:   "user-1",
+		EntityId: "song-1",
+		TagId:    tagID,
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("TagEntity (duplicate) failed: %v", err)
@@ -155,12 +149,10 @@ func TestTagsService_TagEntityInline(t *testing.T) {
 
 	// Tag an entity with inline tag creation
 	resp, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-		EntityType: "book",
-		EntityId:   "book-1",
-		Value:      "To Read",
-		OwnerType:  "user",
-		OwnerId:    "user-1",
-		TaggedBy:   "user-1",
+		EntityId: "book-1",
+		Value:    "To Read",
+		OwnerId:  "user-1",
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("TagEntity failed: %v", err)
@@ -184,12 +176,10 @@ func TestTagsService_UntagEntity(t *testing.T) {
 
 	// Create and apply a tag
 	tagResp, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-		EntityType: "post",
-		EntityId:   "post-1",
-		Value:      "Important",
-		OwnerType:  "user",
-		OwnerId:    "user-1",
-		TaggedBy:   "user-1",
+		EntityId: "post-1",
+		Value:    "Important",
+		OwnerId:  "user-1",
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("TagEntity failed: %v", err)
@@ -197,10 +187,9 @@ func TestTagsService_UntagEntity(t *testing.T) {
 
 	// Remove the tag
 	resp, err := service.UntagEntity(ctx, &v1.UntagEntityRequest{
-		EntityType: "post",
-		EntityId:   "post-1",
-		TagId:      tagResp.Tag.Id,
-		TaggedBy:   "user-1",
+		EntityId: "post-1",
+		TagId:    tagResp.Tag.Id,
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("UntagEntity failed: %v", err)
@@ -212,10 +201,9 @@ func TestTagsService_UntagEntity(t *testing.T) {
 
 	// Try to remove again - should return false
 	resp2, err := service.UntagEntity(ctx, &v1.UntagEntityRequest{
-		EntityType: "post",
-		EntityId:   "post-1",
-		TagId:      tagResp.Tag.Id,
-		TaggedBy:   "user-1",
+		EntityId: "post-1",
+		TagId:    tagResp.Tag.Id,
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("UntagEntity (second time) failed: %v", err)
@@ -233,24 +221,20 @@ func TestTagsService_GetEntityTags(t *testing.T) {
 
 	// Tag an entity with multiple tags
 	_, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-		EntityType: "album",
-		EntityId:   "album-1",
-		Value:      "Rock",
-		OwnerType:  "user",
-		OwnerId:    "user-1",
-		TaggedBy:   "user-1",
+		EntityId: "album-1",
+		Value:    "Rock",
+		OwnerId:  "user-1",
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("TagEntity failed: %v", err)
 	}
 
 	_, err = service.TagEntity(ctx, &v1.TagEntityRequest{
-		EntityType: "album",
-		EntityId:   "album-1",
-		Value:      "Classic",
-		OwnerType:  "user",
-		OwnerId:    "user-1",
-		TaggedBy:   "user-1",
+		EntityId: "album-1",
+		Value:    "Classic",
+		OwnerId:  "user-1",
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("TagEntity failed: %v", err)
@@ -258,8 +242,7 @@ func TestTagsService_GetEntityTags(t *testing.T) {
 
 	// Get tags for entity
 	resp, err := service.GetEntityTags(ctx, &v1.GetEntityTagsRequest{
-		EntityType: "album",
-		EntityId:   "album-1",
+		EntityId: "album-1",
 	})
 	if err != nil {
 		t.Fatalf("GetEntityTags failed: %v", err)
@@ -277,10 +260,9 @@ func TestTagsService_MultiUserTagging(t *testing.T) {
 
 	// Create a shared tag
 	createResp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
-		Value:     "Great",
-		OwnerType: "org",
-		OwnerId:   "org-1",
-		Scope:     v1.TagScope_TAG_SCOPE_SHARED,
+		Value:   "Great",
+		OwnerId: "org-1",
+		Scope:   v1.TagScope_TAG_SCOPE_SHARED,
 	})
 	if err != nil {
 		t.Fatalf("CreateTag failed: %v", err)
@@ -289,10 +271,9 @@ func TestTagsService_MultiUserTagging(t *testing.T) {
 
 	// User 1 tags a book
 	resp1, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-		EntityType: "book",
-		EntityId:   "book-1",
-		TagId:      tagID,
-		TaggedBy:   "user-1",
+		EntityId: "book-1",
+		TagId:    tagID,
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("TagEntity (user-1) failed: %v", err)
@@ -303,10 +284,9 @@ func TestTagsService_MultiUserTagging(t *testing.T) {
 
 	// User 2 tags the same book with the same tag
 	resp2, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-		EntityType: "book",
-		EntityId:   "book-1",
-		TagId:      tagID,
-		TaggedBy:   "user-2",
+		EntityId: "book-1",
+		TagId:    tagID,
+		TaggedBy: "user-2",
 	})
 	if err != nil {
 		t.Fatalf("TagEntity (user-2) failed: %v", err)
@@ -317,10 +297,9 @@ func TestTagsService_MultiUserTagging(t *testing.T) {
 
 	// User 1 removes their tag
 	_, err = service.UntagEntity(ctx, &v1.UntagEntityRequest{
-		EntityType: "book",
-		EntityId:   "book-1",
-		TagId:      tagID,
-		TaggedBy:   "user-1",
+		EntityId: "book-1",
+		TagId:    tagID,
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("UntagEntity (user-1) failed: %v", err)
@@ -328,8 +307,7 @@ func TestTagsService_MultiUserTagging(t *testing.T) {
 
 	// User 2's tag should still exist
 	tagsResp, err := service.GetEntityTags(ctx, &v1.GetEntityTagsRequest{
-		EntityType: "book",
-		EntityId:   "book-1",
+		EntityId: "book-1",
 	})
 	if err != nil {
 		t.Fatalf("GetEntityTags failed: %v", err)
@@ -347,9 +325,8 @@ func TestTagsService_UsageCount(t *testing.T) {
 
 	// Create a tag
 	createResp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
-		Value:     "Popular",
-		OwnerType: "user",
-		OwnerId:   "user-1",
+		Value:   "Popular",
+		OwnerId: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("CreateTag failed: %v", err)
@@ -364,10 +341,9 @@ func TestTagsService_UsageCount(t *testing.T) {
 	// Tag multiple entities
 	for i := 1; i <= 3; i++ {
 		_, err := service.TagEntity(ctx, &v1.TagEntityRequest{
-			EntityType: "item",
-			EntityId:   fmt.Sprintf("item-%d", i),
-			TagId:      tagID,
-			TaggedBy:   "user-1",
+			EntityId: fmt.Sprintf("item-%d", i),
+			TagId:    tagID,
+			TaggedBy: "user-1",
 		})
 		if err != nil {
 			t.Fatalf("TagEntity failed: %v", err)
@@ -386,10 +362,9 @@ func TestTagsService_UsageCount(t *testing.T) {
 
 	// Untag one entity
 	_, err = service.UntagEntity(ctx, &v1.UntagEntityRequest{
-		EntityType: "item",
-		EntityId:   "item-1",
-		TagId:      tagID,
-		TaggedBy:   "user-1",
+		EntityId: "item-1",
+		TagId:    tagID,
+		TaggedBy: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("UntagEntity failed: %v", err)
@@ -415,9 +390,8 @@ func TestTagsService_SearchTags(t *testing.T) {
 	tags := []string{"Rock", "Rockabilly", "Roll", "Pop"}
 	for _, tag := range tags {
 		_, err := service.CreateTag(ctx, &v1.CreateTagRequest{
-			Value:     tag,
-			OwnerType: "user",
-			OwnerId:   "user-1",
+			Value:   tag,
+			OwnerId: "user-1",
 		})
 		if err != nil {
 			t.Fatalf("CreateTag failed: %v", err)
@@ -426,10 +400,9 @@ func TestTagsService_SearchTags(t *testing.T) {
 
 	// Search for "rock" prefix
 	resp, err := service.SearchTags(ctx, &v1.SearchTagsRequest{
-		Query:     "rock",
-		OwnerType: "user",
-		OwnerId:   "user-1",
-		Limit:     10,
+		Query:   "rock",
+		OwnerId: "user-1",
+		Limit:   10,
 	})
 	if err != nil {
 		t.Fatalf("SearchTags failed: %v", err)
@@ -448,18 +421,16 @@ func TestTagsService_ListTags(t *testing.T) {
 
 	// Create tags for different owners
 	_, err := service.CreateTag(ctx, &v1.CreateTagRequest{
-		Value:     "User1Tag",
-		OwnerType: "user",
-		OwnerId:   "user-1",
+		Value:   "User1Tag",
+		OwnerId: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("CreateTag failed: %v", err)
 	}
 
 	_, err = service.CreateTag(ctx, &v1.CreateTagRequest{
-		Value:     "User2Tag",
-		OwnerType: "user",
-		OwnerId:   "user-2",
+		Value:   "User2Tag",
+		OwnerId: "user-2",
 	})
 	if err != nil {
 		t.Fatalf("CreateTag failed: %v", err)
@@ -467,8 +438,7 @@ func TestTagsService_ListTags(t *testing.T) {
 
 	// List tags for user-1 only
 	resp, err := service.ListTags(ctx, &v1.ListTagsRequest{
-		OwnerType: "user",
-		OwnerId:   "user-1",
+		OwnerId: "user-1",
 	})
 	if err != nil {
 		t.Fatalf("ListTags failed: %v", err)

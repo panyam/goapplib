@@ -33,7 +33,7 @@ message CollectionDatastore {
 }
 
 // CollectionItemDatastore is the Datastore model for CollectionItem.
-// Key is composite: collection_id + entity_type + entity_id (deterministic for strong consistency)
+// Key is composite: collection_id + entity_id (deterministic for strong consistency)
 message CollectionItemDatastore {
   option (dal.v1.datastore_options) = {
     source: "content.collections.v1.CollectionItem"

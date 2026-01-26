@@ -35,7 +35,6 @@ import (
 	"sync"
 	"time"
 
-	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -64,16 +63,17 @@ type LikesService interface {
 
 // LikesStorageProvider is implemented by concrete backends (gorm, gae)
 // to provide raw storage operations for likes.
+// Note: Entity type is determined by which service/table instance is used.
 type LikesStorageProvider interface {
 	// Like operations
 	SaveLike(ctx context.Context, like *v1.Like) error
-	DeleteLike(ctx context.Context, entityType, entityID, userID string) error
-	GetLike(ctx context.Context, entityType, entityID, userID string) (*v1.Like, error)
-	ListLikesByEntity(ctx context.Context, entityType, entityID string, reactionType string, limit, offset int) ([]*v1.Like, int, error)
-	ListLikesByUser(ctx context.Context, userID string, entityType string, limit, offset int) ([]*v1.Like, int, error)
+	DeleteLike(ctx context.Context, entityID, userID string) error
+	GetLike(ctx context.Context, entityID, userID string) (*v1.Like, error)
+	ListLikesByEntity(ctx context.Context, entityID string, reactionType string, limit, offset int) ([]*v1.Like, int, error)
+	ListLikesByUser(ctx context.Context, userID string, limit, offset int) ([]*v1.Like, int, error)
 
 	// Counts operations
-	GetLikeCounts(ctx context.Context, entityType, entityID string) (*v1.LikeCounts, error)
+	GetLikeCounts(ctx context.Context, entityID string) (*v1.LikeCounts, error)
 	SaveLikeCounts(ctx context.Context, counts *v1.LikeCounts) error
 
 	// Reaction type operations
@@ -88,7 +88,7 @@ type BaseLikesService struct {
 
 	// Optional in-memory cache for counts
 	CacheEnabled bool
-	CountsCache  map[string]*v1.LikeCounts // key: "entityType:entityID"
+	CountsCache  map[string]*v1.LikeCounts // key: entityID
 	CacheMu      sync.RWMutex
 
 	// Default reaction type if not specified
@@ -109,14 +109,9 @@ func (s *BaseLikesService) InitializeCache() {
 	s.CountsCache = make(map[string]*v1.LikeCounts)
 }
 
-// entityKey generates a cache key for an entity.
-func entityKey(entityType, entityID string) string {
-	return fmt.Sprintf("%s:%s", entityType, entityID)
-}
-
 // AddReaction adds or updates a user's reaction to an entity.
 func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionRequest) (*v1.AddReactionResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 	if req.UserId == "" {
@@ -131,10 +126,10 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 	now := time.Now()
 
 	// Check if user already has a reaction
-	existing, _ := s.StorageProvider.GetLike(ctx, req.EntityType, req.EntityId, req.UserId)
+	existing, _ := s.StorageProvider.GetLike(ctx, req.EntityId, req.UserId)
 
 	// Get current counts
-	counts, err := s.getOrCreateCounts(ctx, req.EntityType, req.EntityId)
+	counts, err := s.getOrCreateCounts(ctx, req.EntityId)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +158,7 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 			if err := s.StorageProvider.SaveLikeCounts(ctx, counts); err != nil {
 				return nil, err
 			}
-			s.invalidateCountsCache(req.EntityType, req.EntityId)
+			s.invalidateCountsCache(req.EntityId)
 		}
 
 		return &v1.AddReactionResponse{
@@ -175,7 +170,6 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 	// Create new reaction
 	like := &v1.Like{
 		Id:           generateID(),
-		EntityType:   req.EntityType,
 		EntityId:     req.EntityId,
 		UserId:       req.UserId,
 		ReactionType: reactionType,
@@ -196,7 +190,7 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 	if err := s.StorageProvider.SaveLikeCounts(ctx, counts); err != nil {
 		return nil, err
 	}
-	s.invalidateCountsCache(req.EntityType, req.EntityId)
+	s.invalidateCountsCache(req.EntityId)
 
 	return &v1.AddReactionResponse{
 		Like:   like,
@@ -206,7 +200,7 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 
 // RemoveReaction removes a user's reaction from an entity.
 func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveReactionRequest) (*v1.RemoveReactionResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 	if req.UserId == "" {
@@ -214,12 +208,11 @@ func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveRea
 	}
 
 	// Get existing reaction
-	existing, _ := s.StorageProvider.GetLike(ctx, req.EntityType, req.EntityId, req.UserId)
+	existing, _ := s.StorageProvider.GetLike(ctx, req.EntityId, req.UserId)
 	if existing == nil {
 		// No reaction to remove
 		counts, _ := s.GetLikeCounts(ctx, &v1.GetLikeCountsRequest{
-			EntityType: req.EntityType,
-			EntityId:   req.EntityId,
+			EntityId: req.EntityId,
 		})
 		return &v1.RemoveReactionResponse{
 			Removed: false,
@@ -228,12 +221,12 @@ func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveRea
 	}
 
 	// Delete the reaction
-	if err := s.StorageProvider.DeleteLike(ctx, req.EntityType, req.EntityId, req.UserId); err != nil {
+	if err := s.StorageProvider.DeleteLike(ctx, req.EntityId, req.UserId); err != nil {
 		return nil, err
 	}
 
 	// Update counts
-	counts, err := s.getOrCreateCounts(ctx, req.EntityType, req.EntityId)
+	counts, err := s.getOrCreateCounts(ctx, req.EntityId)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +245,7 @@ func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveRea
 	if err := s.StorageProvider.SaveLikeCounts(ctx, counts); err != nil {
 		return nil, err
 	}
-	s.invalidateCountsCache(req.EntityType, req.EntityId)
+	s.invalidateCountsCache(req.EntityId)
 
 	return &v1.RemoveReactionResponse{
 		Removed: true,
@@ -262,7 +255,7 @@ func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveRea
 
 // ToggleReaction toggles a reaction on/off.
 func (s *BaseLikesService) ToggleReaction(ctx context.Context, req *v1.ToggleReactionRequest) (*v1.ToggleReactionResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 	if req.UserId == "" {
@@ -275,14 +268,13 @@ func (s *BaseLikesService) ToggleReaction(ctx context.Context, req *v1.ToggleRea
 	}
 
 	// Check if user already has this exact reaction
-	existing, _ := s.StorageProvider.GetLike(ctx, req.EntityType, req.EntityId, req.UserId)
+	existing, _ := s.StorageProvider.GetLike(ctx, req.EntityId, req.UserId)
 
 	if existing != nil && existing.ReactionType == reactionType {
 		// Same reaction - remove it
 		resp, err := s.RemoveReaction(ctx, &v1.RemoveReactionRequest{
-			EntityType: req.EntityType,
-			EntityId:   req.EntityId,
-			UserId:     req.UserId,
+			EntityId: req.EntityId,
+			UserId:   req.UserId,
 		})
 		if err != nil {
 			return nil, err
@@ -296,7 +288,6 @@ func (s *BaseLikesService) ToggleReaction(ctx context.Context, req *v1.ToggleRea
 
 	// Different or no reaction - add/update it
 	resp, err := s.AddReaction(ctx, &v1.AddReactionRequest{
-		EntityType:   req.EntityType,
 		EntityId:     req.EntityId,
 		UserId:       req.UserId,
 		ReactionType: reactionType,
@@ -314,14 +305,14 @@ func (s *BaseLikesService) ToggleReaction(ctx context.Context, req *v1.ToggleRea
 
 // GetUserReaction returns a user's current reaction on an entity.
 func (s *BaseLikesService) GetUserReaction(ctx context.Context, req *v1.GetUserReactionRequest) (*v1.GetUserReactionResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 	if req.UserId == "" {
 		return nil, ErrUserIDRequired
 	}
 
-	like, err := s.StorageProvider.GetLike(ctx, req.EntityType, req.EntityId, req.UserId)
+	like, err := s.StorageProvider.GetLike(ctx, req.EntityId, req.UserId)
 	if err != nil {
 		return nil, err
 	}
@@ -333,29 +324,27 @@ func (s *BaseLikesService) GetUserReaction(ctx context.Context, req *v1.GetUserR
 
 // GetLikeCounts returns aggregated reaction counts for an entity.
 func (s *BaseLikesService) GetLikeCounts(ctx context.Context, req *v1.GetLikeCountsRequest) (*v1.GetLikeCountsResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 
 	// Check cache first
 	if s.CacheEnabled {
-		key := entityKey(req.EntityType, req.EntityId)
 		s.CacheMu.RLock()
-		if counts, ok := s.CountsCache[key]; ok {
+		if counts, ok := s.CountsCache[req.EntityId]; ok {
 			s.CacheMu.RUnlock()
 			return &v1.GetLikeCountsResponse{Counts: counts}, nil
 		}
 		s.CacheMu.RUnlock()
 	}
 
-	counts, err := s.StorageProvider.GetLikeCounts(ctx, req.EntityType, req.EntityId)
+	counts, err := s.StorageProvider.GetLikeCounts(ctx, req.EntityId)
 	if err != nil {
 		return nil, err
 	}
 
 	if counts == nil {
 		counts = &v1.LikeCounts{
-			EntityType:     req.EntityType,
 			EntityId:       req.EntityId,
 			TotalCount:     0,
 			ByReactionType: make(map[string]int64),
@@ -364,9 +353,8 @@ func (s *BaseLikesService) GetLikeCounts(ctx context.Context, req *v1.GetLikeCou
 
 	// Update cache
 	if s.CacheEnabled {
-		key := entityKey(req.EntityType, req.EntityId)
 		s.CacheMu.Lock()
-		s.CountsCache[key] = counts
+		s.CountsCache[req.EntityId] = counts
 		s.CacheMu.Unlock()
 	}
 
@@ -375,7 +363,7 @@ func (s *BaseLikesService) GetLikeCounts(ctx context.Context, req *v1.GetLikeCou
 
 // ListReactors returns users who reacted to an entity.
 func (s *BaseLikesService) ListReactors(ctx context.Context, req *v1.ListReactorsRequest) (*v1.ListReactorsResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 
@@ -389,7 +377,7 @@ func (s *BaseLikesService) ListReactors(ctx context.Context, req *v1.ListReactor
 		fmt.Sscanf(req.Pagination.GetPageToken(), "%d", &offset)
 	}
 
-	likes, total, err := s.StorageProvider.ListLikesByEntity(ctx, req.EntityType, req.EntityId, req.ReactionType, pageSize, offset)
+	likes, total, err := s.StorageProvider.ListLikesByEntity(ctx, req.EntityId, req.ReactionType, pageSize, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +389,7 @@ func (s *BaseLikesService) ListReactors(ctx context.Context, req *v1.ListReactor
 
 	return &v1.ListReactorsResponse{
 		Likes: likes,
-		Pagination: &commonv1.PaginationResponse{
+		Pagination: &v1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},
@@ -424,7 +412,7 @@ func (s *BaseLikesService) ListUserReactions(ctx context.Context, req *v1.ListUs
 		fmt.Sscanf(req.Pagination.GetPageToken(), "%d", &offset)
 	}
 
-	likes, total, err := s.StorageProvider.ListLikesByUser(ctx, req.UserId, req.EntityType, pageSize, offset)
+	likes, total, err := s.StorageProvider.ListLikesByUser(ctx, req.UserId, pageSize, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +424,7 @@ func (s *BaseLikesService) ListUserReactions(ctx context.Context, req *v1.ListUs
 
 	return &v1.ListUserReactionsResponse{
 		Likes: likes,
-		Pagination: &commonv1.PaginationResponse{
+		Pagination: &v1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},
@@ -450,11 +438,10 @@ func (s *BaseLikesService) BatchGetUserReactions(ctx context.Context, req *v1.Ba
 	}
 
 	reactions := make(map[string]*v1.Like)
-	for _, entity := range req.Entities {
-		like, _ := s.StorageProvider.GetLike(ctx, entity.EntityType, entity.EntityId, req.UserId)
+	for _, entityID := range req.EntityIds {
+		like, _ := s.StorageProvider.GetLike(ctx, entityID, req.UserId)
 		if like != nil {
-			key := entityKey(entity.EntityType, entity.EntityId)
-			reactions[key] = like
+			reactions[entityID] = like
 		}
 	}
 
@@ -467,14 +454,12 @@ func (s *BaseLikesService) BatchGetUserReactions(ctx context.Context, req *v1.Ba
 func (s *BaseLikesService) BatchGetLikeCounts(ctx context.Context, req *v1.BatchGetLikeCountsRequest) (*v1.BatchGetLikeCountsResponse, error) {
 	counts := make(map[string]*v1.LikeCounts)
 
-	for _, entity := range req.Entities {
+	for _, entityID := range req.EntityIds {
 		resp, err := s.GetLikeCounts(ctx, &v1.GetLikeCountsRequest{
-			EntityType: entity.EntityType,
-			EntityId:   entity.EntityId,
+			EntityId: entityID,
 		})
 		if err == nil && resp.Counts != nil {
-			key := entityKey(entity.EntityType, entity.EntityId)
-			counts[key] = resp.Counts
+			counts[entityID] = resp.Counts
 		}
 	}
 
@@ -517,11 +502,10 @@ func (s *BaseLikesService) ListReactionTypes(ctx context.Context, req *v1.ListRe
 
 // Helper methods
 
-func (s *BaseLikesService) getOrCreateCounts(ctx context.Context, entityType, entityID string) (*v1.LikeCounts, error) {
-	counts, err := s.StorageProvider.GetLikeCounts(ctx, entityType, entityID)
+func (s *BaseLikesService) getOrCreateCounts(ctx context.Context, entityID string) (*v1.LikeCounts, error) {
+	counts, err := s.StorageProvider.GetLikeCounts(ctx, entityID)
 	if err != nil || counts == nil {
 		counts = &v1.LikeCounts{
-			EntityType:     entityType,
 			EntityId:       entityID,
 			TotalCount:     0,
 			ByReactionType: make(map[string]int64),
@@ -533,11 +517,10 @@ func (s *BaseLikesService) getOrCreateCounts(ctx context.Context, entityType, en
 	return counts, nil
 }
 
-func (s *BaseLikesService) invalidateCountsCache(entityType, entityID string) {
+func (s *BaseLikesService) invalidateCountsCache(entityID string) {
 	if s.CacheEnabled {
-		key := entityKey(entityType, entityID)
 		s.CacheMu.Lock()
-		delete(s.CountsCache, key)
+		delete(s.CountsCache, entityID)
 		s.CacheMu.Unlock()
 	}
 }
@@ -547,12 +530,9 @@ func generateID() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
-// PaginationResponse alias for convenience
-type PaginationResponse = commonv1.PaginationResponse
-
 // Error types
 var (
-	ErrEntityRequired       = &LikesError{Message: "entity_type and entity_id are required"}
+	ErrEntityRequired       = &LikesError{Message: "entity_id is required"}
 	ErrUserIDRequired       = &LikesError{Message: "user_id is required"}
 	ErrReactionTypeRequired = &LikesError{Message: "reaction_type with id is required"}
 	ErrLikeNotFound         = &LikesError{Message: "like not found"}

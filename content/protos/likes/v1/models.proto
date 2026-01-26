@@ -29,17 +29,17 @@ message ReactionType {
 
 // Like represents a user's reaction to an entity.
 // One reaction per user per entity (changing reaction replaces previous).
+// Note: Entity type is determined by which service/table instance is used,
+// not stored in the record itself.
 message Like {
   // Unique identifier
   string id = 1;
-  // Type of entity being reacted to (e.g., "post", "comment", "video")
-  string entity_type = 2;
   // ID of the entity being reacted to
-  string entity_id = 3;
+  string entity_id = 2;
   // User who created the reaction
-  string user_id = 4;
+  string user_id = 3;
   // Type of reaction (references ReactionType.id)
-  string reaction_type = 5;
+  string reaction_type = 4;
 
   // Metadata
   google.protobuf.Timestamp created_at = 10;
@@ -49,15 +49,14 @@ message Like {
 
 // LikeCounts provides denormalized reaction counts for fast reads.
 // Updated on every add/remove operation.
+// Note: Entity type is determined by which service/table instance is used.
 message LikeCounts {
-  // Type of entity
-  string entity_type = 1;
   // ID of the entity
-  string entity_id = 2;
+  string entity_id = 1;
   // Total number of reactions across all types
-  int64 total_count = 3;
+  int64 total_count = 2;
   // Count breakdown by reaction type (e.g., {"like": 10, "love": 3})
-  map<string, int64> by_reaction_type = 4;
+  map<string, int64> by_reaction_type = 3;
   // Last time counts were updated
-  google.protobuf.Timestamp updated_at = 5;
+  google.protobuf.Timestamp updated_at = 4;
 }

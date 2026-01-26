@@ -50,17 +50,17 @@ func (p *gormLikesStorageProvider) SaveLike(ctx context.Context, like *v1.Like) 
 }
 
 // DeleteLike deletes a like from the database.
-func (p *gormLikesStorageProvider) DeleteLike(ctx context.Context, entityType, entityID, userID string) error {
+func (p *gormLikesStorageProvider) DeleteLike(ctx context.Context, entityID, userID string) error {
 	return p.db.WithContext(ctx).
-		Where("entity_type = ? AND entity_id = ? AND user_id = ?", entityType, entityID, userID).
+		Where("entity_id = ? AND user_id = ?", entityID, userID).
 		Delete(&gormgen.LikeGORM{}).Error
 }
 
 // GetLike retrieves a like from the database.
-func (p *gormLikesStorageProvider) GetLike(ctx context.Context, entityType, entityID, userID string) (*v1.Like, error) {
+func (p *gormLikesStorageProvider) GetLike(ctx context.Context, entityID, userID string) (*v1.Like, error) {
 	var gormLike gormgen.LikeGORM
 	err := p.db.WithContext(ctx).
-		Where("entity_type = ? AND entity_id = ? AND user_id = ?", entityType, entityID, userID).
+		Where("entity_id = ? AND user_id = ?", entityID, userID).
 		First(&gormLike).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -72,12 +72,12 @@ func (p *gormLikesStorageProvider) GetLike(ctx context.Context, entityType, enti
 }
 
 // ListLikesByEntity lists likes for an entity.
-func (p *gormLikesStorageProvider) ListLikesByEntity(ctx context.Context, entityType, entityID string, reactionType string, limit, offset int) ([]*v1.Like, int, error) {
+func (p *gormLikesStorageProvider) ListLikesByEntity(ctx context.Context, entityID string, reactionType string, limit, offset int) ([]*v1.Like, int, error) {
 	var gormLikes []gormgen.LikeGORM
 	var total int64
 
 	query := p.db.WithContext(ctx).Model(&gormgen.LikeGORM{}).
-		Where("entity_type = ? AND entity_id = ?", entityType, entityID)
+		Where("entity_id = ?", entityID)
 
 	if reactionType != "" {
 		query = query.Where("reaction_type = ?", reactionType)
@@ -100,16 +100,12 @@ func (p *gormLikesStorageProvider) ListLikesByEntity(ctx context.Context, entity
 }
 
 // ListLikesByUser lists likes by a user.
-func (p *gormLikesStorageProvider) ListLikesByUser(ctx context.Context, userID string, entityType string, limit, offset int) ([]*v1.Like, int, error) {
+func (p *gormLikesStorageProvider) ListLikesByUser(ctx context.Context, userID string, limit, offset int) ([]*v1.Like, int, error) {
 	var gormLikes []gormgen.LikeGORM
 	var total int64
 
 	query := p.db.WithContext(ctx).Model(&gormgen.LikeGORM{}).
 		Where("user_id = ?", userID)
-
-	if entityType != "" {
-		query = query.Where("entity_type = ?", entityType)
-	}
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -128,10 +124,10 @@ func (p *gormLikesStorageProvider) ListLikesByUser(ctx context.Context, userID s
 }
 
 // GetLikeCounts retrieves like counts for an entity.
-func (p *gormLikesStorageProvider) GetLikeCounts(ctx context.Context, entityType, entityID string) (*v1.LikeCounts, error) {
+func (p *gormLikesStorageProvider) GetLikeCounts(ctx context.Context, entityID string) (*v1.LikeCounts, error) {
 	var gormCounts gormgen.LikeCountsGORM
 	err := p.db.WithContext(ctx).
-		Where("entity_type = ? AND entity_id = ?", entityType, entityID).
+		Where("entity_id = ?", entityID).
 		First(&gormCounts).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -187,7 +183,6 @@ func (p *gormLikesStorageProvider) ListReactionTypes(ctx context.Context) ([]*v1
 func likeToGORM(like *v1.Like) *gormgen.LikeGORM {
 	return &gormgen.LikeGORM{
 		Id:           like.Id,
-		EntityType:   like.EntityType,
 		EntityId:     like.EntityId,
 		UserId:       like.UserId,
 		ReactionType: like.ReactionType,
@@ -200,7 +195,6 @@ func likeToGORM(like *v1.Like) *gormgen.LikeGORM {
 func likeFromGORM(gormLike *gormgen.LikeGORM) *v1.Like {
 	return &v1.Like{
 		Id:           gormLike.Id,
-		EntityType:   gormLike.EntityType,
 		EntityId:     gormLike.EntityId,
 		UserId:       gormLike.UserId,
 		ReactionType: gormLike.ReactionType,
@@ -212,7 +206,6 @@ func likeFromGORM(gormLike *gormgen.LikeGORM) *v1.Like {
 
 func likeCountsToGORM(counts *v1.LikeCounts) *gormgen.LikeCountsGORM {
 	return &gormgen.LikeCountsGORM{
-		EntityType:     counts.EntityType,
 		EntityId:       counts.EntityId,
 		TotalCount:     counts.TotalCount,
 		ByReactionType: counts.ByReactionType,
@@ -230,7 +223,6 @@ func likeCountsFromGORM(gormCounts *gormgen.LikeCountsGORM) *v1.LikeCounts {
 		updatedAt = timestamppb.New(gormCounts.UpdatedAt)
 	}
 	return &v1.LikeCounts{
-		EntityType:     gormCounts.EntityType,
 		EntityId:       gormCounts.EntityId,
 		TotalCount:     gormCounts.TotalCount,
 		ByReactionType: byType,

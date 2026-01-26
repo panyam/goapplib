@@ -26,7 +26,6 @@ func CollectionToCollectionGORM(
 		Name:           src.Name,
 		NormalizedName: src.NormalizedName,
 		Description:    src.Description,
-		OwnerType:      src.OwnerType,
 		OwnerId:        src.OwnerId,
 		ParentId:       src.ParentId,
 		Path:           src.Path,
@@ -81,7 +80,6 @@ func CollectionFromCollectionGORM(
 		Name:           src.Name,
 		NormalizedName: src.NormalizedName,
 		Description:    src.Description,
-		OwnerType:      src.OwnerType,
 		OwnerId:        src.OwnerId,
 		ParentId:       src.ParentId,
 		Path:           src.Path,
@@ -127,7 +125,6 @@ func CollectionItemToCollectionItemGORM(
 	// Initialize struct with inline values
 	*dest = CollectionItemGORM{
 		CollectionId: src.CollectionId,
-		EntityType:   src.EntityType,
 		EntityId:     src.EntityId,
 		DisplayOrder: src.DisplayOrder,
 		AddedBy:      src.AddedBy,
@@ -166,7 +163,6 @@ func CollectionItemFromCollectionItemGORM(
 	// Initialize struct with inline values
 	*dest = v1.CollectionItem{
 		CollectionId: src.CollectionId,
-		EntityType:   src.EntityType,
 		EntityId:     src.EntityId,
 		DisplayOrder: src.DisplayOrder,
 		AddedBy:      src.AddedBy,

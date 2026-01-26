@@ -37,7 +37,6 @@ import (
 	"sync"
 	"time"
 
-	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	v1 "github.com/panyam/goapplib/content/gen/go/collections/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -76,16 +75,16 @@ type CollectionsStorageProvider interface {
 	GetCollection(ctx context.Context, id string) (*v1.Collection, error)
 	DeleteCollection(ctx context.Context, id string) error
 	ListCollections(ctx context.Context, opts ListCollectionsOptions) ([]*v1.Collection, int, error)
-	FindCollectionByName(ctx context.Context, ownerType, ownerID, parentID, normalizedName string) (*v1.Collection, error)
+	FindCollectionByName(ctx context.Context, ownerID, parentID, normalizedName string) (*v1.Collection, error)
 	GetCollectionsByPath(ctx context.Context, ancestorID string) ([]*v1.Collection, error)
 	UpdateCollectionPaths(ctx context.Context, collectionID string, oldPath, newPath []string) (int64, error)
 
 	// Item operations
 	SaveCollectionItem(ctx context.Context, item *v1.CollectionItem) error
-	GetCollectionItem(ctx context.Context, collectionID, entityType, entityID string) (*v1.CollectionItem, error)
-	DeleteCollectionItem(ctx context.Context, collectionID, entityType, entityID string) error
+	GetCollectionItem(ctx context.Context, collectionID, entityID string) (*v1.CollectionItem, error)
+	DeleteCollectionItem(ctx context.Context, collectionID, entityID string) error
 	ListCollectionItems(ctx context.Context, collectionID string, opts ListItemsOptions) ([]*v1.CollectionItem, int, error)
-	ListEntityCollections(ctx context.Context, entityType, entityID string, opts EntityCollectionsOptions) ([]*v1.Collection, error)
+	ListEntityCollections(ctx context.Context, entityID string, opts EntityCollectionsOptions) ([]*v1.Collection, error)
 	DeleteItemsByCollection(ctx context.Context, collectionID string) (int64, error)
 	UpdateItemOrders(ctx context.Context, collectionID string, orders []*v1.ItemOrder) (int64, error)
 	GetMaxDisplayOrder(ctx context.Context, collectionID string) (int32, error)
@@ -93,8 +92,7 @@ type CollectionsStorageProvider interface {
 
 // ListCollectionsOptions contains options for listing collections.
 type ListCollectionsOptions struct {
-	OwnerType  string
-	OwnerID    string
+	OwnerID    string // "type:id" format (e.g., "user:123")
 	ParentID   string
 	Type       string
 	Visibility v1.CollectionVisibility
@@ -105,17 +103,15 @@ type ListCollectionsOptions struct {
 
 // ListItemsOptions contains options for listing collection items.
 type ListItemsOptions struct {
-	EntityTypeFilter string
-	SortBy           v1.SortField
-	SortDescending   bool
-	Limit            int
-	Offset           int
+	SortBy         v1.SortField
+	SortDescending bool
+	Limit          int
+	Offset         int
 }
 
 // EntityCollectionsOptions contains options for listing collections containing an entity.
 type EntityCollectionsOptions struct {
-	OwnerType string
-	OwnerID   string
+	OwnerID string // "type:id" format (e.g., "user:123")
 }
 
 // BaseCollectionsService provides shared logic for collections services.
@@ -149,6 +145,7 @@ func DefaultNormalizer(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
 }
 
+
 // InitializeCache sets up the in-memory cache.
 func (s *BaseCollectionsService) InitializeCache() {
 	s.CacheEnabled = true
@@ -166,7 +163,7 @@ func (s *BaseCollectionsService) CreateCollection(ctx context.Context, req *v1.C
 
 	// Check for existing collection with same normalized name in same parent
 	existing, _ := s.StorageProvider.FindCollectionByName(
-		ctx, req.OwnerType, req.OwnerId, req.ParentId, normalizedName)
+		ctx, req.OwnerId, req.ParentId, normalizedName)
 	if existing != nil {
 		return &v1.CreateCollectionResponse{
 			Collection:     existing,
@@ -205,7 +202,6 @@ func (s *BaseCollectionsService) CreateCollection(ctx context.Context, req *v1.C
 		Name:           req.Name,
 		NormalizedName: normalizedName,
 		Description:    req.Description,
-		OwnerType:      req.OwnerType,
 		OwnerId:        req.OwnerId,
 		ParentId:       req.ParentId,
 		Path:           path,
@@ -401,7 +397,6 @@ func (s *BaseCollectionsService) ListCollections(ctx context.Context, req *v1.Li
 	}
 
 	opts := ListCollectionsOptions{
-		OwnerType:  req.OwnerType,
 		OwnerID:    req.OwnerId,
 		ParentID:   req.ParentId,
 		Type:       req.Type,
@@ -423,7 +418,7 @@ func (s *BaseCollectionsService) ListCollections(ctx context.Context, req *v1.Li
 
 	return &v1.ListCollectionsResponse{
 		Collections: collections,
-		Pagination: &commonv1.PaginationResponse{
+		Pagination: &v1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},
@@ -584,7 +579,7 @@ func (s *BaseCollectionsService) AddToCollection(ctx context.Context, req *v1.Ad
 	if req.CollectionId == "" {
 		return nil, ErrCollectionIDRequired
 	}
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 
@@ -598,7 +593,7 @@ func (s *BaseCollectionsService) AddToCollection(ctx context.Context, req *v1.Ad
 	}
 
 	// Check if already in collection
-	existing, _ := s.StorageProvider.GetCollectionItem(ctx, req.CollectionId, req.EntityType, req.EntityId)
+	existing, _ := s.StorageProvider.GetCollectionItem(ctx, req.CollectionId, req.EntityId)
 	if existing != nil {
 		return &v1.AddToCollectionResponse{
 			Item:       existing,
@@ -618,7 +613,6 @@ func (s *BaseCollectionsService) AddToCollection(ctx context.Context, req *v1.Ad
 	now := time.Now()
 	item := &v1.CollectionItem{
 		CollectionId: req.CollectionId,
-		EntityType:   req.EntityType,
 		EntityId:     req.EntityId,
 		DisplayOrder: displayOrder,
 		AddedBy:      req.AddedBy,
@@ -644,18 +638,18 @@ func (s *BaseCollectionsService) RemoveFromCollection(ctx context.Context, req *
 	if req.CollectionId == "" {
 		return nil, ErrCollectionIDRequired
 	}
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 
 	// Check if item exists
-	existing, _ := s.StorageProvider.GetCollectionItem(ctx, req.CollectionId, req.EntityType, req.EntityId)
+	existing, _ := s.StorageProvider.GetCollectionItem(ctx, req.CollectionId, req.EntityId)
 	if existing == nil {
 		return &v1.RemoveFromCollectionResponse{Removed: false}, nil
 	}
 
 	// Delete item
-	if err := s.StorageProvider.DeleteCollectionItem(ctx, req.CollectionId, req.EntityType, req.EntityId); err != nil {
+	if err := s.StorageProvider.DeleteCollectionItem(ctx, req.CollectionId, req.EntityId); err != nil {
 		return nil, err
 	}
 
@@ -682,11 +676,10 @@ func (s *BaseCollectionsService) GetCollectionItems(ctx context.Context, req *v1
 	}
 
 	opts := ListItemsOptions{
-		EntityTypeFilter: req.EntityTypeFilter,
-		SortBy:           req.SortBy,
-		SortDescending:   req.SortDescending,
-		Limit:            pageSize,
-		Offset:           offset,
+		SortBy:         req.SortBy,
+		SortDescending: req.SortDescending,
+		Limit:          pageSize,
+		Offset:         offset,
 	}
 
 	items, total, err := s.StorageProvider.ListCollectionItems(ctx, req.CollectionId, opts)
@@ -701,7 +694,7 @@ func (s *BaseCollectionsService) GetCollectionItems(ctx context.Context, req *v1
 
 	return &v1.GetCollectionItemsResponse{
 		Items: items,
-		Pagination: &commonv1.PaginationResponse{
+		Pagination: &v1.PaginationResponse{
 			NextPageToken: nextToken,
 			TotalCount:    int32(total),
 		},
@@ -710,16 +703,15 @@ func (s *BaseCollectionsService) GetCollectionItems(ctx context.Context, req *v1
 
 // GetEntityCollections returns all collections that contain an entity.
 func (s *BaseCollectionsService) GetEntityCollections(ctx context.Context, req *v1.GetEntityCollectionsRequest) (*v1.GetEntityCollectionsResponse, error) {
-	if req.EntityType == "" || req.EntityId == "" {
+	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 
 	opts := EntityCollectionsOptions{
-		OwnerType: req.OwnerType,
-		OwnerID:   req.OwnerId,
+		OwnerID: req.OwnerId,
 	}
 
-	collections, err := s.StorageProvider.ListEntityCollections(ctx, req.EntityType, req.EntityId, opts)
+	collections, err := s.StorageProvider.ListEntityCollections(ctx, req.EntityId, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -749,11 +741,10 @@ func (s *BaseCollectionsService) BatchAddToCollection(ctx context.Context, req *
 
 	var added, alreadyExisted int64
 
-	for _, entity := range req.Entities {
+	for _, entityId := range req.EntityIds {
 		resp, err := s.AddToCollection(ctx, &v1.AddToCollectionRequest{
 			CollectionId: req.CollectionId,
-			EntityType:   entity.EntityType,
-			EntityId:     entity.EntityId,
+			EntityId:     entityId,
 			AddedBy:      req.AddedBy,
 		})
 		if err != nil {
@@ -776,19 +767,16 @@ func (s *BaseCollectionsService) BatchAddToCollection(ctx context.Context, req *
 func (s *BaseCollectionsService) BatchGetEntityCollections(ctx context.Context, req *v1.BatchGetEntityCollectionsRequest) (*v1.BatchGetEntityCollectionsResponse, error) {
 	result := make(map[string]*v1.CollectionList)
 
-	for _, entity := range req.Entities {
+	for _, entityId := range req.EntityIds {
 		resp, err := s.GetEntityCollections(ctx, &v1.GetEntityCollectionsRequest{
-			EntityType: entity.EntityType,
-			EntityId:   entity.EntityId,
-			OwnerType:  req.OwnerType,
-			OwnerId:    req.OwnerId,
+			EntityId: entityId,
+			OwnerId:  req.OwnerId,
 		})
 		if err != nil {
 			continue
 		}
 
-		key := fmt.Sprintf("%s:%s", entity.EntityType, entity.EntityId)
-		result[key] = &v1.CollectionList{Collections: resp.Collections}
+		result[entityId] = &v1.CollectionList{Collections: resp.Collections}
 	}
 
 	return &v1.BatchGetEntityCollectionsResponse{EntityCollections: result}, nil
@@ -856,7 +844,7 @@ func generateID() string {
 var (
 	ErrCollectionIDRequired = &CollectionsError{Message: "collection id is required"}
 	ErrNameRequired         = &CollectionsError{Message: "name is required"}
-	ErrEntityRequired       = &CollectionsError{Message: "entity_type and entity_id are required"}
+	ErrEntityRequired       = &CollectionsError{Message: "entity_id is required"}
 	ErrCollectionNotFound   = &CollectionsError{Message: "collection not found"}
 	ErrParentNotFound       = &CollectionsError{Message: "parent collection not found"}
 	ErrCollectionHasChildren = &CollectionsError{Message: "collection has children, use recursive=true to delete"}

@@ -20,8 +20,6 @@ type CollectionDatastore struct {
 
 	Description string `datastore:"description,noindex"`
 
-	OwnerType string `datastore:"owner_type"`
-
 	OwnerId string `datastore:"owner_id"`
 
 	ParentId string `datastore:"parent_id"`
@@ -63,8 +61,6 @@ type CollectionItemDatastore struct {
 	Key *datastore.Key `datastore:"-"`
 
 	CollectionId string `datastore:"collection_id"`
-
-	EntityType string `datastore:"entity_type"`
 
 	EntityId string `datastore:"entity_id"`
 

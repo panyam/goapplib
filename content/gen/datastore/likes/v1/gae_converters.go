@@ -136,7 +136,6 @@ func LikeToLikeDatastore(
 	// Initialize struct with inline values
 	*dest = LikeDatastore{
 		Id:           src.Id,
-		EntityType:   src.EntityType,
 		EntityId:     src.EntityId,
 		UserId:       src.UserId,
 		ReactionType: src.ReactionType,
@@ -189,7 +188,6 @@ func LikeFromLikeDatastore(
 	// Initialize struct with inline values
 	*dest = v1.Like{
 		Id:           src.Id,
-		EntityType:   src.EntityType,
 		EntityId:     src.EntityId,
 		UserId:       src.UserId,
 		ReactionType: src.ReactionType,
@@ -235,7 +233,6 @@ func LikeCountsToLikeCountsDatastore(
 
 	// Initialize struct with inline values
 	*dest = LikeCountsDatastore{
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TotalCount: src.TotalCount,
 	}
@@ -285,7 +282,6 @@ func LikeCountsFromLikeCountsDatastore(
 
 	// Initialize struct with inline values
 	*dest = v1.LikeCounts{
-		EntityType:     src.EntityType,
 		EntityId:       src.EntityId,
 		TotalCount:     src.TotalCount,
 		ByReactionType: src.ByReactionType,

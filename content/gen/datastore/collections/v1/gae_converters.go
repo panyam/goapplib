@@ -37,7 +37,6 @@ func CollectionToCollectionDatastore(
 		Name:           src.Name,
 		NormalizedName: src.NormalizedName,
 		Description:    src.Description,
-		OwnerType:      src.OwnerType,
 		OwnerId:        src.OwnerId,
 		ParentId:       src.ParentId,
 		Path:           src.Path,
@@ -102,7 +101,6 @@ func CollectionFromCollectionDatastore(
 		Name:           src.Name,
 		NormalizedName: src.NormalizedName,
 		Description:    src.Description,
-		OwnerType:      src.OwnerType,
 		OwnerId:        src.OwnerId,
 		ParentId:       src.ParentId,
 		Path:           src.Path,
@@ -158,7 +156,6 @@ func CollectionItemToCollectionItemDatastore(
 	// Initialize struct with inline values
 	*dest = CollectionItemDatastore{
 		CollectionId: src.CollectionId,
-		EntityType:   src.EntityType,
 		EntityId:     src.EntityId,
 		DisplayOrder: src.DisplayOrder,
 		AddedBy:      src.AddedBy,
@@ -207,7 +204,6 @@ func CollectionItemFromCollectionItemDatastore(
 	// Initialize struct with inline values
 	*dest = v1.CollectionItem{
 		CollectionId: src.CollectionId,
-		EntityType:   src.EntityType,
 		EntityId:     src.EntityId,
 		DisplayOrder: src.DisplayOrder,
 		AddedBy:      src.AddedBy,

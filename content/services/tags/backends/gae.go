@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	dsidx "github.com/panyam/goapplib/datastore"
 	"github.com/panyam/goapplib/content/services/tags"
+	dsidx "github.com/panyam/goapplib/datastore"
 
-	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
 	dsgen "github.com/panyam/goapplib/content/gen/datastore/tags/v1"
+	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -165,9 +165,6 @@ func (p *datastoreTagsStorageProvider) ListTags(ctx context.Context, opts tags.L
 	}
 
 	// Apply filters
-	if opts.OwnerType != "" {
-		query = query.FilterField("owner_type", "=", opts.OwnerType)
-	}
 	if opts.OwnerID != "" {
 		query = query.FilterField("owner_id", "=", opts.OwnerID)
 	}
@@ -222,9 +219,8 @@ func (p *datastoreTagsStorageProvider) ListTags(ctx context.Context, opts tags.L
 }
 
 // FindTagByNormalizedValues finds a tag by its normalized name and value.
-func (p *datastoreTagsStorageProvider) FindTagByNormalizedValues(ctx context.Context, ownerType, ownerID, normalizedName, normalizedValue string) (*v1.Tag, error) {
+func (p *datastoreTagsStorageProvider) FindTagByNormalizedValues(ctx context.Context, ownerID, normalizedName, normalizedValue string) (*v1.Tag, error) {
 	query := datastore.NewQuery(p.tagKind).
-		FilterField("owner_type", "=", ownerType).
 		FilterField("owner_id", "=", ownerID).
 		FilterField("normalized_name", "=", normalizedName).
 		FilterField("normalized_value", "=", normalizedValue).
@@ -275,8 +271,7 @@ func (p *datastoreTagsStorageProvider) SearchTags(ctx context.Context, opts tags
 	}
 
 	// Owner filter - Note: Datastore OR queries are complex, simplified here
-	if opts.OwnerType != "" && opts.OwnerID != "" && !opts.IncludeShared {
-		query = query.FilterField("owner_type", "=", opts.OwnerType)
+	if opts.OwnerID != "" && !opts.IncludeShared {
 		query = query.FilterField("owner_id", "=", opts.OwnerID)
 	}
 
@@ -335,8 +330,7 @@ func (p *datastoreTagsStorageProvider) GetPopularTags(ctx context.Context, opts 
 	}
 
 	// Owner filter
-	if opts.OwnerType != "" && opts.OwnerID != "" && !opts.IncludeShared {
-		query = query.FilterField("owner_type", "=", opts.OwnerType)
+	if opts.OwnerID != "" && !opts.IncludeShared {
 		query = query.FilterField("owner_id", "=", opts.OwnerID)
 	}
 
@@ -364,23 +358,23 @@ func (p *datastoreTagsStorageProvider) GetPopularTags(ctx context.Context, opts 
 // SaveEntityTag saves an entity tag to Datastore.
 func (p *datastoreTagsStorageProvider) SaveEntityTag(ctx context.Context, entityTag *v1.EntityTag) error {
 	dsET := entityTagToDatastore(entityTag)
-	// Composite key: tag_id + entity_type + entity_id + tagged_by
-	keyStr := entityTagKey(entityTag.TagId, entityTag.EntityType, entityTag.EntityId, entityTag.TaggedBy)
+	// Composite key: tag_id + entity_id + tagged_by
+	keyStr := entityTagKey(entityTag.TagId, entityTag.EntityId, entityTag.TaggedBy)
 	key := p.newKey(p.entityTagKind, keyStr)
 	_, err := p.client.Put(ctx, key, dsET)
 	return err
 }
 
 // DeleteEntityTag deletes an entity tag from Datastore.
-func (p *datastoreTagsStorageProvider) DeleteEntityTag(ctx context.Context, tagID, entityType, entityID, taggedBy string) error {
-	keyStr := entityTagKey(tagID, entityType, entityID, taggedBy)
+func (p *datastoreTagsStorageProvider) DeleteEntityTag(ctx context.Context, tagID, entityID, taggedBy string) error {
+	keyStr := entityTagKey(tagID, entityID, taggedBy)
 	key := p.newKey(p.entityTagKind, keyStr)
 	return p.client.Delete(ctx, key)
 }
 
 // GetEntityTag retrieves an entity tag.
-func (p *datastoreTagsStorageProvider) GetEntityTag(ctx context.Context, tagID, entityType, entityID, taggedBy string) (*v1.EntityTag, error) {
-	keyStr := entityTagKey(tagID, entityType, entityID, taggedBy)
+func (p *datastoreTagsStorageProvider) GetEntityTag(ctx context.Context, tagID, entityID, taggedBy string) (*v1.EntityTag, error) {
+	keyStr := entityTagKey(tagID, entityID, taggedBy)
 	key := p.newKey(p.entityTagKind, keyStr)
 
 	var dsET dsgen.EntityTagDatastore
@@ -396,9 +390,8 @@ func (p *datastoreTagsStorageProvider) GetEntityTag(ctx context.Context, tagID, 
 }
 
 // ListEntityTagsByEntity lists entity tags for an entity.
-func (p *datastoreTagsStorageProvider) ListEntityTagsByEntity(ctx context.Context, entityType, entityID string, opts tags.EntityTagsOptions) ([]*v1.EntityTag, error) {
+func (p *datastoreTagsStorageProvider) ListEntityTagsByEntity(ctx context.Context, entityID string, opts tags.EntityTagsOptions) ([]*v1.EntityTag, error) {
 	query := datastore.NewQuery(p.entityTagKind).
-		FilterField("entity_type", "=", entityType).
 		FilterField("entity_id", "=", entityID)
 
 	if p.namespace != "" {
@@ -422,12 +415,9 @@ func (p *datastoreTagsStorageProvider) ListEntityTagsByEntity(ctx context.Contex
 		et := entityTagFromDatastore(&dsETs[i])
 
 		// If filtering by owner/name, we need to check the tag
-		if opts.OwnerType != "" || opts.OwnerID != "" || opts.NameFilter != "" {
+		if opts.OwnerID != "" || opts.NameFilter != "" {
 			tag, _ := p.GetTag(ctx, et.TagId)
 			if tag == nil {
-				continue
-			}
-			if opts.OwnerType != "" && tag.OwnerType != opts.OwnerType {
 				continue
 			}
 			if opts.OwnerID != "" && tag.OwnerId != opts.OwnerID {
@@ -445,16 +435,12 @@ func (p *datastoreTagsStorageProvider) ListEntityTagsByEntity(ctx context.Contex
 }
 
 // ListEntityTagsByTag lists entity tags for a tag.
-func (p *datastoreTagsStorageProvider) ListEntityTagsByTag(ctx context.Context, tagID string, entityTypeFilter string, limit, offset int) ([]*v1.EntityTag, int, error) {
+func (p *datastoreTagsStorageProvider) ListEntityTagsByTag(ctx context.Context, tagID string, limit, offset int) ([]*v1.EntityTag, int, error) {
 	query := datastore.NewQuery(p.entityTagKind).
 		FilterField("tag_id", "=", tagID)
 
 	if p.namespace != "" {
 		query = query.Namespace(p.namespace)
-	}
-
-	if entityTypeFilter != "" {
-		query = query.FilterField("entity_type", "=", entityTypeFilter)
 	}
 
 	// Get total count
@@ -510,8 +496,8 @@ func (p *datastoreTagsStorageProvider) DeleteEntityTagsByTag(ctx context.Context
 }
 
 // GetTagUsageCounts retrieves usage counts for an entity.
-func (p *datastoreTagsStorageProvider) GetTagUsageCounts(ctx context.Context, entityType, entityID string) (*v1.TagUsageCounts, error) {
-	keyStr := fmt.Sprintf("%s:%s", entityType, entityID)
+func (p *datastoreTagsStorageProvider) GetTagUsageCounts(ctx context.Context, entityID string) (*v1.TagUsageCounts, error) {
+	keyStr := entityID
 	key := p.newKey(p.tagUsageCountsKind, keyStr)
 
 	var dsCounts dsgen.TagUsageCountsDatastore
@@ -529,7 +515,7 @@ func (p *datastoreTagsStorageProvider) GetTagUsageCounts(ctx context.Context, en
 // SaveTagUsageCounts saves usage counts to Datastore.
 func (p *datastoreTagsStorageProvider) SaveTagUsageCounts(ctx context.Context, counts *v1.TagUsageCounts) error {
 	dsCounts := tagUsageCountsToDatastore(counts)
-	keyStr := fmt.Sprintf("%s:%s", counts.EntityType, counts.EntityId)
+	keyStr := counts.EntityId
 	key := p.newKey(p.tagUsageCountsKind, keyStr)
 	_, err := p.client.Put(ctx, key, dsCounts)
 	return err
@@ -537,8 +523,8 @@ func (p *datastoreTagsStorageProvider) SaveTagUsageCounts(ctx context.Context, c
 
 // Helper functions
 
-func entityTagKey(tagID, entityType, entityID, taggedBy string) string {
-	return fmt.Sprintf("%s:%s:%s:%s", tagID, entityType, entityID, taggedBy)
+func entityTagKey(tagID, entityID, taggedBy string) string {
+	return fmt.Sprintf("%s:%s:%s", tagID, entityID, taggedBy)
 }
 
 // Conversion functions
@@ -561,7 +547,6 @@ func tagToDatastore(tag *v1.Tag) *dsgen.TagDatastore {
 		Color:           tag.Color,
 		Description:     tag.Description,
 		DisplayOrder:    tag.DisplayOrder,
-		OwnerType:       tag.OwnerType,
 		OwnerId:         tag.OwnerId,
 		Scope:           tag.Scope,
 		UsageCount:      tag.UsageCount,
@@ -591,7 +576,6 @@ func tagFromDatastore(dsTag *dsgen.TagDatastore) *v1.Tag {
 		Color:           dsTag.Color,
 		Description:     dsTag.Description,
 		DisplayOrder:    dsTag.DisplayOrder,
-		OwnerType:       dsTag.OwnerType,
 		OwnerId:         dsTag.OwnerId,
 		Scope:           dsTag.Scope,
 		UsageCount:      dsTag.UsageCount,
@@ -610,7 +594,6 @@ func entityTagToDatastore(et *v1.EntityTag) *dsgen.EntityTagDatastore {
 	}
 	return &dsgen.EntityTagDatastore{
 		TagId:      et.TagId,
-		EntityType: et.EntityType,
 		EntityId:   et.EntityId,
 		TaggedBy:   et.TaggedBy,
 		Visibility: et.Visibility,
@@ -625,7 +608,6 @@ func entityTagFromDatastore(dsET *dsgen.EntityTagDatastore) *v1.EntityTag {
 	}
 	return &v1.EntityTag{
 		TagId:      dsET.TagId,
-		EntityType: dsET.EntityType,
 		EntityId:   dsET.EntityId,
 		TaggedBy:   dsET.TaggedBy,
 		Visibility: dsET.Visibility,
@@ -639,7 +621,6 @@ func tagUsageCountsToDatastore(counts *v1.TagUsageCounts) *dsgen.TagUsageCountsD
 		updatedAt = counts.UpdatedAt.AsTime()
 	}
 	return &dsgen.TagUsageCountsDatastore{
-		EntityType: counts.EntityType,
 		EntityId:   counts.EntityId,
 		TotalCount: counts.TotalCount,
 		ByName:     counts.ByName,
@@ -657,7 +638,6 @@ func tagUsageCountsFromDatastore(dsCounts *dsgen.TagUsageCountsDatastore) *v1.Ta
 		updatedAt = timestamppb.New(dsCounts.UpdatedAt)
 	}
 	return &v1.TagUsageCounts{
-		EntityType: dsCounts.EntityType,
 		EntityId:   dsCounts.EntityId,
 		TotalCount: dsCounts.TotalCount,
 		ByName:     byName,
@@ -679,7 +659,6 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.entityTagKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "entity_type"},
 				{Name: "entity_id"},
 				{Name: "created_at", Direction: "desc"},
 			},
@@ -697,7 +676,6 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 			Kind: s.entityTagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "tag_id"},
-				{Name: "entity_type"},
 				{Name: "created_at", Direction: "desc"},
 			},
 		},
@@ -705,7 +683,6 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "status"},
 				{Name: "created_at", Direction: "desc"},
@@ -715,7 +692,6 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "status"},
 				{Name: "usage_count", Direction: "desc"},
@@ -725,7 +701,6 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "normalized_name"},
 				{Name: "status"},
@@ -736,7 +711,6 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "normalized_name"},
 				{Name: "normalized_value"},
@@ -747,7 +721,6 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 		{
 			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
-				{Name: "owner_type"},
 				{Name: "owner_id"},
 				{Name: "status"},
 				{Name: "usage_count", Direction: "desc"},
@@ -759,7 +732,6 @@ func (s *DatastoreTagsService) RequiredIndexes() []dsidx.DatastoreIndex {
 			Kind: s.tagKind,
 			Properties: []dsidx.IndexProperty{
 				{Name: "owner_id"},
-				{Name: "owner_type"},
 				{Name: "status"},
 				{Name: "normalized_value"},
 			},
@@ -780,7 +752,6 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 	return []*datastore.Query{
 		// ListEntityTagsByEntity
 		datastore.NewQuery(s.entityTagKind).
-			FilterField("entity_type", "=", "__test__").
 			FilterField("entity_id", "=", "__test__").
 			Order("-created_at"),
 
@@ -792,26 +763,22 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 		// ListEntityTagsByTag with entity type filter
 		datastore.NewQuery(s.entityTagKind).
 			FilterField("tag_id", "=", "__test__").
-			FilterField("entity_type", "=", "__test__").
 			Order("-created_at"),
 
 		// ListTags by created_at
 		datastore.NewQuery(s.tagKind).
-			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
 			Order("-created_at"),
 
 		// ListTags by usage_count
 		datastore.NewQuery(s.tagKind).
-			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
 			Order("-usage_count"),
 
 		// ListTags with name filter
 		datastore.NewQuery(s.tagKind).
-			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("normalized_name", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
@@ -819,7 +786,6 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 
 		// FindTagByNormalizedValues
 		datastore.NewQuery(s.tagKind).
-			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("normalized_name", "=", "__test__").
 			FilterField("normalized_value", "=", "__test__").
@@ -827,7 +793,6 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 
 		// SearchTags (prefix search with owner filter, ordered by usage_count)
 		datastore.NewQuery(s.tagKind).
-			FilterField("owner_type", "=", "__test__").
 			FilterField("owner_id", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
 			FilterField("normalized_value", ">=", "a").
@@ -837,7 +802,6 @@ func (s *DatastoreTagsService) TestQueries() []*datastore.Query {
 		// SearchTags (prefix search without ORDER BY - for emulator compatibility)
 		datastore.NewQuery(s.tagKind).
 			FilterField("owner_id", "=", "__test__").
-			FilterField("owner_type", "=", "__test__").
 			FilterField("status", "=", int32(v1.TagStatus_TAG_STATUS_ACTIVE)).
 			FilterField("normalized_value", ">=", "a").
 			FilterField("normalized_value", "<", "b"),

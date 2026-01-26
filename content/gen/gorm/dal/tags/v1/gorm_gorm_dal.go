@@ -136,10 +136,9 @@ func (d *TagGORMDAL) BatchGet(ctx context.Context, db *gorm.DB, ids []string) ([
 
 // EntityTagKey represents the composite primary key for v1.EntityTagGORM
 type EntityTagKey struct {
-	TagId      string
-	EntityType string
-	EntityId   string
-	TaggedBy   string
+	TagId    string
+	EntityId string
+	TaggedBy string
 }
 
 // EntityTagGORMDAL provides database access helper methods for v1.EntityTagGORM.
@@ -205,9 +204,6 @@ func (d *EntityTagGORMDAL) Save(ctx context.Context, db *gorm.DB, obj *v1.Entity
 	if obj.TagId == "" {
 		return errors.New("primary key 'TagId' cannot be empty")
 	}
-	if obj.EntityType == "" {
-		return errors.New("primary key 'EntityType' cannot be empty")
-	}
 	if obj.EntityId == "" {
 		return errors.New("primary key 'EntityId' cannot be empty")
 	}
@@ -217,7 +213,7 @@ func (d *EntityTagGORMDAL) Save(ctx context.Context, db *gorm.DB, obj *v1.Entity
 
 	// Check if record exists by trying to fetch it
 	var existing v1.EntityTagGORM
-	err := d.db(db).First(&existing, "tag_id = ?", "entity_type = ?", "entity_id = ?", "tagged_by = ?", obj.TagId, obj.EntityType, obj.EntityId, obj.TaggedBy).Error
+	err := d.db(db).First(&existing, "tag_id = ?", "entity_id = ?", "tagged_by = ?", obj.TagId, obj.EntityId, obj.TaggedBy).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -239,9 +235,9 @@ func (d *EntityTagGORMDAL) Save(ctx context.Context, db *gorm.DB, obj *v1.Entity
 
 // Get retrieves a v1.EntityTagGORM record by primary keys.
 // Returns (nil, nil) if the record is not found (not an error).
-func (d *EntityTagGORMDAL) Get(ctx context.Context, db *gorm.DB, tagId string, entityType string, entityId string, taggedBy string) (*v1.EntityTagGORM, error) {
+func (d *EntityTagGORMDAL) Get(ctx context.Context, db *gorm.DB, tagId string, entityId string, taggedBy string) (*v1.EntityTagGORM, error) {
 	var out v1.EntityTagGORM
-	err := d.db(db).First(&out, "tag_id = ? AND entity_type = ? AND entity_id = ? AND tagged_by = ?", tagId, entityType, entityId, taggedBy).Error
+	err := d.db(db).First(&out, "tag_id = ? AND entity_id = ? AND tagged_by = ?", tagId, entityId, taggedBy).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -252,8 +248,8 @@ func (d *EntityTagGORMDAL) Get(ctx context.Context, db *gorm.DB, tagId string, e
 }
 
 // Delete removes a v1.EntityTagGORM record by primary keys.
-func (d *EntityTagGORMDAL) Delete(ctx context.Context, db *gorm.DB, tagId string, entityType string, entityId string, taggedBy string) error {
-	return d.db(db).Where("tag_id = ? AND entity_type = ? AND entity_id = ? AND tagged_by = ?", tagId, entityType, entityId, taggedBy).Delete(&v1.EntityTagGORM{}).Error
+func (d *EntityTagGORMDAL) Delete(ctx context.Context, db *gorm.DB, tagId string, entityId string, taggedBy string) error {
+	return d.db(db).Where("tag_id = ? AND entity_id = ? AND tagged_by = ?", tagId, entityId, taggedBy).Delete(&v1.EntityTagGORM{}).Error
 }
 
 // List retrieves multiple v1.EntityTagGORM records using the provided query.
@@ -274,18 +270,12 @@ func (d *EntityTagGORMDAL) BatchGet(ctx context.Context, db *gorm.DB, keys []Ent
 	// Build OR query for each key combination
 	query := d.db(db).Where("1 = 0") // Start with false condition
 	for _, key := range keys {
-		query = query.Or("tag_id = ? AND entity_type = ? AND entity_id = ? AND tagged_by = ?", key.TagId, key.EntityType, key.EntityId, key.TaggedBy)
+		query = query.Or("tag_id = ? AND entity_id = ? AND tagged_by = ?", key.TagId, key.EntityId, key.TaggedBy)
 	}
 
 	var out []*v1.EntityTagGORM
 	err := query.Find(&out).Error
 	return out, err
-}
-
-// TagUsageCountsKey represents the composite primary key for v1.TagUsageCountsGORM
-type TagUsageCountsKey struct {
-	EntityType string
-	EntityId   string
 }
 
 // TagUsageCountsGORMDAL provides database access helper methods for v1.TagUsageCountsGORM.
@@ -348,16 +338,13 @@ func (d *TagUsageCountsGORMDAL) Update(ctx context.Context, db *gorm.DB, obj *v1
 //	dal.Save(ctx, db.Where("version = ?", oldVersion), obj)
 func (d *TagUsageCountsGORMDAL) Save(ctx context.Context, db *gorm.DB, obj *v1.TagUsageCountsGORM) error {
 	// Validate primary key(s)
-	if obj.EntityType == "" {
-		return errors.New("primary key 'EntityType' cannot be empty")
-	}
 	if obj.EntityId == "" {
 		return errors.New("primary key 'EntityId' cannot be empty")
 	}
 
 	// Check if record exists by trying to fetch it
 	var existing v1.TagUsageCountsGORM
-	err := d.db(db).First(&existing, "entity_type = ?", "entity_id = ?", obj.EntityType, obj.EntityId).Error
+	err := d.db(db).First(&existing, "entity_id = ?", obj.EntityId).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -377,11 +364,11 @@ func (d *TagUsageCountsGORMDAL) Save(ctx context.Context, db *gorm.DB, obj *v1.T
 	return d.db(db).Save(obj).Error
 }
 
-// Get retrieves a v1.TagUsageCountsGORM record by primary keys.
+// Get retrieves a v1.TagUsageCountsGORM record by primary key.
 // Returns (nil, nil) if the record is not found (not an error).
-func (d *TagUsageCountsGORMDAL) Get(ctx context.Context, db *gorm.DB, entityType string, entityId string) (*v1.TagUsageCountsGORM, error) {
+func (d *TagUsageCountsGORMDAL) Get(ctx context.Context, db *gorm.DB, entityId string) (*v1.TagUsageCountsGORM, error) {
 	var out v1.TagUsageCountsGORM
-	err := d.db(db).First(&out, "entity_type = ? AND entity_id = ?", entityType, entityId).Error
+	err := d.db(db).First(&out, "entity_id = ?", entityId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -391,9 +378,9 @@ func (d *TagUsageCountsGORMDAL) Get(ctx context.Context, db *gorm.DB, entityType
 	return &out, nil
 }
 
-// Delete removes a v1.TagUsageCountsGORM record by primary keys.
-func (d *TagUsageCountsGORMDAL) Delete(ctx context.Context, db *gorm.DB, entityType string, entityId string) error {
-	return d.db(db).Where("entity_type = ? AND entity_id = ?", entityType, entityId).Delete(&v1.TagUsageCountsGORM{}).Error
+// Delete removes a v1.TagUsageCountsGORM record by primary key.
+func (d *TagUsageCountsGORMDAL) Delete(ctx context.Context, db *gorm.DB, entityId string) error {
+	return d.db(db).Where("entity_id = ?", entityId).Delete(&v1.TagUsageCountsGORM{}).Error
 }
 
 // List retrieves multiple v1.TagUsageCountsGORM records using the provided query.
@@ -404,20 +391,14 @@ func (d *TagUsageCountsGORMDAL) List(ctx context.Context, query *gorm.DB) ([]*v1
 	return out, err
 }
 
-// BatchGet retrieves multiple v1.TagUsageCountsGORM records by primary keys.
+// BatchGet retrieves multiple v1.TagUsageCountsGORM records by primary key.
 // Results are returned in the order provided by the database (not necessarily the input order).
-func (d *TagUsageCountsGORMDAL) BatchGet(ctx context.Context, db *gorm.DB, keys []TagUsageCountsKey) ([]*v1.TagUsageCountsGORM, error) {
-	if len(keys) == 0 {
+func (d *TagUsageCountsGORMDAL) BatchGet(ctx context.Context, db *gorm.DB, entityIds []string) ([]*v1.TagUsageCountsGORM, error) {
+	if len(entityIds) == 0 {
 		return []*v1.TagUsageCountsGORM{}, nil
 	}
 
-	// Build OR query for each key combination
-	query := d.db(db).Where("1 = 0") // Start with false condition
-	for _, key := range keys {
-		query = query.Or("entity_type = ? AND entity_id = ?", key.EntityType, key.EntityId)
-	}
-
 	var out []*v1.TagUsageCountsGORM
-	err := query.Find(&out).Error
+	err := d.db(db).Where("entity_id IN ?", entityIds).Find(&out).Error
 	return out, err
 }

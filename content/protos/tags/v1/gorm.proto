@@ -38,16 +38,13 @@ message TagGORM {
   string description = 8;
   int32 display_order = 9;
 
-  // Ownership - composite index for listing user's tags
-  string owner_type = 10 [(dal.v1.column) = {
+  // Ownership - owner_id in "type:id" format (e.g., "user:123")
+  string owner_id = 10 [(dal.v1.column) = {
     gorm_tags: ["index:idx_tags_owner_key_value,priority:1", "index:idx_tags_owner_scope,priority:1"]
-  }];
-  string owner_id = 11 [(dal.v1.column) = {
-    gorm_tags: ["index:idx_tags_owner_key_value,priority:2", "index:idx_tags_owner_scope,priority:2"]
   }];
   // Scope - enum with index override
   TagScope scope = 12 [(dal.v1.column) = {
-    gorm_tags: ["index:idx_tags_owner_scope,priority:3"]
+    gorm_tags: ["index:idx_tags_owner_scope,priority:2"]
   }];
 
   // Stats
@@ -74,23 +71,20 @@ message EntityTagGORM {
     table: "entity_tags"
   };
 
-  // Composite primary key: (tag_id, entity_type, entity_id, tagged_by)
+  // Composite primary key: (tag_id, entity_id, tagged_by)
   // This allows multiple users to independently apply/remove the same shared tag
   string tag_id = 1 [(dal.v1.column) = {
     gorm_tags: ["primaryKey", "index:idx_entity_tags_tag,priority:1"]
   }];
-  string entity_type = 2 [(dal.v1.column) = {
+  string entity_id = 2 [(dal.v1.column) = {
     gorm_tags: ["primaryKey", "index:idx_entity_tags_entity,priority:1", "index:idx_entity_tags_tag,priority:2"]
   }];
-  string entity_id = 3 [(dal.v1.column) = {
-    gorm_tags: ["primaryKey", "index:idx_entity_tags_entity,priority:2"]
-  }];
-  string tagged_by = 4 [(dal.v1.column) = {
+  string tagged_by = 3 [(dal.v1.column) = {
     gorm_tags: ["primaryKey", "index:idx_entity_tags_user,priority:1"]
   }];
 
   // Visibility - enum with index and default override
-  EntityTagVisibility visibility = 5 [(dal.v1.column) = {
+  EntityTagVisibility visibility = 4 [(dal.v1.column) = {
     gorm_tags: ["index:idx_entity_tags_user,priority:2", "default:3"]
   }];
   // created_at - same type (Timestamp), auto-handled
@@ -103,18 +97,15 @@ message TagUsageCountsGORM {
     table: "tag_usage_counts"
   };
 
-  // Composite primary key
-  string entity_type = 1 [(dal.v1.column) = {
-    gorm_tags: ["primaryKey"]
-  }];
-  string entity_id = 2 [(dal.v1.column) = {
+  // Primary key is entity_id
+  string entity_id = 1 [(dal.v1.column) = {
     gorm_tags: ["primaryKey"]
   }];
 
-  int64 total_count = 3;
+  int64 total_count = 2;
 
   // JSON-serialized map of name to count
-  map<string, int64> by_name = 4 [(dal.v1.column) = {
+  map<string, int64> by_name = 3 [(dal.v1.column) = {
     gorm_tags: ["serializer:json", "type:text"]
   }];
   // updated_at - same type (Timestamp), auto-handled

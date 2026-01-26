@@ -105,7 +105,6 @@ func LikeToLikeGORM(
 	// Initialize struct with inline values
 	*dest = LikeGORM{
 		Id:           src.Id,
-		EntityType:   src.EntityType,
 		EntityId:     src.EntityId,
 		UserId:       src.UserId,
 		ReactionType: src.ReactionType,
@@ -148,7 +147,6 @@ func LikeFromLikeGORM(
 	// Initialize struct with inline values
 	*dest = v1.Like{
 		Id:           src.Id,
-		EntityType:   src.EntityType,
 		EntityId:     src.EntityId,
 		UserId:       src.UserId,
 		ReactionType: src.ReactionType,
@@ -184,7 +182,6 @@ func LikeCountsToLikeCountsGORM(
 
 	// Initialize struct with inline values
 	*dest = LikeCountsGORM{
-		EntityType: src.EntityType,
 		EntityId:   src.EntityId,
 		TotalCount: src.TotalCount,
 	}
@@ -224,7 +221,6 @@ func LikeCountsFromLikeCountsGORM(
 
 	// Initialize struct with inline values
 	*dest = v1.LikeCounts{
-		EntityType:     src.EntityType,
 		EntityId:       src.EntityId,
 		TotalCount:     src.TotalCount,
 		ByReactionType: src.ByReactionType,

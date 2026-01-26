@@ -5,7 +5,6 @@ indexes:
 
 - kind: Collection
   properties:
-  - name: owner_type
   - name: owner_id
   - name: parent_id
   - name: status
@@ -13,7 +12,6 @@ indexes:
 
 - kind: Collection
   properties:
-  - name: owner_type
   - name: owner_id
   - name: parent_id
   - name: status
@@ -22,7 +20,6 @@ indexes:
 
 - kind: Collection
   properties:
-  - name: owner_type
   - name: owner_id
   - name: parent_id
   - name: status
@@ -30,7 +27,6 @@ indexes:
 
 - kind: Collection
   properties:
-  - name: owner_type
   - name: owner_id
   - name: parent_id
   - name: normalized_name
@@ -51,17 +47,6 @@ indexes:
   - name: collection_id
   - name: added_at
     direction: desc
-
-- kind: CollectionItem
-  properties:
-  - name: collection_id
-  - name: entity_type
-  - name: display_order
-
-- kind: CollectionItem
-  properties:
-  - name: entity_type
-  - name: entity_id
 
 - kind: CollectionItem
   properties:

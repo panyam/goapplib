@@ -64,7 +64,7 @@ message CollectionGORM {
 }
 
 // CollectionItemGORM is the GORM model for CollectionItem (join table).
-// Composite primary key: (collection_id, entity_type, entity_id)
+// Composite primary key: (collection_id, entity_id)
 message CollectionItemGORM {
   option (dal.v1.gorm) = {
     source: "content.collections.v1.CollectionItem"
@@ -75,11 +75,8 @@ message CollectionItemGORM {
   string collection_id = 1 [(dal.v1.column) = {
     gorm_tags: ["primaryKey", "index:idx_collection_items_collection,priority:1"]
   }];
-  string entity_type = 2 [(dal.v1.column) = {
+  string entity_id = 2 [(dal.v1.column) = {
     gorm_tags: ["primaryKey", "index:idx_collection_items_entity,priority:1", "index:idx_collection_items_collection,priority:2"]
-  }];
-  string entity_id = 3 [(dal.v1.column) = {
-    gorm_tags: ["primaryKey", "index:idx_collection_items_entity,priority:2"]
   }];
 
   // Ordering - indexed for sorted queries

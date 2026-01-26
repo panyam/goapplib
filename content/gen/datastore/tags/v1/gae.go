@@ -32,8 +32,6 @@ type TagDatastore struct {
 
 	DisplayOrder int32 `datastore:"display_order"`
 
-	OwnerType string `datastore:"owner_type"`
-
 	OwnerId string `datastore:"owner_id"`
 
 	Scope v1.TagScope `datastore:"scope"`
@@ -62,8 +60,6 @@ type EntityTagDatastore struct {
 
 	TagId string `datastore:"tag_id"`
 
-	EntityType string `datastore:"entity_type"`
-
 	EntityId string `datastore:"entity_id"`
 
 	TaggedBy string `datastore:"tagged_by"`
@@ -81,8 +77,6 @@ func (*EntityTagDatastore) Kind() string {
 // TagUsageCountsDatastore is the Datastore entity for the source message.
 type TagUsageCountsDatastore struct {
 	Key *datastore.Key `datastore:"-"`
-
-	EntityType string `datastore:"entity_type"`
 
 	EntityId string `datastore:"entity_id"`
 
@@ -130,8 +124,6 @@ func (m *TagUsageCountsDatastore) saveNonMapFields() ([]datastore.Property, erro
 	type nonMapFields struct {
 		Key *datastore.Key `datastore:"-"`
 
-		EntityType string `datastore:"entity_type"`
-
 		EntityId string `datastore:"entity_id"`
 
 		TotalCount int64 `datastore:"total_count"`
@@ -142,8 +134,6 @@ func (m *TagUsageCountsDatastore) saveNonMapFields() ([]datastore.Property, erro
 	tmp := nonMapFields{
 
 		Key: m.Key,
-
-		EntityType: m.EntityType,
 
 		EntityId: m.EntityId,
 
@@ -178,8 +168,6 @@ func (m *TagUsageCountsDatastore) Load(props []datastore.Property) error {
 	type nonMapFields struct {
 		Key *datastore.Key `datastore:"-"`
 
-		EntityType string `datastore:"entity_type"`
-
 		EntityId string `datastore:"entity_id"`
 
 		TotalCount int64 `datastore:"total_count"`
@@ -195,8 +183,6 @@ func (m *TagUsageCountsDatastore) Load(props []datastore.Property) error {
 	// Copy non-map fields back
 
 	m.Key = tmp.Key
-
-	m.EntityType = tmp.EntityType
 
 	m.EntityId = tmp.EntityId
 

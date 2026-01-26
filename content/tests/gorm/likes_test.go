@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	commonv1 "github.com/panyam/goapplib/content/gen/go/common/v1"
 	v1 "github.com/panyam/goapplib/content/gen/go/likes/v1"
 	"github.com/panyam/goapplib/content/services/likes/backends"
 	"gorm.io/driver/postgres"
@@ -134,7 +133,6 @@ func TestLikesService_AddReaction(t *testing.T) {
 
 	// Add a reaction
 	resp, err := service.AddReaction(ctx, &v1.AddReactionRequest{
-		EntityType:   "post",
 		EntityId:     "post-1",
 		UserId:       "user-1",
 		ReactionType: "like",
@@ -145,9 +143,6 @@ func TestLikesService_AddReaction(t *testing.T) {
 
 	if resp.Like == nil {
 		t.Fatal("Expected like to be returned")
-	}
-	if resp.Like.EntityType != "post" {
-		t.Errorf("Expected entity_type=post, got %s", resp.Like.EntityType)
 	}
 	if resp.Like.ReactionType != "like" {
 		t.Errorf("Expected reaction_type=like, got %s", resp.Like.ReactionType)
@@ -172,7 +167,6 @@ func TestLikesService_ChangeReaction(t *testing.T) {
 
 	// Add initial reaction
 	_, err := service.AddReaction(ctx, &v1.AddReactionRequest{
-		EntityType:   "post",
 		EntityId:     "post-1",
 		UserId:       "user-1",
 		ReactionType: "like",
@@ -183,7 +177,6 @@ func TestLikesService_ChangeReaction(t *testing.T) {
 
 	// Change reaction type
 	resp, err := service.AddReaction(ctx, &v1.AddReactionRequest{
-		EntityType:   "post",
 		EntityId:     "post-1",
 		UserId:       "user-1",
 		ReactionType: "love",
@@ -216,7 +209,6 @@ func TestLikesService_RemoveReaction(t *testing.T) {
 
 	// Add a reaction
 	_, err := service.AddReaction(ctx, &v1.AddReactionRequest{
-		EntityType:   "post",
 		EntityId:     "post-1",
 		UserId:       "user-1",
 		ReactionType: "like",
@@ -227,9 +219,8 @@ func TestLikesService_RemoveReaction(t *testing.T) {
 
 	// Remove reaction
 	resp, err := service.RemoveReaction(ctx, &v1.RemoveReactionRequest{
-		EntityType: "post",
-		EntityId:   "post-1",
-		UserId:     "user-1",
+		EntityId: "post-1",
+		UserId:   "user-1",
 	})
 	if err != nil {
 		t.Fatalf("RemoveReaction failed: %v", err)
@@ -252,7 +243,6 @@ func TestLikesService_ToggleReaction(t *testing.T) {
 
 	// Toggle on
 	resp, err := service.ToggleReaction(ctx, &v1.ToggleReactionRequest{
-		EntityType:   "post",
 		EntityId:     "post-1",
 		UserId:       "user-1",
 		ReactionType: "like",
@@ -269,7 +259,6 @@ func TestLikesService_ToggleReaction(t *testing.T) {
 
 	// Toggle off
 	resp, err = service.ToggleReaction(ctx, &v1.ToggleReactionRequest{
-		EntityType:   "post",
 		EntityId:     "post-1",
 		UserId:       "user-1",
 		ReactionType: "like",
@@ -292,9 +281,8 @@ func TestLikesService_GetUserReaction(t *testing.T) {
 
 	// Check before adding
 	resp, err := service.GetUserReaction(ctx, &v1.GetUserReactionRequest{
-		EntityType: "post",
-		EntityId:   "post-1",
-		UserId:     "user-1",
+		EntityId: "post-1",
+		UserId:   "user-1",
 	})
 	if err != nil {
 		t.Fatalf("GetUserReaction failed: %v", err)
@@ -305,7 +293,6 @@ func TestLikesService_GetUserReaction(t *testing.T) {
 
 	// Add reaction
 	_, err = service.AddReaction(ctx, &v1.AddReactionRequest{
-		EntityType:   "post",
 		EntityId:     "post-1",
 		UserId:       "user-1",
 		ReactionType: "love",
@@ -316,9 +303,8 @@ func TestLikesService_GetUserReaction(t *testing.T) {
 
 	// Check after adding
 	resp, err = service.GetUserReaction(ctx, &v1.GetUserReactionRequest{
-		EntityType: "post",
-		EntityId:   "post-1",
-		UserId:     "user-1",
+		EntityId: "post-1",
+		UserId:   "user-1",
 	})
 	if err != nil {
 		t.Fatalf("GetUserReaction failed: %v", err)
@@ -339,7 +325,6 @@ func TestLikesService_ListReactors(t *testing.T) {
 	// Add multiple reactions
 	for i := 1; i <= 5; i++ {
 		_, err := service.AddReaction(ctx, &v1.AddReactionRequest{
-			EntityType:   "post",
 			EntityId:     "post-1",
 			UserId:       fmt.Sprintf("user-%d", i),
 			ReactionType: "like",
@@ -351,8 +336,7 @@ func TestLikesService_ListReactors(t *testing.T) {
 
 	// List reactors
 	resp, err := service.ListReactors(ctx, &v1.ListReactorsRequest{
-		EntityType: "post",
-		EntityId:   "post-1",
+		EntityId: "post-1",
 	})
 	if err != nil {
 		t.Fatalf("ListReactors failed: %v", err)
@@ -373,19 +357,17 @@ func TestLikesService_BatchGetLikeCounts(t *testing.T) {
 
 	// Add reactions to multiple entities
 	entities := []struct {
-		entityType string
-		entityID   string
-		count      int
+		entityID string
+		count    int
 	}{
-		{"post", "post-1", 3},
-		{"post", "post-2", 5},
-		{"comment", "comment-1", 2},
+		{"post-1", 3},
+		{"post-2", 5},
+		{"comment-1", 2},
 	}
 
 	for _, e := range entities {
 		for i := 0; i < e.count; i++ {
 			_, err := service.AddReaction(ctx, &v1.AddReactionRequest{
-				EntityType:   e.entityType,
 				EntityId:     e.entityID,
 				UserId:       fmt.Sprintf("user-%s-%d", e.entityID, i),
 				ReactionType: "like",
@@ -398,11 +380,11 @@ func TestLikesService_BatchGetLikeCounts(t *testing.T) {
 
 	// Batch get counts
 	resp, err := service.BatchGetLikeCounts(ctx, &v1.BatchGetLikeCountsRequest{
-		Entities: []*commonv1.EntityRef{
-			{EntityType: "post", EntityId: "post-1"},
-			{EntityType: "post", EntityId: "post-2"},
-			{EntityType: "comment", EntityId: "comment-1"},
-			{EntityType: "post", EntityId: "nonexistent"},
+		EntityIds: []string{
+			"post-1",
+			"post-2",
+			"comment-1",
+			"nonexistent",
 		},
 	})
 	if err != nil {
@@ -410,20 +392,20 @@ func TestLikesService_BatchGetLikeCounts(t *testing.T) {
 	}
 
 	// Verify counts
-	if counts, ok := resp.Counts["post:post-1"]; ok {
+	if counts, ok := resp.Counts["post-1"]; ok {
 		if counts.TotalCount != 3 {
-			t.Errorf("Expected post:post-1 count=3, got %d", counts.TotalCount)
+			t.Errorf("Expected post-1 count=3, got %d", counts.TotalCount)
 		}
 	} else {
-		t.Error("Missing counts for post:post-1")
+		t.Error("Missing counts for post-1")
 	}
 
-	if counts, ok := resp.Counts["post:post-2"]; ok {
+	if counts, ok := resp.Counts["post-2"]; ok {
 		if counts.TotalCount != 5 {
-			t.Errorf("Expected post:post-2 count=5, got %d", counts.TotalCount)
+			t.Errorf("Expected post-2 count=5, got %d", counts.TotalCount)
 		}
 	} else {
-		t.Error("Missing counts for post:post-2")
+		t.Error("Missing counts for post-2")
 	}
 }
 
