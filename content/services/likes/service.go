@@ -128,8 +128,9 @@ func (s *BaseLikesService) InitializeCache() {
 
 // AddReaction adds or updates a user's reaction to an entity.
 func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionRequest) (*v1.AddReactionResponse, error) {
-	// Resolve user ID from request or context (interceptor/middleware sets context)
+	// Resolve user ID and entity ID from request or context
 	req.UserId = s.resolveUserID(ctx, req.UserId)
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
 
 	// Authorization hook (can validate, deny, or further modify request)
 	if s.Hooks.OnAuthorize != nil {
@@ -287,8 +288,9 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 
 // RemoveReaction removes a user's reaction from an entity.
 func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveReactionRequest) (*v1.RemoveReactionResponse, error) {
-	// Resolve user ID from request or context
+	// Resolve user ID and entity ID from request or context
 	req.UserId = s.resolveUserID(ctx, req.UserId)
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
 
 	// Authorization hook
 	if s.Hooks.OnAuthorize != nil {
@@ -381,6 +383,10 @@ func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveRea
 
 // ToggleReaction toggles a reaction on/off.
 func (s *BaseLikesService) ToggleReaction(ctx context.Context, req *v1.ToggleReactionRequest) (*v1.ToggleReactionResponse, error) {
+	// Resolve user ID and entity ID from request or context
+	req.UserId = s.resolveUserID(ctx, req.UserId)
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
+
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
@@ -431,8 +437,9 @@ func (s *BaseLikesService) ToggleReaction(ctx context.Context, req *v1.ToggleRea
 
 // GetUserReaction returns a user's current reaction on an entity.
 func (s *BaseLikesService) GetUserReaction(ctx context.Context, req *v1.GetUserReactionRequest) (*v1.GetUserReactionResponse, error) {
-	// Resolve user ID from request or context
+	// Resolve user ID and entity ID from request or context
 	req.UserId = s.resolveUserID(ctx, req.UserId)
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
 
 	// Authorization hook
 	if s.Hooks.OnAuthorize != nil {
@@ -472,6 +479,9 @@ func (s *BaseLikesService) GetUserReaction(ctx context.Context, req *v1.GetUserR
 
 // GetLikeCounts returns aggregated reaction counts for an entity.
 func (s *BaseLikesService) GetLikeCounts(ctx context.Context, req *v1.GetLikeCountsRequest) (*v1.GetLikeCountsResponse, error) {
+	// Resolve entity ID from request or context
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
+
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
@@ -511,6 +521,9 @@ func (s *BaseLikesService) GetLikeCounts(ctx context.Context, req *v1.GetLikeCou
 
 // ListReactors returns users who reacted to an entity.
 func (s *BaseLikesService) ListReactors(ctx context.Context, req *v1.ListReactorsRequest) (*v1.ListReactorsResponse, error) {
+	// Resolve entity ID from request or context
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
+
 	// Authorization hook
 	if s.Hooks.OnAuthorize != nil {
 		hookCtx := &HookContext{
@@ -697,6 +710,15 @@ func (s *BaseLikesService) resolveUserID(ctx context.Context, requestUserID stri
 		return requestUserID
 	}
 	return GetUserIDFromContext(ctx, s.UserIDContextKey)
+}
+
+// resolveEntityID returns the entity ID from the request, falling back to mounted context if empty.
+// This allows the service to be mounted at arbitrary paths with the entity ID extracted from URL params.
+func (s *BaseLikesService) resolveEntityID(ctx context.Context, requestEntityID string) string {
+	if requestEntityID != "" {
+		return requestEntityID
+	}
+	return GetMountedEntityID(ctx)
 }
 
 func (s *BaseLikesService) getOrCreateCounts(ctx context.Context, entityID string) (*v1.LikeCounts, error) {

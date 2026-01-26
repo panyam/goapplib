@@ -136,14 +136,14 @@ Indexes are project-wide (not namespace-specific). Wait for indexes to build in 
 
 ## Implementation Status
 
-| Service             | Protos | GORM Backend | Datastore Backend | Hooks | gRPC | Connect | Tests | Docs |
-|---------------------|--------|--------------|-------------------|-------|------|---------|-------|------|
-| LikesService        | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅   |
-| TagsService         | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅   |
-| CollectionsService  | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅   |
-| NotesService        | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳   |
-| CommentsService     | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳   |
-| UserActivityService | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳   |
+| Service             | Protos | GORM Backend | Datastore Backend | Hooks | gRPC | Connect | Mount | Tests | Docs |
+|---------------------|--------|--------------|-------------------|-------|------|---------|-------|-------|------|
+| LikesService        | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅    | ✅   |
+| TagsService         | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ⏳    | ✅    | ✅   |
+| CollectionsService  | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ⏳    | ✅    | ✅   |
+| NotesService        | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳    | ⏳   |
+| CommentsService     | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳    | ⏳   |
+| UserActivityService | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳    | ⏳   |
 
 ### Design Simplifications
 
@@ -207,6 +207,30 @@ ctx = likes.WithUserID(ctx, myCtxKey, "user:123")
 // Service uses it automatically
 service.AddReaction(ctx, &AddReactionRequest{EntityId: "post:1"})  // UserId auto-filled
 ```
+
+### Mountable Services
+
+Services can be mounted at arbitrary paths with entity ID extracted from URL parameters:
+
+```go
+// Mount likes at /songs/{songId}/likes
+handler := likesService.RESTHandler(ctx, common.WithEntityParam("songId"))
+router.Handle("/songs/{songId}/likes/", handler)
+
+// Resulting URLs:
+// POST /songs/song123/likes/         -> AddReaction with entity_id=song123
+// GET  /songs/song123/likes/counts   -> GetLikeCounts for entity_id=song123
+// GET  /songs/song123/likes/reactors -> ListReactors for entity_id=song123
+```
+
+For full control over the gRPC-gateway mux (custom marshalers, interceptors):
+```go
+mux := runtime.NewServeMux(/* your options */)
+likesService.RegisterRESTHandlers(ctx, mux)
+router.Handle("/songs/{songId}/likes/", common.WrapWithEntityExtraction("songId", mux))
+```
+
+See [PATTERNS.md](PATTERNS.md#mountable-services-pattern) for detailed implementation guide.
 
 ### Tags Service Notes
 

@@ -320,6 +320,97 @@ type TagsStorageProvider interface {
 
 Business logic (normalization, deduplication, count updates) goes in BaseService.
 
+## Mountable Services Pattern
+
+Services can be mounted at arbitrary user-defined paths with automatic entity ID extraction from URL parameters.
+
+### Problem
+
+Services like LikesService need to work with different entity types (songs, posts, videos). Instead of requiring entity_id in every request body, we want URLs like:
+- `POST /songs/{songId}/likes/` - Add reaction to song
+- `GET /posts/{postId}/likes/counts` - Get like counts for post
+
+### Solution: Mount Middleware + Entity ID Resolution
+
+1. **Common Mount Utilities** (`services/common/mount.go`):
+   - `WithMountedEntityID(ctx, entityID)` - Store entity ID in context
+   - `GetMountedEntityID(ctx)` - Retrieve entity ID from context
+   - `WithEntityParam(paramName)` - Handler option to specify path param name
+   - `EntityParamMiddleware(paramName)` - Middleware that extracts path param
+   - `ExtractPathParam(r, name)` - Router-agnostic param extraction (Go 1.22+, chi, gorilla)
+
+2. **Service Mount Methods** (`services/likes/mount.go`):
+   - `RegisterRESTHandlers(ctx, mux)` - Register with caller's gRPC-gateway mux
+   - `RESTHandler(ctx, opts...)` - Returns http.Handler with default mux
+   - `ConnectHandler(ctx, opts...)` - Returns Connect RPC handler
+
+3. **Entity ID Resolution** (`services/likes/service.go`):
+   - `resolveEntityID(ctx, requestEntityID)` - Falls back to mounted context
+
+### Usage Examples
+
+**With chi router:**
+```go
+r := chi.NewRouter()
+
+// Mount likes at /songs/{songId}/likes
+r.Route("/songs/{songId}", func(r chi.Router) {
+    mux := runtime.NewServeMux()
+    likesService.RegisterRESTHandlers(ctx, mux)
+    r.Mount("/likes/", common.WrapWithEntityExtraction("songId", mux))
+})
+```
+
+**Simple mount with default mux:**
+```go
+handler := likesService.RESTHandler(ctx, common.WithEntityParam("songId"))
+router.Handle("/songs/{songId}/likes/", handler)
+```
+
+**Connect RPC:**
+```go
+path, handler := likesService.ConnectHandler(ctx, common.WithEntityParam("songId"))
+router.Handle("/songs/{songId}/rpc/", handler)
+```
+
+### Path Parameter Extraction
+
+The `ExtractPathParam` function tries multiple routers in order:
+1. Go 1.22+ `r.PathValue(name)`
+2. chi's route context
+3. gorilla/mux vars
+
+This allows services to work with any router without coupling.
+
+### Entity ID Fallback Logic
+
+```go
+func (s *BaseLikesService) resolveEntityID(ctx context.Context, requestEntityID string) string {
+    if requestEntityID != "" {
+        return requestEntityID  // Explicit request wins
+    }
+    return GetMountedEntityID(ctx)  // Fall back to mounted context
+}
+```
+
+Each service method calls this before validation:
+```go
+func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionRequest) (*v1.AddReactionResponse, error) {
+    req.UserId = s.resolveUserID(ctx, req.UserId)
+    req.EntityId = s.resolveEntityID(ctx, req.EntityId)
+    // ... rest of method
+}
+```
+
+### Files for Mount Pattern
+
+| File | Purpose |
+|------|---------|
+| `services/common/mount.go` | Shared context keys and middleware |
+| `services/likes/mount.go` | RESTHandler, ConnectHandler factories |
+| `services/likes/hooks.go` | GetMountedEntityID, WithMountedEntityID wrappers |
+| `services/likes/service.go` | resolveEntityID method, updated service methods |
+
 ## Checklist for New Services
 
 1. [ ] Define protos (avoid `key` field name)
@@ -332,11 +423,15 @@ Business logic (normalization, deduplication, count updates) goes in BaseService
    - [ ] RequiredIndexes()
    - [ ] TestQueries()
    - [ ] WriteIndexFile() / IndexesYAML()
-7. [ ] Add tests:
+7. [ ] Add mount support:
+   - [ ] Add `mount.go` with RESTHandler, ConnectHandler
+   - [ ] Add resolveEntityID to service.go
+   - [ ] Add GetMountedEntityID to hooks.go
+8. [ ] Add tests:
    - [ ] GORM tests in `tests/gorm/`
    - [ ] Datastore tests in `tests/datastore/`
    - [ ] Update main_test.go with new service validation
    - [ ] Add service kinds to cleanup
-8. [ ] Update documentation:
+9. [ ] Update documentation:
    - [ ] Service README.md
    - [ ] content/SUMMARY.md status table
