@@ -19,7 +19,7 @@ service TagsService {
   // The tag can then be applied to entities via TagEntity.
   rpc CreateTag(CreateTagRequest) returns (CreateTagResponse) {
     option (google.api.http) = {
-      post: "/v1/tags"
+      post: "/tags"
       body: "*"
     };
   }
@@ -27,14 +27,14 @@ service TagsService {
   // GetTag retrieves a tag by ID.
   rpc GetTag(GetTagRequest) returns (GetTagResponse) {
     option (google.api.http) = {
-      get: "/v1/tags/{id}"
+      get: "/tags/{id}"
     };
   }
 
   // UpdateTag updates a tag's properties (color, description, etc.).
   rpc UpdateTag(UpdateTagRequest) returns (UpdateTagResponse) {
     option (google.api.http) = {
-      patch: "/v1/tags/{tag.id}"
+      patch: "/tags/{tag.id}"
       body: "*"
     };
   }
@@ -42,14 +42,14 @@ service TagsService {
   // DeleteTag removes a tag and optionally untags all entities.
   rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse) {
     option (google.api.http) = {
-      delete: "/v1/tags/{id}"
+      delete: "/tags/{id}"
     };
   }
 
   // ListTags lists tags for an owner with filtering.
   rpc ListTags(ListTagsRequest) returns (ListTagsResponse) {
     option (google.api.http) = {
-      get: "/v1/tags"
+      get: "/tags"
     };
   }
 
@@ -59,7 +59,7 @@ service TagsService {
   // Creates the tag if it doesn't exist (inline creation).
   rpc TagEntity(TagEntityRequest) returns (TagEntityResponse) {
     option (google.api.http) = {
-      post: "/v1/tags/entity"
+      post: "/tags/entity"
       body: "*"
     };
   }
@@ -67,21 +67,21 @@ service TagsService {
   // UntagEntity removes a tag from an entity.
   rpc UntagEntity(UntagEntityRequest) returns (UntagEntityResponse) {
     option (google.api.http) = {
-      delete: "/v1/tags/entity"
+      delete: "/tags/entity"
     };
   }
 
   // GetEntityTags returns all tags for a specific entity.
   rpc GetEntityTags(GetEntityTagsRequest) returns (GetEntityTagsResponse) {
     option (google.api.http) = {
-      get: "/v1/tags/entity/{entity_id}"
+      get: "/tags/entity"
     };
   }
 
   // GetEntitiesWithTag returns all entities that have a specific tag.
   rpc GetEntitiesWithTag(GetEntitiesWithTagRequest) returns (GetEntitiesWithTagResponse) {
     option (google.api.http) = {
-      get: "/v1/tags/{tag_id}/entities"
+      get: "/tags/{tag_id}/entities"
     };
   }
 
@@ -90,7 +90,7 @@ service TagsService {
   // BatchTagEntities applies a tag to multiple entities at once.
   rpc BatchTagEntities(BatchTagEntitiesRequest) returns (BatchTagEntitiesResponse) {
     option (google.api.http) = {
-      post: "/v1/tags/batch/tag"
+      post: "/tags/batch/tag"
       body: "*"
     };
   }
@@ -99,7 +99,7 @@ service TagsService {
   // Useful for hydrating lists of entities with their tags.
   rpc BatchGetEntityTags(BatchGetEntityTagsRequest) returns (BatchGetEntityTagsResponse) {
     option (google.api.http) = {
-      post: "/v1/tags/batch/entity-tags"
+      post: "/tags/batch/entity-tags"
       body: "*"
     };
   }
@@ -109,14 +109,14 @@ service TagsService {
   // SearchTags searches for tags by name (autocomplete).
   rpc SearchTags(SearchTagsRequest) returns (SearchTagsResponse) {
     option (google.api.http) = {
-      get: "/v1/tags/search"
+      get: "/tags/search"
     };
   }
 
   // GetPopularTags returns the most used tags.
   rpc GetPopularTags(GetPopularTagsRequest) returns (GetPopularTagsResponse) {
     option (google.api.http) = {
-      get: "/v1/tags/popular"
+      get: "/tags/popular"
     };
   }
 
@@ -124,7 +124,7 @@ service TagsService {
   // All entities tagged with source tag will be retagged with target.
   rpc MergeTags(MergeTagsRequest) returns (MergeTagsResponse) {
     option (google.api.http) = {
-      post: "/v1/tags/merge"
+      post: "/tags/merge"
       body: "*"
     };
   }
@@ -138,7 +138,7 @@ service TagsService {
   // 5. Background cleanup after grace period
   rpc PromoteTag(PromoteTagRequest) returns (PromoteTagResponse) {
     option (google.api.http) = {
-      post: "/v1/tags/promote"
+      post: "/tags/promote"
       body: "*"
     };
   }

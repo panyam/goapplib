@@ -296,24 +296,15 @@ func local_request_TagsService_UntagEntity_0(ctx context.Context, marshaler runt
 	return msg, metadata, err
 }
 
-var filter_TagsService_GetEntityTags_0 = &utilities.DoubleArray{Encoding: map[string]int{"entity_id": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+var filter_TagsService_GetEntityTags_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
 func request_TagsService_GetEntityTags_0(ctx context.Context, marshaler runtime.Marshaler, client TagsServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq GetEntityTagsRequest
 		metadata runtime.ServerMetadata
-		err      error
 	)
 	if req.Body != nil {
 		_, _ = io.Copy(io.Discard, req.Body)
-	}
-	val, ok := pathParams["entity_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "entity_id")
-	}
-	protoReq.EntityId, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "entity_id", err)
 	}
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -329,16 +320,7 @@ func local_request_TagsService_GetEntityTags_0(ctx context.Context, marshaler ru
 	var (
 		protoReq GetEntityTagsRequest
 		metadata runtime.ServerMetadata
-		err      error
 	)
-	val, ok := pathParams["entity_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "entity_id")
-	}
-	protoReq.EntityId, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "entity_id", err)
-	}
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -592,7 +574,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/CreateTag", runtime.WithHTTPPathPattern("/v1/tags"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/CreateTag", runtime.WithHTTPPathPattern("/tags"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -612,7 +594,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/GetTag", runtime.WithHTTPPathPattern("/v1/tags/{id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/GetTag", runtime.WithHTTPPathPattern("/tags/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -632,7 +614,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/UpdateTag", runtime.WithHTTPPathPattern("/v1/tags/{tag.id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/UpdateTag", runtime.WithHTTPPathPattern("/tags/{tag.id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -652,7 +634,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/DeleteTag", runtime.WithHTTPPathPattern("/v1/tags/{id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/DeleteTag", runtime.WithHTTPPathPattern("/tags/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -672,7 +654,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/ListTags", runtime.WithHTTPPathPattern("/v1/tags"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/ListTags", runtime.WithHTTPPathPattern("/tags"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -692,7 +674,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/TagEntity", runtime.WithHTTPPathPattern("/v1/tags/entity"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/TagEntity", runtime.WithHTTPPathPattern("/tags/entity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -712,7 +694,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/UntagEntity", runtime.WithHTTPPathPattern("/v1/tags/entity"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/UntagEntity", runtime.WithHTTPPathPattern("/tags/entity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -732,7 +714,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/GetEntityTags", runtime.WithHTTPPathPattern("/v1/tags/entity/{entity_id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/GetEntityTags", runtime.WithHTTPPathPattern("/tags/entity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -752,7 +734,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/GetEntitiesWithTag", runtime.WithHTTPPathPattern("/v1/tags/{tag_id}/entities"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/GetEntitiesWithTag", runtime.WithHTTPPathPattern("/tags/{tag_id}/entities"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -772,7 +754,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/BatchTagEntities", runtime.WithHTTPPathPattern("/v1/tags/batch/tag"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/BatchTagEntities", runtime.WithHTTPPathPattern("/tags/batch/tag"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -792,7 +774,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/BatchGetEntityTags", runtime.WithHTTPPathPattern("/v1/tags/batch/entity-tags"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/BatchGetEntityTags", runtime.WithHTTPPathPattern("/tags/batch/entity-tags"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -812,7 +794,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/SearchTags", runtime.WithHTTPPathPattern("/v1/tags/search"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/SearchTags", runtime.WithHTTPPathPattern("/tags/search"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -832,7 +814,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/GetPopularTags", runtime.WithHTTPPathPattern("/v1/tags/popular"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/GetPopularTags", runtime.WithHTTPPathPattern("/tags/popular"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -852,7 +834,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/MergeTags", runtime.WithHTTPPathPattern("/v1/tags/merge"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/MergeTags", runtime.WithHTTPPathPattern("/tags/merge"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -872,7 +854,7 @@ func RegisterTagsServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/PromoteTag", runtime.WithHTTPPathPattern("/v1/tags/promote"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.tags.v1.TagsService/PromoteTag", runtime.WithHTTPPathPattern("/tags/promote"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -930,7 +912,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/CreateTag", runtime.WithHTTPPathPattern("/v1/tags"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/CreateTag", runtime.WithHTTPPathPattern("/tags"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -947,7 +929,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/GetTag", runtime.WithHTTPPathPattern("/v1/tags/{id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/GetTag", runtime.WithHTTPPathPattern("/tags/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -964,7 +946,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/UpdateTag", runtime.WithHTTPPathPattern("/v1/tags/{tag.id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/UpdateTag", runtime.WithHTTPPathPattern("/tags/{tag.id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -981,7 +963,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/DeleteTag", runtime.WithHTTPPathPattern("/v1/tags/{id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/DeleteTag", runtime.WithHTTPPathPattern("/tags/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -998,7 +980,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/ListTags", runtime.WithHTTPPathPattern("/v1/tags"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/ListTags", runtime.WithHTTPPathPattern("/tags"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1015,7 +997,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/TagEntity", runtime.WithHTTPPathPattern("/v1/tags/entity"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/TagEntity", runtime.WithHTTPPathPattern("/tags/entity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1032,7 +1014,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/UntagEntity", runtime.WithHTTPPathPattern("/v1/tags/entity"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/UntagEntity", runtime.WithHTTPPathPattern("/tags/entity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1049,7 +1031,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/GetEntityTags", runtime.WithHTTPPathPattern("/v1/tags/entity/{entity_id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/GetEntityTags", runtime.WithHTTPPathPattern("/tags/entity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1066,7 +1048,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/GetEntitiesWithTag", runtime.WithHTTPPathPattern("/v1/tags/{tag_id}/entities"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/GetEntitiesWithTag", runtime.WithHTTPPathPattern("/tags/{tag_id}/entities"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1083,7 +1065,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/BatchTagEntities", runtime.WithHTTPPathPattern("/v1/tags/batch/tag"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/BatchTagEntities", runtime.WithHTTPPathPattern("/tags/batch/tag"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1100,7 +1082,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/BatchGetEntityTags", runtime.WithHTTPPathPattern("/v1/tags/batch/entity-tags"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/BatchGetEntityTags", runtime.WithHTTPPathPattern("/tags/batch/entity-tags"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1117,7 +1099,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/SearchTags", runtime.WithHTTPPathPattern("/v1/tags/search"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/SearchTags", runtime.WithHTTPPathPattern("/tags/search"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1134,7 +1116,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/GetPopularTags", runtime.WithHTTPPathPattern("/v1/tags/popular"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/GetPopularTags", runtime.WithHTTPPathPattern("/tags/popular"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1151,7 +1133,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/MergeTags", runtime.WithHTTPPathPattern("/v1/tags/merge"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/MergeTags", runtime.WithHTTPPathPattern("/tags/merge"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1168,7 +1150,7 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/PromoteTag", runtime.WithHTTPPathPattern("/v1/tags/promote"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.tags.v1.TagsService/PromoteTag", runtime.WithHTTPPathPattern("/tags/promote"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1185,21 +1167,21 @@ func RegisterTagsServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 }
 
 var (
-	pattern_TagsService_CreateTag_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "tags"}, ""))
-	pattern_TagsService_GetTag_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "tags", "id"}, ""))
-	pattern_TagsService_UpdateTag_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "tags", "tag.id"}, ""))
-	pattern_TagsService_DeleteTag_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "tags", "id"}, ""))
-	pattern_TagsService_ListTags_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "tags"}, ""))
-	pattern_TagsService_TagEntity_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "tags", "entity"}, ""))
-	pattern_TagsService_UntagEntity_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "tags", "entity"}, ""))
-	pattern_TagsService_GetEntityTags_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "tags", "entity", "entity_id"}, ""))
-	pattern_TagsService_GetEntitiesWithTag_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "tags", "tag_id", "entities"}, ""))
-	pattern_TagsService_BatchTagEntities_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "tags", "batch", "tag"}, ""))
-	pattern_TagsService_BatchGetEntityTags_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "tags", "batch", "entity-tags"}, ""))
-	pattern_TagsService_SearchTags_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "tags", "search"}, ""))
-	pattern_TagsService_GetPopularTags_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "tags", "popular"}, ""))
-	pattern_TagsService_MergeTags_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "tags", "merge"}, ""))
-	pattern_TagsService_PromoteTag_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "tags", "promote"}, ""))
+	pattern_TagsService_CreateTag_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"tags"}, ""))
+	pattern_TagsService_GetTag_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"tags", "id"}, ""))
+	pattern_TagsService_UpdateTag_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"tags", "tag.id"}, ""))
+	pattern_TagsService_DeleteTag_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"tags", "id"}, ""))
+	pattern_TagsService_ListTags_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"tags"}, ""))
+	pattern_TagsService_TagEntity_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"tags", "entity"}, ""))
+	pattern_TagsService_UntagEntity_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"tags", "entity"}, ""))
+	pattern_TagsService_GetEntityTags_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"tags", "entity"}, ""))
+	pattern_TagsService_GetEntitiesWithTag_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"tags", "tag_id", "entities"}, ""))
+	pattern_TagsService_BatchTagEntities_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"tags", "batch", "tag"}, ""))
+	pattern_TagsService_BatchGetEntityTags_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"tags", "batch", "entity-tags"}, ""))
+	pattern_TagsService_SearchTags_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"tags", "search"}, ""))
+	pattern_TagsService_GetPopularTags_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"tags", "popular"}, ""))
+	pattern_TagsService_MergeTags_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"tags", "merge"}, ""))
+	pattern_TagsService_PromoteTag_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"tags", "promote"}, ""))
 )
 
 var (

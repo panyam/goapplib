@@ -4,6 +4,7 @@ import (
 	"context"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
+	"github.com/panyam/goapplib/content/services/common"
 )
 
 // DefaultUserIDContextKey is the default context key for the authenticated user ID.
@@ -31,6 +32,18 @@ func WithUserID(ctx context.Context, key any, userID string) context.Context {
 		key = DefaultUserIDContextKey
 	}
 	return context.WithValue(ctx, key, userID)
+}
+
+// GetMountedEntityID retrieves the entity ID from mount context.
+// This is set by the mount middleware when the service is mounted at a path like /songs/{songId}/tags.
+func GetMountedEntityID(ctx context.Context) string {
+	return common.GetMountedEntityID(ctx)
+}
+
+// WithMountedEntityID stores the entity ID in context.
+// This is typically called by mount middleware after extracting the path parameter.
+func WithMountedEntityID(ctx context.Context, entityID string) context.Context {
+	return common.WithMountedEntityID(ctx, entityID)
 }
 
 // HookContext provides context information for hook invocations.

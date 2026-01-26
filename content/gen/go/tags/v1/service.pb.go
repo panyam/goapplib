@@ -2125,26 +2125,28 @@ const file_tags_v1_service_proto_rawDesc = "" +
 	"\n" +
 	"source_tag\x18\x02 \x01(\v2\x14.content.tags.v1.TagR\tsourceTag\x120\n" +
 	"\x14entity_tags_migrated\x18\x03 \x01(\x03R\x12entityTagsMigrated\x120\n" +
-	"\x14merged_into_existing\x18\x04 \x01(\bR\x12mergedIntoExisting2\x85\x0e\n" +
-	"\vTagsService\x12g\n" +
-	"\tCreateTag\x12!.content.tags.v1.CreateTagRequest\x1a\".content.tags.v1.CreateTagResponse\"\x13\x82\xd3\xe4\x93\x02\r:\x01*\"\b/v1/tags\x12`\n" +
-	"\x06GetTag\x12\x1e.content.tags.v1.GetTagRequest\x1a\x1f.content.tags.v1.GetTagResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/v1/tags/{id}\x12p\n" +
-	"\tUpdateTag\x12!.content.tags.v1.UpdateTagRequest\x1a\".content.tags.v1.UpdateTagResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*2\x11/v1/tags/{tag.id}\x12i\n" +
-	"\tDeleteTag\x12!.content.tags.v1.DeleteTagRequest\x1a\".content.tags.v1.DeleteTagResponse\"\x15\x82\xd3\xe4\x93\x02\x0f*\r/v1/tags/{id}\x12a\n" +
-	"\bListTags\x12 .content.tags.v1.ListTagsRequest\x1a!.content.tags.v1.ListTagsResponse\"\x10\x82\xd3\xe4\x93\x02\n" +
-	"\x12\b/v1/tags\x12n\n" +
-	"\tTagEntity\x12!.content.tags.v1.TagEntityRequest\x1a\".content.tags.v1.TagEntityResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/tags/entity\x12q\n" +
-	"\vUntagEntity\x12#.content.tags.v1.UntagEntityRequest\x1a$.content.tags.v1.UntagEntityResponse\"\x17\x82\xd3\xe4\x93\x02\x11*\x0f/v1/tags/entity\x12\x83\x01\n" +
-	"\rGetEntityTags\x12%.content.tags.v1.GetEntityTagsRequest\x1a&.content.tags.v1.GetEntityTagsResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/v1/tags/entity/{entity_id}\x12\x91\x01\n" +
-	"\x12GetEntitiesWithTag\x12*.content.tags.v1.GetEntitiesWithTagRequest\x1a+.content.tags.v1.GetEntitiesWithTagResponse\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/v1/tags/{tag_id}/entities\x12\x86\x01\n" +
-	"\x10BatchTagEntities\x12(.content.tags.v1.BatchTagEntitiesRequest\x1a).content.tags.v1.BatchTagEntitiesResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/v1/tags/batch/tag\x12\x94\x01\n" +
-	"\x12BatchGetEntityTags\x12*.content.tags.v1.BatchGetEntityTagsRequest\x1a+.content.tags.v1.BatchGetEntityTagsResponse\"%\x82\xd3\xe4\x93\x02\x1f:\x01*\"\x1a/v1/tags/batch/entity-tags\x12n\n" +
+	"\x14merged_into_existing\x18\x04 \x01(\bR\x12mergedIntoExisting2\xcb\r\n" +
+	"\vTagsService\x12d\n" +
+	"\tCreateTag\x12!.content.tags.v1.CreateTagRequest\x1a\".content.tags.v1.CreateTagResponse\"\x10\x82\xd3\xe4\x93\x02\n" +
+	":\x01*\"\x05/tags\x12]\n" +
+	"\x06GetTag\x12\x1e.content.tags.v1.GetTagRequest\x1a\x1f.content.tags.v1.GetTagResponse\"\x12\x82\xd3\xe4\x93\x02\f\x12\n" +
+	"/tags/{id}\x12m\n" +
+	"\tUpdateTag\x12!.content.tags.v1.UpdateTagRequest\x1a\".content.tags.v1.UpdateTagResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*2\x0e/tags/{tag.id}\x12f\n" +
+	"\tDeleteTag\x12!.content.tags.v1.DeleteTagRequest\x1a\".content.tags.v1.DeleteTagResponse\"\x12\x82\xd3\xe4\x93\x02\f*\n" +
+	"/tags/{id}\x12^\n" +
+	"\bListTags\x12 .content.tags.v1.ListTagsRequest\x1a!.content.tags.v1.ListTagsResponse\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/tags\x12k\n" +
+	"\tTagEntity\x12!.content.tags.v1.TagEntityRequest\x1a\".content.tags.v1.TagEntityResponse\"\x17\x82\xd3\xe4\x93\x02\x11:\x01*\"\f/tags/entity\x12n\n" +
+	"\vUntagEntity\x12#.content.tags.v1.UntagEntityRequest\x1a$.content.tags.v1.UntagEntityResponse\"\x14\x82\xd3\xe4\x93\x02\x0e*\f/tags/entity\x12t\n" +
+	"\rGetEntityTags\x12%.content.tags.v1.GetEntityTagsRequest\x1a&.content.tags.v1.GetEntityTagsResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/tags/entity\x12\x8e\x01\n" +
+	"\x12GetEntitiesWithTag\x12*.content.tags.v1.GetEntitiesWithTagRequest\x1a+.content.tags.v1.GetEntitiesWithTagResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/tags/{tag_id}/entities\x12\x83\x01\n" +
+	"\x10BatchTagEntities\x12(.content.tags.v1.BatchTagEntitiesRequest\x1a).content.tags.v1.BatchTagEntitiesResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/tags/batch/tag\x12\x91\x01\n" +
+	"\x12BatchGetEntityTags\x12*.content.tags.v1.BatchGetEntityTagsRequest\x1a+.content.tags.v1.BatchGetEntityTagsResponse\"\"\x82\xd3\xe4\x93\x02\x1c:\x01*\"\x17/tags/batch/entity-tags\x12k\n" +
 	"\n" +
-	"SearchTags\x12\".content.tags.v1.SearchTagsRequest\x1a#.content.tags.v1.SearchTagsResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/tags/search\x12{\n" +
-	"\x0eGetPopularTags\x12&.content.tags.v1.GetPopularTagsRequest\x1a'.content.tags.v1.GetPopularTagsResponse\"\x18\x82\xd3\xe4\x93\x02\x12\x12\x10/v1/tags/popular\x12m\n" +
-	"\tMergeTags\x12!.content.tags.v1.MergeTagsRequest\x1a\".content.tags.v1.MergeTagsResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/tags/merge\x12r\n" +
+	"SearchTags\x12\".content.tags.v1.SearchTagsRequest\x1a#.content.tags.v1.SearchTagsResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/tags/search\x12x\n" +
+	"\x0eGetPopularTags\x12&.content.tags.v1.GetPopularTagsRequest\x1a'.content.tags.v1.GetPopularTagsResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/tags/popular\x12j\n" +
+	"\tMergeTags\x12!.content.tags.v1.MergeTagsRequest\x1a\".content.tags.v1.MergeTagsResponse\"\x16\x82\xd3\xe4\x93\x02\x10:\x01*\"\v/tags/merge\x12o\n" +
 	"\n" +
-	"PromoteTag\x12\".content.tags.v1.PromoteTagRequest\x1a#.content.tags.v1.PromoteTagResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*\"\x10/v1/tags/promoteB\xbb\x01\n" +
+	"PromoteTag\x12\".content.tags.v1.PromoteTagRequest\x1a#.content.tags.v1.PromoteTagResponse\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/tags/promoteB\xbb\x01\n" +
 	"\x13com.content.tags.v1B\fServiceProtoP\x01Z8github.com/panyam/goapplib/content/gen/go/tags/v1;tagsv1\xa2\x02\x03CTX\xaa\x02\x0fContent.Tags.V1\xca\x02\x0fContent\\Tags\\V1\xe2\x02\x1bContent\\Tags\\V1\\GPBMetadata\xea\x02\x11Content::Tags::V1b\x06proto3"
 
 var (

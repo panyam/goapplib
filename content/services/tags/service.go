@@ -175,6 +175,15 @@ func (s *BaseTagsService) resolveUserID(ctx context.Context, requestUserID strin
 	return GetUserIDFromContext(ctx, s.UserIDContextKey)
 }
 
+// resolveEntityID returns the entity ID from the request, falling back to mounted context if empty.
+// This allows the service to be mounted at arbitrary paths with the entity ID extracted from URL params.
+func (s *BaseTagsService) resolveEntityID(ctx context.Context, requestEntityID string) string {
+	if requestEntityID != "" {
+		return requestEntityID
+	}
+	return GetMountedEntityID(ctx)
+}
+
 // DefaultNormalizer is the default normalization function.
 // It lowercases and trims whitespace.
 func DefaultNormalizer(s string) string {
@@ -480,8 +489,9 @@ func (s *BaseTagsService) ListTags(ctx context.Context, req *v1.ListTagsRequest)
 
 // TagEntity applies a tag to an entity.
 func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityRequest) (*v1.TagEntityResponse, error) {
-	// Resolve owner and tagger from request or context
+	// Resolve owner, tagger, and entity ID from request or context
 	req.OwnerId = s.resolveUserID(ctx, req.OwnerId)
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
 	if req.TaggedBy == "" {
 		req.TaggedBy = s.resolveUserID(ctx, req.TaggedBy)
 	}
@@ -646,8 +656,9 @@ func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityReques
 
 // UntagEntity removes a tag from an entity.
 func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRequest) (*v1.UntagEntityResponse, error) {
-	// Resolve tagged_by from request or context
+	// Resolve tagged_by and entity ID from request or context
 	req.TaggedBy = s.resolveUserID(ctx, req.TaggedBy)
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
 
 	// Authorization hook
 	if s.Hooks.OnAuthorize != nil {
@@ -743,6 +754,9 @@ func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRe
 
 // GetEntityTags returns all tags for a specific entity.
 func (s *BaseTagsService) GetEntityTags(ctx context.Context, req *v1.GetEntityTagsRequest) (*v1.GetEntityTagsResponse, error) {
+	// Resolve entity ID from request or context
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
+
 	// Authorization hook
 	if s.Hooks.OnAuthorize != nil {
 		hookCtx := &HookContext{
