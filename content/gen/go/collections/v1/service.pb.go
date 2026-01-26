@@ -2014,23 +2014,23 @@ const file_collections_v1_service_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12<\n" +
 	"\x05value\x18\x02 \x01(\v2&.content.collections.v1.CollectionListR\x05value:\x028\x01\"V\n" +
 	"\x0eCollectionList\x12D\n" +
-	"\vcollections\x18\x01 \x03(\v2\".content.collections.v1.CollectionR\vcollections2\xac\x13\n" +
-	"\x12CollectionsService\x12\x91\x01\n" +
-	"\x10CreateCollection\x12/.content.collections.v1.CreateCollectionRequest\x1a0.content.collections.v1.CreateCollectionResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/collections\x12\x8a\x01\n" +
-	"\rGetCollection\x12,.content.collections.v1.GetCollectionRequest\x1a-.content.collections.v1.GetCollectionResponse\"\x1c\x82\xd3\xe4\x93\x02\x16\x12\x14/v1/collections/{id}\x12\xa1\x01\n" +
-	"\x10UpdateCollection\x12/.content.collections.v1.UpdateCollectionRequest\x1a0.content.collections.v1.UpdateCollectionResponse\"*\x82\xd3\xe4\x93\x02$:\x01*2\x1f/v1/collections/{collection.id}\x12\x93\x01\n" +
-	"\x10DeleteCollection\x12/.content.collections.v1.DeleteCollectionRequest\x1a0.content.collections.v1.DeleteCollectionResponse\"\x1c\x82\xd3\xe4\x93\x02\x16*\x14/v1/collections/{id}\x12\x8b\x01\n" +
-	"\x0fListCollections\x12..content.collections.v1.ListCollectionsRequest\x1a/.content.collections.v1.ListCollectionsResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/collections\x12\x9b\x01\n" +
-	"\x11GetCollectionTree\x120.content.collections.v1.GetCollectionTreeRequest\x1a1.content.collections.v1.GetCollectionTreeResponse\"!\x82\xd3\xe4\x93\x02\x1b\x12\x19/v1/collections/{id}/tree\x12\x95\x01\n" +
-	"\x0eMoveCollection\x12-.content.collections.v1.MoveCollectionRequest\x1a..content.collections.v1.MoveCollectionResponse\"$\x82\xd3\xe4\x93\x02\x1e:\x01*\"\x19/v1/collections/{id}/move\x12\x9b\x01\n" +
-	"\x11GetCollectionPath\x120.content.collections.v1.GetCollectionPathRequest\x1a1.content.collections.v1.GetCollectionPathResponse\"!\x82\xd3\xe4\x93\x02\x1b\x12\x19/v1/collections/{id}/path\x12\xa4\x01\n" +
-	"\x0fAddToCollection\x12..content.collections.v1.AddToCollectionRequest\x1a/.content.collections.v1.AddToCollectionResponse\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/v1/collections/{collection_id}/items\x12\xbc\x01\n" +
-	"\x14RemoveFromCollection\x123.content.collections.v1.RemoveFromCollectionRequest\x1a4.content.collections.v1.RemoveFromCollectionResponse\"9\x82\xd3\xe4\x93\x023*1/v1/collections/{collection_id}/items/{entity_id}\x12\xaa\x01\n" +
-	"\x12GetCollectionItems\x121.content.collections.v1.GetCollectionItemsRequest\x1a2.content.collections.v1.GetCollectionItemsResponse\"-\x82\xd3\xe4\x93\x02'\x12%/v1/collections/{collection_id}/items\x12\xad\x01\n" +
-	"\x14GetEntityCollections\x123.content.collections.v1.GetEntityCollectionsRequest\x1a4.content.collections.v1.GetEntityCollectionsResponse\"*\x82\xd3\xe4\x93\x02$\x12\"/v1/collections/entity/{entity_id}\x12\x9d\x01\n" +
-	"\fReorderItems\x12+.content.collections.v1.ReorderItemsRequest\x1a,.content.collections.v1.ReorderItemsResponse\"2\x82\xd3\xe4\x93\x02,:\x01*\"'/v1/collections/{collection_id}/reorder\x12\xb9\x01\n" +
-	"\x14BatchAddToCollection\x123.content.collections.v1.BatchAddToCollectionRequest\x1a4.content.collections.v1.BatchAddToCollectionResponse\"6\x82\xd3\xe4\x93\x020:\x01*\"+/v1/collections/{collection_id}/items/batch\x12\xb9\x01\n" +
-	"\x19BatchGetEntityCollections\x128.content.collections.v1.BatchGetEntityCollectionsRequest\x1a9.content.collections.v1.BatchGetEntityCollectionsResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/v1/collections/entity/batchB\xec\x01\n" +
+	"\vcollections\x18\x01 \x03(\v2\".content.collections.v1.CollectionR\vcollections2\xff\x12\n" +
+	"\x12CollectionsService\x12\x8e\x01\n" +
+	"\x10CreateCollection\x12/.content.collections.v1.CreateCollectionRequest\x1a0.content.collections.v1.CreateCollectionResponse\"\x17\x82\xd3\xe4\x93\x02\x11:\x01*\"\f/collections\x12\x87\x01\n" +
+	"\rGetCollection\x12,.content.collections.v1.GetCollectionRequest\x1a-.content.collections.v1.GetCollectionResponse\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/collections/{id}\x12\x9e\x01\n" +
+	"\x10UpdateCollection\x12/.content.collections.v1.UpdateCollectionRequest\x1a0.content.collections.v1.UpdateCollectionResponse\"'\x82\xd3\xe4\x93\x02!:\x01*2\x1c/collections/{collection.id}\x12\x90\x01\n" +
+	"\x10DeleteCollection\x12/.content.collections.v1.DeleteCollectionRequest\x1a0.content.collections.v1.DeleteCollectionResponse\"\x19\x82\xd3\xe4\x93\x02\x13*\x11/collections/{id}\x12\x88\x01\n" +
+	"\x0fListCollections\x12..content.collections.v1.ListCollectionsRequest\x1a/.content.collections.v1.ListCollectionsResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/collections\x12\x98\x01\n" +
+	"\x11GetCollectionTree\x120.content.collections.v1.GetCollectionTreeRequest\x1a1.content.collections.v1.GetCollectionTreeResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/collections/{id}/tree\x12\x92\x01\n" +
+	"\x0eMoveCollection\x12-.content.collections.v1.MoveCollectionRequest\x1a..content.collections.v1.MoveCollectionResponse\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/collections/{id}/move\x12\x98\x01\n" +
+	"\x11GetCollectionPath\x120.content.collections.v1.GetCollectionPathRequest\x1a1.content.collections.v1.GetCollectionPathResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/collections/{id}/path\x12\xa1\x01\n" +
+	"\x0fAddToCollection\x12..content.collections.v1.AddToCollectionRequest\x1a/.content.collections.v1.AddToCollectionResponse\"-\x82\xd3\xe4\x93\x02':\x01*\"\"/collections/{collection_id}/items\x12\xb9\x01\n" +
+	"\x14RemoveFromCollection\x123.content.collections.v1.RemoveFromCollectionRequest\x1a4.content.collections.v1.RemoveFromCollectionResponse\"6\x82\xd3\xe4\x93\x020*./collections/{collection_id}/items/{entity_id}\x12\xa7\x01\n" +
+	"\x12GetCollectionItems\x121.content.collections.v1.GetCollectionItemsRequest\x1a2.content.collections.v1.GetCollectionItemsResponse\"*\x82\xd3\xe4\x93\x02$\x12\"/collections/{collection_id}/items\x12\xaa\x01\n" +
+	"\x14GetEntityCollections\x123.content.collections.v1.GetEntityCollectionsRequest\x1a4.content.collections.v1.GetEntityCollectionsResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/collections/entity/{entity_id}\x12\x9a\x01\n" +
+	"\fReorderItems\x12+.content.collections.v1.ReorderItemsRequest\x1a,.content.collections.v1.ReorderItemsResponse\"/\x82\xd3\xe4\x93\x02):\x01*\"$/collections/{collection_id}/reorder\x12\xb6\x01\n" +
+	"\x14BatchAddToCollection\x123.content.collections.v1.BatchAddToCollectionRequest\x1a4.content.collections.v1.BatchAddToCollectionResponse\"3\x82\xd3\xe4\x93\x02-:\x01*\"(/collections/{collection_id}/items/batch\x12\xb6\x01\n" +
+	"\x19BatchGetEntityCollections\x128.content.collections.v1.BatchGetEntityCollectionsRequest\x1a9.content.collections.v1.BatchGetEntityCollectionsResponse\"$\x82\xd3\xe4\x93\x02\x1e:\x01*\"\x19/collections/entity/batchB\xec\x01\n" +
 	"\x1acom.content.collections.v1B\fServiceProtoP\x01ZFgithub.com/panyam/goapplib/content/gen/go/collections/v1;collectionsv1\xa2\x02\x03CCX\xaa\x02\x16Content.Collections.V1\xca\x02\x16Content\\Collections\\V1\xe2\x02\"Content\\Collections\\V1\\GPBMetadata\xea\x02\x18Content::Collections::V1b\x06proto3"
 
 var (

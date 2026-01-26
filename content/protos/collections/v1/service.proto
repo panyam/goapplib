@@ -20,7 +20,7 @@ service CollectionsService {
   // CreateCollection creates a new collection.
   rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse) {
     option (google.api.http) = {
-      post: "/v1/collections"
+      post: "/collections"
       body: "*"
     };
   }
@@ -28,14 +28,14 @@ service CollectionsService {
   // GetCollection retrieves a collection by ID.
   rpc GetCollection(GetCollectionRequest) returns (GetCollectionResponse) {
     option (google.api.http) = {
-      get: "/v1/collections/{id}"
+      get: "/collections/{id}"
     };
   }
 
   // UpdateCollection updates a collection's properties.
   rpc UpdateCollection(UpdateCollectionRequest) returns (UpdateCollectionResponse) {
     option (google.api.http) = {
-      patch: "/v1/collections/{collection.id}"
+      patch: "/collections/{collection.id}"
       body: "*"
     };
   }
@@ -43,14 +43,14 @@ service CollectionsService {
   // DeleteCollection removes a collection.
   rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse) {
     option (google.api.http) = {
-      delete: "/v1/collections/{id}"
+      delete: "/collections/{id}"
     };
   }
 
   // ListCollections lists collections for an owner with filtering.
   rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse) {
     option (google.api.http) = {
-      get: "/v1/collections"
+      get: "/collections"
     };
   }
 
@@ -59,14 +59,14 @@ service CollectionsService {
   // GetCollectionTree returns a collection and its children as a tree structure.
   rpc GetCollectionTree(GetCollectionTreeRequest) returns (GetCollectionTreeResponse) {
     option (google.api.http) = {
-      get: "/v1/collections/{id}/tree"
+      get: "/collections/{id}/tree"
     };
   }
 
   // MoveCollection moves a collection to a new parent.
   rpc MoveCollection(MoveCollectionRequest) returns (MoveCollectionResponse) {
     option (google.api.http) = {
-      post: "/v1/collections/{id}/move"
+      post: "/collections/{id}/move"
       body: "*"
     };
   }
@@ -74,7 +74,7 @@ service CollectionsService {
   // GetCollectionPath returns the ancestors of a collection (breadcrumb).
   rpc GetCollectionPath(GetCollectionPathRequest) returns (GetCollectionPathResponse) {
     option (google.api.http) = {
-      get: "/v1/collections/{id}/path"
+      get: "/collections/{id}/path"
     };
   }
 
@@ -83,7 +83,7 @@ service CollectionsService {
   // AddToCollection adds an entity to a collection.
   rpc AddToCollection(AddToCollectionRequest) returns (AddToCollectionResponse) {
     option (google.api.http) = {
-      post: "/v1/collections/{collection_id}/items"
+      post: "/collections/{collection_id}/items"
       body: "*"
     };
   }
@@ -91,28 +91,28 @@ service CollectionsService {
   // RemoveFromCollection removes an entity from a collection.
   rpc RemoveFromCollection(RemoveFromCollectionRequest) returns (RemoveFromCollectionResponse) {
     option (google.api.http) = {
-      delete: "/v1/collections/{collection_id}/items/{entity_id}"
+      delete: "/collections/{collection_id}/items/{entity_id}"
     };
   }
 
   // GetCollectionItems returns all items in a collection.
   rpc GetCollectionItems(GetCollectionItemsRequest) returns (GetCollectionItemsResponse) {
     option (google.api.http) = {
-      get: "/v1/collections/{collection_id}/items"
+      get: "/collections/{collection_id}/items"
     };
   }
 
   // GetEntityCollections returns all collections that contain an entity.
   rpc GetEntityCollections(GetEntityCollectionsRequest) returns (GetEntityCollectionsResponse) {
     option (google.api.http) = {
-      get: "/v1/collections/entity/{entity_id}"
+      get: "/collections/entity/{entity_id}"
     };
   }
 
   // ReorderItems updates the display order of items in a collection.
   rpc ReorderItems(ReorderItemsRequest) returns (ReorderItemsResponse) {
     option (google.api.http) = {
-      post: "/v1/collections/{collection_id}/reorder"
+      post: "/collections/{collection_id}/reorder"
       body: "*"
     };
   }
@@ -122,7 +122,7 @@ service CollectionsService {
   // BatchAddToCollection adds multiple entities to a collection at once.
   rpc BatchAddToCollection(BatchAddToCollectionRequest) returns (BatchAddToCollectionResponse) {
     option (google.api.http) = {
-      post: "/v1/collections/{collection_id}/items/batch"
+      post: "/collections/{collection_id}/items/batch"
       body: "*"
     };
   }
@@ -130,7 +130,7 @@ service CollectionsService {
   // BatchGetEntityCollections returns collections for multiple entities at once.
   rpc BatchGetEntityCollections(BatchGetEntityCollectionsRequest) returns (BatchGetEntityCollectionsResponse) {
     option (google.api.http) = {
-      post: "/v1/collections/entity/batch"
+      post: "/collections/entity/batch"
       body: "*"
     };
   }

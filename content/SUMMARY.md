@@ -139,8 +139,8 @@ Indexes are project-wide (not namespace-specific). Wait for indexes to build in 
 | Service             | Protos | GORM Backend | Datastore Backend | Hooks | gRPC | Connect | Mount | Tests | Docs |
 |---------------------|--------|--------------|-------------------|-------|------|---------|-------|-------|------|
 | LikesService        | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅    | ✅   |
-| TagsService         | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ⏳    | ✅    | ✅   |
-| CollectionsService  | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ⏳    | ✅    | ✅   |
+| TagsService         | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅    | ✅   |
+| CollectionsService  | ✅     | ✅           | ✅                | ✅    | ✅   | ✅      | ✅    | ✅    | ✅   |
 | NotesService        | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳    | ⏳   |
 | CommentsService     | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳    | ⏳   |
 | UserActivityService | ⏳     | ⏳           | ⏳                | ⏳    | ⏳   | ⏳      | ⏳    | ⏳    | ⏳   |
