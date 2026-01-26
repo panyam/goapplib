@@ -322,7 +322,7 @@ Business logic (normalization, deduplication, count updates) goes in BaseService
 
 ## Mountable Services Pattern
 
-Services can be mounted at arbitrary user-defined paths with automatic entity ID extraction from URL parameters.
+Services can be mounted at arbitrary user-defined paths with automatic entity ID extraction from URL parameters. Two patterns are supported depending on architecture.
 
 ### Problem
 
@@ -330,59 +330,123 @@ Services like LikesService need to work with different entity types (songs, post
 - `POST /songs/{songId}/likes/` - Add reaction to song
 - `GET /posts/{postId}/likes/counts` - Get like counts for post
 
-### Solution: Mount Middleware + Entity ID Resolution
+### Pattern A: In-Process (Direct)
 
-1. **Common Mount Utilities** (`services/common/mount.go`):
-   - `WithMountedEntityID(ctx, entityID)` - Store entity ID in context
-   - `GetMountedEntityID(ctx)` - Retrieve entity ID from context
-   - `WithEntityParam(paramName)` - Handler option to specify path param name
-   - `EntityParamMiddleware(paramName)` - Middleware that extracts path param
-   - `ExtractPathParam(r, name)` - Router-agnostic param extraction (Go 1.22+, chi, gorilla)
+Service instance runs in the same process as the HTTP server. Uses `RegisterXYZServiceHandlerServer`.
 
-2. **Service Mount Methods** (`services/likes/mount.go`):
-   - `RegisterRESTHandlers(ctx, mux)` - Register with caller's gRPC-gateway mux
-   - `RESTHandler(ctx, opts...)` - Returns http.Handler with default mux
-   - `ConnectHandler(ctx, opts...)` - Returns Connect RPC handler
-
-3. **Entity ID Resolution** (`services/likes/service.go`):
-   - `resolveEntityID(ctx, requestEntityID)` - Falls back to mounted context
-
-### Usage Examples
-
-**With chi router:**
-```go
-r := chi.NewRouter()
-
-// Mount likes at /songs/{songId}/likes
-r.Route("/songs/{songId}", func(r chi.Router) {
-    mux := runtime.NewServeMux()
-    likesService.RegisterRESTHandlers(ctx, mux)
-    r.Mount("/likes/", common.WrapWithEntityExtraction("songId", mux))
-})
+```
+HTTP Request → gRPC-Gateway → Service Instance (same process)
+                              ↓
+                        Direct method call
 ```
 
-**Simple mount with default mux:**
+**Setup:**
 ```go
-handler := likesService.RESTHandler(ctx, common.WithEntityParam("songId"))
+// Create service instance
+service := backends.NewGORMLikesService(db)
+
+// Option 1: Simple mount with default mux
+handler := service.RESTHandler(ctx, common.WithEntityParam("songId"))
 router.Handle("/songs/{songId}/likes/", handler)
-```
 
-**Connect RPC:**
-```go
-path, handler := likesService.ConnectHandler(ctx, common.WithEntityParam("songId"))
+// Option 2: Custom mux with more control
+mux := runtime.NewServeMux(/* custom options */)
+service.RegisterRESTHandlers(ctx, mux)
+router.Handle("/songs/{songId}/likes/", common.WrapWithEntityExtraction("songId", mux))
+
+// Connect RPC
+path, handler := service.ConnectHandler(ctx, common.WithEntityParam("songId"))
 router.Handle("/songs/{songId}/rpc/", handler)
 ```
 
-### Path Parameter Extraction
+### Pattern B: Remote Endpoint (gRPC Gateway Client)
 
-The `ExtractPathParam` function tries multiple routers in order:
-1. Go 1.22+ `r.PathValue(name)`
-2. chi's route context
-3. gorilla/mux vars
+HTTP gateway connects to a remote gRPC server. Entity ID flows through gRPC metadata. Uses `RegisterXYZServiceHandlerFromEndpoint`.
 
-This allows services to work with any router without coupling.
+```
+HTTP Request → gRPC-Gateway → gRPC Client → Network → gRPC Server
+                              ↓                        ↓
+                        Makes gRPC call         Receives & processes
+```
 
-### Entity ID Fallback Logic
+**Gateway side (HTTP server):**
+```go
+// Option 1: Let common create the mux
+mux := common.NewGatewayMux(common.WithEntityParamToMetadata("songId"))
+likesv1.RegisterLikesServiceHandlerFromEndpoint(ctx, mux, grpcAddr, opts)
+router.Handle("/songs/{songId}/likes/", mux)
+
+// Option 2: Create your own mux with custom options
+mux := runtime.NewServeMux(
+    common.EntityMetadataOption(common.WithEntityParamToMetadata("songId")),
+    runtime.WithErrorHandler(myErrorHandler),
+    runtime.WithMarshalerOption("application/json", &runtime.JSONPb{}),
+)
+likesv1.RegisterLikesServiceHandlerFromEndpoint(ctx, mux, grpcAddr, opts)
+router.Handle("/songs/{songId}/likes/", mux)
+
+// Option 3: Combine gateway options with runtime options
+mux := common.NewGatewayMuxWithOptions(
+    []common.GatewayMuxOption{
+        common.WithEntityParamToMetadata("songId"),
+        common.WithExtraMetadata(func(ctx context.Context, r *http.Request) metadata.MD {
+            return metadata.Pairs("x-request-id", r.Header.Get("X-Request-ID"))
+        }),
+    },
+    runtime.WithErrorHandler(myErrorHandler),
+)
+```
+
+**gRPC server side:**
+```go
+// Add interceptor to read entity ID from metadata
+grpcServer := grpc.NewServer(
+    grpc.UnaryInterceptor(common.EntityIDFromMetadataInterceptor()),
+)
+likesv1.RegisterLikesServiceServer(grpcServer, likesService)
+
+// Or combine multiple interceptors
+grpcServer := grpc.NewServer(
+    grpc.ChainUnaryInterceptor(
+        common.EntityIDFromMetadataInterceptor(),
+        common.UserIDFromMetadataInterceptor(myUserIDKey),
+    ),
+)
+```
+
+### Common Utilities
+
+**Context helpers (`services/common/mount.go`):**
+- `WithMountedEntityID(ctx, entityID)` - Store entity ID in context
+- `GetMountedEntityID(ctx)` - Retrieve entity ID from context
+- `GetEntityIDFromContextOrMetadata(ctx)` - Check both context and gRPC metadata
+
+**HTTP middleware (Pattern A):**
+- `WithEntityParam(paramName)` - Handler option to specify path param name
+- `EntityParamMiddleware(paramName)` - Middleware that extracts path param
+- `WrapWithEntityExtraction(paramName, handler)` - Convenience wrapper
+- `ExtractPathParam(r, name)` - Router-agnostic param extraction (Go 1.22+, chi, gorilla)
+
+**Gateway helpers (Pattern B):**
+- `NewGatewayMux(opts...)` - Create mux with entity extraction
+- `NewGatewayMuxWithOptions(gatewayOpts, runtimeOpts...)` - Create mux with both option types
+- `EntityMetadataOption(opts...)` - Returns `runtime.ServeMuxOption` for custom mux
+- `WithEntityParamToMetadata(paramName)` - Extract param, send as metadata
+- `WithUserParamToMetadata(paramName)` - Extract user ID param
+- `WithExtraMetadata(fn)` - Custom metadata extraction
+
+**gRPC interceptors (Pattern B server-side):**
+- `EntityIDFromMetadataInterceptor()` - Read entity ID from metadata
+- `UserIDFromMetadataInterceptor(contextKey)` - Read user ID from metadata
+- `CombinedMetadataInterceptor(userIDKey)` - Read both
+
+**Metadata keys:**
+- `MetadataKeyEntityID = "x-entity-id"`
+- `MetadataKeyUserID = "x-user-id"`
+
+### Entity ID Resolution in Services
+
+Each service method resolves entity ID from request, context, or metadata:
 
 ```go
 func (s *BaseLikesService) resolveEntityID(ctx context.Context, requestEntityID string) string {
@@ -391,10 +455,7 @@ func (s *BaseLikesService) resolveEntityID(ctx context.Context, requestEntityID 
     }
     return GetMountedEntityID(ctx)  // Fall back to mounted context
 }
-```
 
-Each service method calls this before validation:
-```go
 func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionRequest) (*v1.AddReactionResponse, error) {
     req.UserId = s.resolveUserID(ctx, req.UserId)
     req.EntityId = s.resolveEntityID(ctx, req.EntityId)
@@ -402,12 +463,14 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 }
 ```
 
+For Pattern B, the `EntityIDFromMetadataInterceptor` on the gRPC server populates the context before the service method is called.
+
 ### Files for Mount Pattern
 
 | File | Purpose |
 |------|---------|
-| `services/common/mount.go` | Shared context keys and middleware |
-| `services/likes/mount.go` | RESTHandler, ConnectHandler factories |
+| `services/common/mount.go` | Shared context keys, middleware, gateway helpers, interceptors |
+| `services/likes/mount.go` | RESTHandler, ConnectHandler factories (Pattern A) |
 | `services/likes/hooks.go` | GetMountedEntityID, WithMountedEntityID wrappers |
 | `services/likes/service.go` | resolveEntityID method, updated service methods |
 
