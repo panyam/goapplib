@@ -18,14 +18,66 @@ type GORMCollectionsService struct {
 }
 
 // NewGORMCollectionsService creates a new GORM-backed collections service.
-func NewGORMCollectionsService(db *gorm.DB) *GORMCollectionsService {
+func NewGORMCollectionsService(db *gorm.DB, opts ...collections.ServiceOption) *GORMCollectionsService {
 	provider := &gormCollectionsStorageProvider{db: db}
-	base := collections.NewBaseCollectionsService(provider)
+	base := collections.NewBaseCollectionsService(provider, opts...)
 	return &GORMCollectionsService{
 		BaseCollectionsService: base,
 		db:                     db,
 	}
 }
+
+// Re-export hook types and options for convenience
+type (
+	HookContext                = collections.HookContext
+	Event                      = collections.Event
+	EventType                  = collections.EventType
+	AuthorizeHook              = collections.AuthorizeHook
+	ValidateEntityHook         = collections.ValidateEntityHook
+	BeforeCollectionSaveHook   = collections.BeforeCollectionSaveHook
+	AfterCollectionSaveHook    = collections.AfterCollectionSaveHook
+	BeforeCollectionDeleteHook = collections.BeforeCollectionDeleteHook
+	AfterCollectionDeleteHook  = collections.AfterCollectionDeleteHook
+	BeforeItemSaveHook         = collections.BeforeItemSaveHook
+	AfterItemSaveHook          = collections.AfterItemSaveHook
+	BeforeItemDeleteHook       = collections.BeforeItemDeleteHook
+	AfterItemDeleteHook        = collections.AfterItemDeleteHook
+	AfterCollectionsReadHook   = collections.AfterCollectionsReadHook
+	AfterItemsReadHook         = collections.AfterItemsReadHook
+	OnEventHook                = collections.OnEventHook
+)
+
+// Re-export event types
+const (
+	EventCollectionCreated = collections.EventCollectionCreated
+	EventCollectionUpdated = collections.EventCollectionUpdated
+	EventCollectionDeleted = collections.EventCollectionDeleted
+	EventCollectionMoved   = collections.EventCollectionMoved
+	EventItemAdded         = collections.EventItemAdded
+	EventItemRemoved       = collections.EventItemRemoved
+)
+
+// Re-export option functions
+var (
+	WithHooks                  = collections.WithHooks
+	WithOnAuthorize            = collections.WithOnAuthorize
+	WithValidateEntity         = collections.WithValidateEntity
+	WithBeforeCollectionSave   = collections.WithBeforeCollectionSave
+	WithAfterCollectionSave    = collections.WithAfterCollectionSave
+	WithBeforeCollectionDelete = collections.WithBeforeCollectionDelete
+	WithAfterCollectionDelete  = collections.WithAfterCollectionDelete
+	WithBeforeItemSave         = collections.WithBeforeItemSave
+	WithAfterItemSave          = collections.WithAfterItemSave
+	WithBeforeItemDelete       = collections.WithBeforeItemDelete
+	WithAfterItemDelete        = collections.WithAfterItemDelete
+	WithAfterCollectionsRead   = collections.WithAfterCollectionsRead
+	WithAfterItemsRead         = collections.WithAfterItemsRead
+	WithOnEvent                = collections.WithOnEvent
+	WithNormalizer             = collections.WithNormalizer
+	WithMaxDepth               = collections.WithMaxDepth
+	WithUserIDContextKey       = collections.WithUserIDContextKey
+	WithCache                  = collections.WithCache
+)
 
 // AutoMigrate creates the database tables.
 func (s *GORMCollectionsService) AutoMigrate() error {

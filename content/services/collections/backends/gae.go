@@ -31,13 +31,28 @@ type DatastoreCollectionsService struct {
 	collectionItemKind string
 }
 
+// DatastoreServiceOptions holds configuration options for the Datastore collections service.
+type DatastoreServiceOptions struct {
+	// Datastore-specific options (index validation, kind names)
+	DatastoreOptions []dsidx.ServiceOption
+	// Collections service options (hooks, normalizer, etc.)
+	ServiceOptions []collections.ServiceOption
+}
+
 // NewDatastoreCollectionsService creates a new Datastore-backed collections service.
 // Options:
 //   - dsidx.WithValidation(ctx): Validate indexes exist (warns by default, use WithValidationMode to change)
 //   - dsidx.WithValidationMode(mode): Set validation mode (ValidationNone, ValidationWarn, ValidationError)
 //   - dsidx.WithKindNames(map[string]string{"Collection": "MyCollection"}): Override kind names
 func NewDatastoreCollectionsService(client *datastore.Client, namespace string, options ...dsidx.ServiceOption) (*DatastoreCollectionsService, error) {
-	opts := dsidx.ApplyOptions(options...)
+	return NewDatastoreCollectionsServiceWithOpts(client, namespace, DatastoreServiceOptions{
+		DatastoreOptions: options,
+	})
+}
+
+// NewDatastoreCollectionsServiceWithOpts creates a new Datastore-backed collections service with full options.
+func NewDatastoreCollectionsServiceWithOpts(client *datastore.Client, namespace string, options DatastoreServiceOptions) (*DatastoreCollectionsService, error) {
+	opts := dsidx.ApplyOptions(options.DatastoreOptions...)
 
 	// Resolve kind names (use defaults if not overridden)
 	collectionKind := DefaultCollectionKind
@@ -58,7 +73,7 @@ func NewDatastoreCollectionsService(client *datastore.Client, namespace string, 
 		collectionKind:     collectionKind,
 		collectionItemKind: collectionItemKind,
 	}
-	base := collections.NewBaseCollectionsService(provider)
+	base := collections.NewBaseCollectionsService(provider, options.ServiceOptions...)
 	service := &DatastoreCollectionsService{
 		BaseCollectionsService: base,
 		client:                 client,

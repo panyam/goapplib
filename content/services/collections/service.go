@@ -128,15 +128,35 @@ type BaseCollectionsService struct {
 
 	// Maximum allowed depth (0 = unlimited)
 	MaxDepth int32
+
+	// UserIDContextKey is the context key for reading user ID.
+	// Defaults to DefaultUserIDContextKey if not set.
+	UserIDContextKey any
+
+	// Hooks for customization
+	Hooks Hooks
 }
 
 // NewBaseCollectionsService creates a new BaseCollectionsService with the given storage provider.
-func NewBaseCollectionsService(provider CollectionsStorageProvider) *BaseCollectionsService {
-	return &BaseCollectionsService{
+func NewBaseCollectionsService(provider CollectionsStorageProvider, opts ...ServiceOption) *BaseCollectionsService {
+	s := &BaseCollectionsService{
 		StorageProvider: provider,
 		Normalizer:      DefaultNormalizer,
 		MaxDepth:        0, // Unlimited by default
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// resolveUserID returns the user ID from the request, falling back to context if empty.
+// This allows interceptors/middleware to set user ID in context.
+func (s *BaseCollectionsService) resolveUserID(ctx context.Context, requestUserID string) string {
+	if requestUserID != "" {
+		return requestUserID
+	}
+	return GetUserIDFromContext(ctx, s.UserIDContextKey)
 }
 
 // DefaultNormalizer is the default normalization function.
@@ -154,6 +174,21 @@ func (s *BaseCollectionsService) InitializeCache() {
 
 // CreateCollection creates a new collection or returns existing if duplicate.
 func (s *BaseCollectionsService) CreateCollection(ctx context.Context, req *v1.CreateCollectionRequest) (*v1.CreateCollectionResponse, error) {
+	// Resolve owner ID from request or context
+	req.OwnerId = s.resolveUserID(ctx, req.OwnerId)
+
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "CreateCollection",
+			UserID:    req.OwnerId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
 	if req.Name == "" {
 		return nil, ErrNameRequired
 	}
@@ -224,13 +259,35 @@ func (s *BaseCollectionsService) CreateCollection(ctx context.Context, req *v1.C
 		collection.Visibility = v1.CollectionVisibility_COLLECTION_VISIBILITY_PRIVATE
 	}
 
+	// BeforeCollectionSave hook
+	if s.Hooks.BeforeCollectionSave != nil {
+		if err := s.Hooks.BeforeCollectionSave(ctx, collection); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.StorageProvider.SaveCollection(ctx, collection); err != nil {
 		return nil, err
+	}
+
+	// AfterCollectionSave hook (errors logged, don't fail operation)
+	if s.Hooks.AfterCollectionSave != nil {
+		_ = s.Hooks.AfterCollectionSave(ctx, collection)
 	}
 
 	// Update parent's child_count
 	if req.ParentId != "" {
 		s.incrementChildCount(ctx, req.ParentId, 1)
+	}
+
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:         EventCollectionCreated,
+			CollectionID: collection.Id,
+			UserID:       req.OwnerId,
+			Collection:   collection,
+		})
 	}
 
 	s.cacheCollection(collection)
@@ -267,6 +324,19 @@ func (s *BaseCollectionsService) GetCollection(ctx context.Context, req *v1.GetC
 
 // UpdateCollection updates a collection's properties.
 func (s *BaseCollectionsService) UpdateCollection(ctx context.Context, req *v1.UpdateCollectionRequest) (*v1.UpdateCollectionResponse, error) {
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation:    "UpdateCollection",
+			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
+			CollectionID: req.Collection.GetId(),
+			Request:      req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
 	if req.Collection == nil || req.Collection.Id == "" {
 		return nil, ErrCollectionIDRequired
 	}
@@ -315,8 +385,30 @@ func (s *BaseCollectionsService) UpdateCollection(ctx context.Context, req *v1.U
 
 	existing.UpdatedAt = timestamppb.New(time.Now())
 
+	// BeforeCollectionSave hook
+	if s.Hooks.BeforeCollectionSave != nil {
+		if err := s.Hooks.BeforeCollectionSave(ctx, existing); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.StorageProvider.SaveCollection(ctx, existing); err != nil {
 		return nil, err
+	}
+
+	// AfterCollectionSave hook (errors logged, don't fail operation)
+	if s.Hooks.AfterCollectionSave != nil {
+		_ = s.Hooks.AfterCollectionSave(ctx, existing)
+	}
+
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:         EventCollectionUpdated,
+			CollectionID: existing.Id,
+			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
+			Collection:   existing,
+		})
 	}
 
 	s.invalidateCollectionCache(existing.Id)
@@ -326,6 +418,19 @@ func (s *BaseCollectionsService) UpdateCollection(ctx context.Context, req *v1.U
 
 // DeleteCollection removes a collection.
 func (s *BaseCollectionsService) DeleteCollection(ctx context.Context, req *v1.DeleteCollectionRequest) (*v1.DeleteCollectionResponse, error) {
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation:    "DeleteCollection",
+			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
+			CollectionID: req.Id,
+			Request:      req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
 	if req.Id == "" {
 		return nil, ErrCollectionIDRequired
 	}
@@ -336,6 +441,13 @@ func (s *BaseCollectionsService) DeleteCollection(ctx context.Context, req *v1.D
 	}
 	if existing == nil {
 		return &v1.DeleteCollectionResponse{Deleted: false}, nil
+	}
+
+	// BeforeCollectionDelete hook
+	if s.Hooks.BeforeCollectionDelete != nil {
+		if err := s.Hooks.BeforeCollectionDelete(ctx, existing); err != nil {
+			return nil, err
+		}
 	}
 
 	// Check if collection has children or items
@@ -370,9 +482,26 @@ func (s *BaseCollectionsService) DeleteCollection(ctx context.Context, req *v1.D
 		return nil, err
 	}
 
+	// AfterCollectionDelete hook (errors logged, don't fail operation)
+	if s.Hooks.AfterCollectionDelete != nil {
+		_ = s.Hooks.AfterCollectionDelete(ctx, existing)
+	}
+
 	// Update parent's child_count
 	if existing.ParentId != "" {
 		s.incrementChildCount(ctx, existing.ParentId, -1)
+	}
+
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:             EventCollectionDeleted,
+			CollectionID:     req.Id,
+			UserID:           GetUserIDFromContext(ctx, s.UserIDContextKey),
+			Collection:       existing,
+			ChildrenAffected: childrenDeleted,
+			ItemsAffected:    itemsRemoved,
+		})
 	}
 
 	s.invalidateCollectionCache(req.Id)
@@ -409,6 +538,11 @@ func (s *BaseCollectionsService) ListCollections(ctx context.Context, req *v1.Li
 	collections, total, err := s.StorageProvider.ListCollections(ctx, opts)
 	if err != nil {
 		return nil, err
+	}
+
+	// AfterCollectionsRead hook
+	if len(collections) > 0 && s.Hooks.AfterCollectionsRead != nil {
+		_ = s.Hooks.AfterCollectionsRead(ctx, collections)
 	}
 
 	var nextToken string
@@ -465,6 +599,19 @@ func (s *BaseCollectionsService) GetCollectionTree(ctx context.Context, req *v1.
 
 // MoveCollection moves a collection to a new parent.
 func (s *BaseCollectionsService) MoveCollection(ctx context.Context, req *v1.MoveCollectionRequest) (*v1.MoveCollectionResponse, error) {
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation:    "MoveCollection",
+			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
+			CollectionID: req.Id,
+			Request:      req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
 	if req.Id == "" {
 		return nil, ErrCollectionIDRequired
 	}
@@ -537,6 +684,19 @@ func (s *BaseCollectionsService) MoveCollection(ctx context.Context, req *v1.Mov
 		s.incrementChildCount(ctx, req.NewParentId, 1)
 	}
 
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:             EventCollectionMoved,
+			CollectionID:     req.Id,
+			UserID:           GetUserIDFromContext(ctx, s.UserIDContextKey),
+			Collection:       collection,
+			OldParentID:      oldParentID,
+			NewParentID:      req.NewParentId,
+			ChildrenAffected: descendantsUpdated,
+		})
+	}
+
 	s.invalidateCollectionCache(req.Id)
 
 	return &v1.MoveCollectionResponse{
@@ -576,11 +736,35 @@ func (s *BaseCollectionsService) GetCollectionPath(ctx context.Context, req *v1.
 
 // AddToCollection adds an entity to a collection.
 func (s *BaseCollectionsService) AddToCollection(ctx context.Context, req *v1.AddToCollectionRequest) (*v1.AddToCollectionResponse, error) {
+	// Resolve AddedBy from request or context
+	req.AddedBy = s.resolveUserID(ctx, req.AddedBy)
+
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation:    "AddToCollection",
+			UserID:       req.AddedBy,
+			CollectionID: req.CollectionId,
+			EntityID:     req.EntityId,
+			Request:      req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
 	if req.CollectionId == "" {
 		return nil, ErrCollectionIDRequired
 	}
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
+	}
+
+	// ValidateEntity hook
+	if s.Hooks.ValidateEntity != nil {
+		if err := s.Hooks.ValidateEntity(ctx, req.EntityId); err != nil {
+			return nil, err
+		}
 	}
 
 	// Verify collection exists
@@ -620,12 +804,36 @@ func (s *BaseCollectionsService) AddToCollection(ctx context.Context, req *v1.Ad
 		Metadata:     req.Metadata,
 	}
 
+	// BeforeItemSave hook
+	if s.Hooks.BeforeItemSave != nil {
+		if err := s.Hooks.BeforeItemSave(ctx, item, collection); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.StorageProvider.SaveCollectionItem(ctx, item); err != nil {
 		return nil, err
 	}
 
+	// AfterItemSave hook (errors logged, don't fail operation)
+	if s.Hooks.AfterItemSave != nil {
+		_ = s.Hooks.AfterItemSave(ctx, item, collection)
+	}
+
 	// Update collection's item_count
 	s.incrementItemCount(ctx, req.CollectionId, 1)
+
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:         EventItemAdded,
+			CollectionID: req.CollectionId,
+			EntityID:     req.EntityId,
+			UserID:       req.AddedBy,
+			Collection:   collection,
+			Item:         item,
+		})
+	}
 
 	return &v1.AddToCollectionResponse{
 		Item:       item,
@@ -635,6 +843,20 @@ func (s *BaseCollectionsService) AddToCollection(ctx context.Context, req *v1.Ad
 
 // RemoveFromCollection removes an entity from a collection.
 func (s *BaseCollectionsService) RemoveFromCollection(ctx context.Context, req *v1.RemoveFromCollectionRequest) (*v1.RemoveFromCollectionResponse, error) {
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation:    "RemoveFromCollection",
+			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
+			CollectionID: req.CollectionId,
+			EntityID:     req.EntityId,
+			Request:      req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
 	if req.CollectionId == "" {
 		return nil, ErrCollectionIDRequired
 	}
@@ -648,13 +870,36 @@ func (s *BaseCollectionsService) RemoveFromCollection(ctx context.Context, req *
 		return &v1.RemoveFromCollectionResponse{Removed: false}, nil
 	}
 
+	// BeforeItemDelete hook
+	if s.Hooks.BeforeItemDelete != nil {
+		if err := s.Hooks.BeforeItemDelete(ctx, existing); err != nil {
+			return nil, err
+		}
+	}
+
 	// Delete item
 	if err := s.StorageProvider.DeleteCollectionItem(ctx, req.CollectionId, req.EntityId); err != nil {
 		return nil, err
 	}
 
+	// AfterItemDelete hook (errors logged, don't fail operation)
+	if s.Hooks.AfterItemDelete != nil {
+		_ = s.Hooks.AfterItemDelete(ctx, existing)
+	}
+
 	// Update collection's item_count
 	s.incrementItemCount(ctx, req.CollectionId, -1)
+
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:         EventItemRemoved,
+			CollectionID: req.CollectionId,
+			EntityID:     req.EntityId,
+			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
+			Item:         existing,
+		})
+	}
 
 	return &v1.RemoveFromCollectionResponse{Removed: true}, nil
 }
@@ -687,6 +932,11 @@ func (s *BaseCollectionsService) GetCollectionItems(ctx context.Context, req *v1
 		return nil, err
 	}
 
+	// AfterItemsRead hook
+	if len(items) > 0 && s.Hooks.AfterItemsRead != nil {
+		_ = s.Hooks.AfterItemsRead(ctx, items)
+	}
+
 	var nextToken string
 	if offset+len(items) < total {
 		nextToken = fmt.Sprintf("%d", offset+len(items))
@@ -714,6 +964,11 @@ func (s *BaseCollectionsService) GetEntityCollections(ctx context.Context, req *
 	collections, err := s.StorageProvider.ListEntityCollections(ctx, req.EntityId, opts)
 	if err != nil {
 		return nil, err
+	}
+
+	// AfterCollectionsRead hook
+	if len(collections) > 0 && s.Hooks.AfterCollectionsRead != nil {
+		_ = s.Hooks.AfterCollectionsRead(ctx, collections)
 	}
 
 	return &v1.GetEntityCollectionsResponse{Collections: collections}, nil

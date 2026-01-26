@@ -118,7 +118,7 @@ Indexes are project-wide (not namespace-specific). Wait for indexes to build in 
 |---------------------|--------|--------------|-------------------|-------|-------|------|
 | LikesService        | ✅     | ✅           | ✅                | ✅    | ✅    | ✅   |
 | TagsService         | ✅     | ✅           | ✅                | ✅    | ✅    | ✅   |
-| CollectionsService  | ✅     | ✅           | ✅                | ⏳    | ✅    | ✅   |
+| CollectionsService  | ✅     | ✅           | ✅                | ✅    | ✅    | ✅   |
 | NotesService        | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
 | CommentsService     | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
 | UserActivityService | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
@@ -129,12 +129,13 @@ Indexes are project-wide (not namespace-specific). Wait for indexes to build in 
 
 **Removed `owner_type`**: Collections and Tags services now use only `owner_id` in "type:id" format (e.g., "user:123", "org:456"). This simplifies Datastore indexes by removing one field from composite indexes.
 
-### Hooks Pattern (LikesService)
+### Hooks Pattern
 
-Services support lifecycle hooks for customization:
+All services support lifecycle hooks for customization without modifying core code.
 
+**LikesService Example:**
 ```go
-service := backends.NewGORMLikesServiceWithOptions(db,
+service := backends.NewGORMLikesService(db,
     backends.WithUserIDContextKey(myCtxKey),  // Context key for user ID
     backends.WithOnAuthorize(authHook),       // Authorization check
     backends.WithValidateEntity(validateHook), // Entity validation
@@ -144,13 +145,36 @@ service := backends.NewGORMLikesServiceWithOptions(db,
 )
 ```
 
-**Available Hooks:**
-- `OnAuthorize` - Called before operations for auth checks; receives request for modification
-- `ValidateEntity` - Validate entity exists before attaching data
-- `BeforeSave` / `AfterSave` - Lifecycle around save operations
-- `BeforeDelete` / `AfterDelete` - Lifecycle around delete operations
-- `AfterRead` - Data enrichment after reading
-- `OnEvent` - Notifications (EventReactionAdded, EventReactionRemoved, EventReactionChanged)
+**CollectionsService Example:**
+```go
+service := backends.NewGORMCollectionsService(db,
+    backends.WithOnAuthorize(authHook),            // Authorization check
+    backends.WithValidateEntity(validateHook),     // Validate entity before adding
+    backends.WithBeforeCollectionSave(beforeHook), // Before collection save
+    backends.WithAfterCollectionSave(afterHook),   // After collection save
+    backends.WithBeforeItemSave(beforeItemHook),   // Before item save
+    backends.WithAfterItemSave(afterItemHook),     // After item save
+    backends.WithOnEvent(eventHook),               // Event notifications
+)
+```
+
+**Available Hooks by Service:**
+
+| Hook                                              | Likes | Tags | Collections | Description                                      |
+|---------------------------------------------------|-------|------|-------------|--------------------------------------------------|
+| OnAuthorize                                       | ✅    | ✅   | ✅          | Auth check before operations; can modify request |
+| ValidateEntity                                    | ✅    | ✅   | ✅          | Validate entity exists before attaching data     |
+| BeforeSave / AfterSave                            | ✅    | ✅   | -           | Lifecycle around like/tag save                   |
+| BeforeCollectionSave / AfterCollectionSave        | -     | -    | ✅          | Collection lifecycle                             |
+| BeforeItemSave / AfterItemSave                    | -     | -    | ✅          | Collection item lifecycle                        |
+| BeforeDelete / AfterDelete                        | ✅    | ✅   | ✅          | Lifecycle around delete                          |
+| AfterRead / AfterCollectionsRead / AfterItemsRead | ✅    | ✅   | ✅          | Data enrichment after reading                    |
+| OnEvent                                           | ✅    | ✅   | ✅          | Event notifications                              |
+
+**Event Types:**
+- LikesService: `reaction.added`, `reaction.removed`, `reaction.changed`
+- TagsService: `tag.created`, `tag.deleted`, `entity.tagged`, `entity.untagged`
+- CollectionsService: `collection.created`, `collection.updated`, `collection.deleted`, `collection.moved`, `item.added`, `item.removed`
 
 **Context-based User ID:**
 Services auto-resolve user ID from context if not in request. This allows interceptors/middleware to set auth context:

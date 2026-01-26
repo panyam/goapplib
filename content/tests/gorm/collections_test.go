@@ -7,8 +7,19 @@ import (
 	"testing"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/collections/v1"
+	"github.com/panyam/goapplib/content/services/collections"
 	"github.com/panyam/goapplib/content/services/collections/backends"
 )
+
+// setupCollectionsServiceWithOptions creates a collections service with options.
+func setupCollectionsServiceWithOptions(t *testing.T, opts ...collections.ServiceOption) *backends.GORMCollectionsService {
+	db := setupTestDB(t)
+	service := backends.NewGORMCollectionsService(db, opts...)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+	return service
+}
 
 // setupCollectionsService creates a collections service with auto-migration.
 func setupCollectionsService(t *testing.T) *backends.GORMCollectionsService {
@@ -664,5 +675,517 @@ func TestCollectionsService_BatchOperations(t *testing.T) {
 	}
 	if batchAddResp2.AlreadyExisted != 1 {
 		t.Errorf("Expected already_existed=1, got %d", batchAddResp2.AlreadyExisted)
+	}
+}
+
+// ============================================================================
+// Hook Tests
+// ============================================================================
+
+// TestCollectionsService_OnAuthorizeHook tests the authorization hook.
+func TestCollectionsService_OnAuthorizeHook(t *testing.T) {
+	authCalled := false
+	authDenied := false
+
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithOnAuthorize(func(ctx context.Context, hookCtx *backends.HookContext) error {
+			authCalled = true
+			if hookCtx.Operation != "CreateCollection" {
+				t.Errorf("Expected operation=CreateCollection, got %s", hookCtx.Operation)
+			}
+			if authDenied {
+				return fmt.Errorf("access denied")
+			}
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Test successful authorization
+	_, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "My Folder",
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateCollection failed: %v", err)
+	}
+	if !authCalled {
+		t.Error("Expected OnAuthorize hook to be called")
+	}
+
+	// Test authorization denial
+	authCalled = false
+	authDenied = true
+	_, err = service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "Another Folder",
+		OwnerId: "user-1",
+	})
+	if err == nil {
+		t.Error("Expected CreateCollection to fail when authorization denied")
+	}
+	if !authCalled {
+		t.Error("Expected OnAuthorize hook to be called")
+	}
+}
+
+// TestCollectionsService_ValidateEntityHook tests the entity validation hook.
+func TestCollectionsService_ValidateEntityHook(t *testing.T) {
+	validEntities := map[string]bool{
+		"entity-1": true,
+		"entity-2": true,
+	}
+
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithValidateEntity(func(ctx context.Context, entityID string) error {
+			if !validEntities[entityID] {
+				return fmt.Errorf("entity not found: %s", entityID)
+			}
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Create a collection first
+	collResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "Test Collection",
+		OwnerId: "user-1",
+	})
+	collID := collResp.Collection.Id
+
+	// Test valid entity
+	_, err := service.AddToCollection(ctx, &v1.AddToCollectionRequest{
+		CollectionId: collID,
+		EntityId:     "entity-1",
+		AddedBy:      "user-1",
+	})
+	if err != nil {
+		t.Fatalf("AddToCollection failed for valid entity: %v", err)
+	}
+
+	// Test invalid entity
+	_, err = service.AddToCollection(ctx, &v1.AddToCollectionRequest{
+		CollectionId: collID,
+		EntityId:     "invalid-entity",
+		AddedBy:      "user-1",
+	})
+	if err == nil {
+		t.Error("Expected AddToCollection to fail for invalid entity")
+	}
+}
+
+// TestCollectionsService_BeforeAfterCollectionSaveHooks tests the collection save lifecycle hooks.
+func TestCollectionsService_BeforeAfterCollectionSaveHooks(t *testing.T) {
+	beforeSaveCalled := false
+	afterSaveCalled := false
+	var savedCollectionID string
+
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithBeforeCollectionSave(func(ctx context.Context, collection *v1.Collection) error {
+			beforeSaveCalled = true
+			// Verify we can inspect the collection before save
+			if collection.Name == "" {
+				return fmt.Errorf("name should be set")
+			}
+			return nil
+		}),
+		backends.WithAfterCollectionSave(func(ctx context.Context, collection *v1.Collection) error {
+			afterSaveCalled = true
+			savedCollectionID = collection.Id
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	resp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "My Collection",
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateCollection failed: %v", err)
+	}
+
+	if !beforeSaveCalled {
+		t.Error("Expected BeforeCollectionSave hook to be called")
+	}
+	if !afterSaveCalled {
+		t.Error("Expected AfterCollectionSave hook to be called")
+	}
+	if savedCollectionID != resp.Collection.Id {
+		t.Errorf("Expected savedCollectionID=%s, got %s", resp.Collection.Id, savedCollectionID)
+	}
+}
+
+// TestCollectionsService_BeforeAfterCollectionDeleteHooks tests the collection delete lifecycle hooks.
+func TestCollectionsService_BeforeAfterCollectionDeleteHooks(t *testing.T) {
+	beforeDeleteCalled := false
+	afterDeleteCalled := false
+	var deletedCollectionName string
+
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithBeforeCollectionDelete(func(ctx context.Context, collection *v1.Collection) error {
+			beforeDeleteCalled = true
+			return nil
+		}),
+		backends.WithAfterCollectionDelete(func(ctx context.Context, collection *v1.Collection) error {
+			afterDeleteCalled = true
+			deletedCollectionName = collection.Name
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// First create a collection
+	resp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "To Delete",
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateCollection failed: %v", err)
+	}
+
+	// Now delete it
+	_, err = service.DeleteCollection(ctx, &v1.DeleteCollectionRequest{
+		Id: resp.Collection.Id,
+	})
+	if err != nil {
+		t.Fatalf("DeleteCollection failed: %v", err)
+	}
+
+	if !beforeDeleteCalled {
+		t.Error("Expected BeforeCollectionDelete hook to be called")
+	}
+	if !afterDeleteCalled {
+		t.Error("Expected AfterCollectionDelete hook to be called")
+	}
+	if deletedCollectionName != "To Delete" {
+		t.Errorf("Expected deletedCollectionName='To Delete', got %s", deletedCollectionName)
+	}
+}
+
+// TestCollectionsService_BeforeAfterItemSaveHooks tests the item save lifecycle hooks.
+func TestCollectionsService_BeforeAfterItemSaveHooks(t *testing.T) {
+	beforeSaveCalled := false
+	afterSaveCalled := false
+	var savedEntityID string
+	var savedCollectionName string
+
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithBeforeItemSave(func(ctx context.Context, item *v1.CollectionItem, collection *v1.Collection) error {
+			beforeSaveCalled = true
+			if item.EntityId == "" {
+				return fmt.Errorf("entity_id should be set")
+			}
+			return nil
+		}),
+		backends.WithAfterItemSave(func(ctx context.Context, item *v1.CollectionItem, collection *v1.Collection) error {
+			afterSaveCalled = true
+			savedEntityID = item.EntityId
+			savedCollectionName = collection.Name
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Create collection
+	collResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "My Playlist",
+		OwnerId: "user-1",
+	})
+
+	// Add item
+	_, err := service.AddToCollection(ctx, &v1.AddToCollectionRequest{
+		CollectionId: collResp.Collection.Id,
+		EntityId:     "song-1",
+		AddedBy:      "user-1",
+	})
+	if err != nil {
+		t.Fatalf("AddToCollection failed: %v", err)
+	}
+
+	if !beforeSaveCalled {
+		t.Error("Expected BeforeItemSave hook to be called")
+	}
+	if !afterSaveCalled {
+		t.Error("Expected AfterItemSave hook to be called")
+	}
+	if savedEntityID != "song-1" {
+		t.Errorf("Expected savedEntityID=song-1, got %s", savedEntityID)
+	}
+	if savedCollectionName != "My Playlist" {
+		t.Errorf("Expected savedCollectionName='My Playlist', got %s", savedCollectionName)
+	}
+}
+
+// TestCollectionsService_BeforeAfterItemDeleteHooks tests the item delete lifecycle hooks.
+func TestCollectionsService_BeforeAfterItemDeleteHooks(t *testing.T) {
+	beforeDeleteCalled := false
+	afterDeleteCalled := false
+	var deletedEntityID string
+
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithBeforeItemDelete(func(ctx context.Context, item *v1.CollectionItem) error {
+			beforeDeleteCalled = true
+			return nil
+		}),
+		backends.WithAfterItemDelete(func(ctx context.Context, item *v1.CollectionItem) error {
+			afterDeleteCalled = true
+			deletedEntityID = item.EntityId
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Create collection and add item
+	collResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "My Playlist",
+		OwnerId: "user-1",
+	})
+	service.AddToCollection(ctx, &v1.AddToCollectionRequest{
+		CollectionId: collResp.Collection.Id,
+		EntityId:     "song-1",
+		AddedBy:      "user-1",
+	})
+
+	// Remove item
+	_, err := service.RemoveFromCollection(ctx, &v1.RemoveFromCollectionRequest{
+		CollectionId: collResp.Collection.Id,
+		EntityId:     "song-1",
+	})
+	if err != nil {
+		t.Fatalf("RemoveFromCollection failed: %v", err)
+	}
+
+	if !beforeDeleteCalled {
+		t.Error("Expected BeforeItemDelete hook to be called")
+	}
+	if !afterDeleteCalled {
+		t.Error("Expected AfterItemDelete hook to be called")
+	}
+	if deletedEntityID != "song-1" {
+		t.Errorf("Expected deletedEntityID=song-1, got %s", deletedEntityID)
+	}
+}
+
+// TestCollectionsService_OnEventHook tests the event notification hook.
+func TestCollectionsService_OnEventHook(t *testing.T) {
+	var events []*backends.Event
+
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithOnEvent(func(ctx context.Context, event *backends.Event) error {
+			events = append(events, event)
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Create collection - should trigger EventCollectionCreated
+	collResp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "My Folder",
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateCollection failed: %v", err)
+	}
+
+	if len(events) != 1 {
+		t.Fatalf("Expected 1 event, got %d", len(events))
+	}
+	if events[0].Type != backends.EventCollectionCreated {
+		t.Errorf("Expected event type=%s, got %s", backends.EventCollectionCreated, events[0].Type)
+	}
+
+	// Add item - should trigger EventItemAdded
+	_, err = service.AddToCollection(ctx, &v1.AddToCollectionRequest{
+		CollectionId: collResp.Collection.Id,
+		EntityId:     "doc-1",
+		AddedBy:      "user-1",
+	})
+	if err != nil {
+		t.Fatalf("AddToCollection failed: %v", err)
+	}
+
+	if len(events) != 2 {
+		t.Fatalf("Expected 2 events, got %d", len(events))
+	}
+	if events[1].Type != backends.EventItemAdded {
+		t.Errorf("Expected event type=%s, got %s", backends.EventItemAdded, events[1].Type)
+	}
+	if events[1].EntityID != "doc-1" {
+		t.Errorf("Expected entityID=doc-1, got %s", events[1].EntityID)
+	}
+
+	// Remove item - should trigger EventItemRemoved
+	_, err = service.RemoveFromCollection(ctx, &v1.RemoveFromCollectionRequest{
+		CollectionId: collResp.Collection.Id,
+		EntityId:     "doc-1",
+	})
+	if err != nil {
+		t.Fatalf("RemoveFromCollection failed: %v", err)
+	}
+
+	if len(events) != 3 {
+		t.Fatalf("Expected 3 events, got %d", len(events))
+	}
+	if events[2].Type != backends.EventItemRemoved {
+		t.Errorf("Expected event type=%s, got %s", backends.EventItemRemoved, events[2].Type)
+	}
+
+	// Delete collection - should trigger EventCollectionDeleted
+	_, err = service.DeleteCollection(ctx, &v1.DeleteCollectionRequest{
+		Id: collResp.Collection.Id,
+	})
+	if err != nil {
+		t.Fatalf("DeleteCollection failed: %v", err)
+	}
+
+	if len(events) != 4 {
+		t.Fatalf("Expected 4 events, got %d", len(events))
+	}
+	if events[3].Type != backends.EventCollectionDeleted {
+		t.Errorf("Expected event type=%s, got %s", backends.EventCollectionDeleted, events[3].Type)
+	}
+}
+
+// TestCollectionsService_AfterCollectionsReadHook tests the after collections read hook.
+func TestCollectionsService_AfterCollectionsReadHook(t *testing.T) {
+	enrichmentCalled := false
+
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithAfterCollectionsRead(func(ctx context.Context, collections []*v1.Collection) error {
+			enrichmentCalled = true
+			// Could enrich collections here (e.g., add computed fields)
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Create a collection
+	_, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "My Folder",
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateCollection failed: %v", err)
+	}
+
+	// List collections - should trigger AfterCollectionsRead
+	_, err = service.ListCollections(ctx, &v1.ListCollectionsRequest{
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("ListCollections failed: %v", err)
+	}
+
+	if !enrichmentCalled {
+		t.Error("Expected AfterCollectionsRead hook to be called")
+	}
+}
+
+// TestCollectionsService_AfterItemsReadHook tests the after items read hook.
+func TestCollectionsService_AfterItemsReadHook(t *testing.T) {
+	enrichmentCalled := false
+
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithAfterItemsRead(func(ctx context.Context, items []*v1.CollectionItem) error {
+			enrichmentCalled = true
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Create collection and add items
+	collResp, _ := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name:    "My Playlist",
+		OwnerId: "user-1",
+	})
+	service.AddToCollection(ctx, &v1.AddToCollectionRequest{
+		CollectionId: collResp.Collection.Id,
+		EntityId:     "song-1",
+		AddedBy:      "user-1",
+	})
+
+	// Get items - should trigger AfterItemsRead
+	_, err := service.GetCollectionItems(ctx, &v1.GetCollectionItemsRequest{
+		CollectionId: collResp.Collection.Id,
+	})
+	if err != nil {
+		t.Fatalf("GetCollectionItems failed: %v", err)
+	}
+
+	if !enrichmentCalled {
+		t.Error("Expected AfterItemsRead hook to be called")
+	}
+}
+
+// TestCollectionsService_HookCanModifyRequest tests that auth hook can modify request.
+func TestCollectionsService_HookCanModifyRequest(t *testing.T) {
+	service := setupCollectionsServiceWithOptions(t,
+		backends.WithOnAuthorize(func(ctx context.Context, hookCtx *backends.HookContext) error {
+			// Modify the request to set owner ID from "authenticated" context
+			if req, ok := hookCtx.Request.(*v1.CreateCollectionRequest); ok {
+				if req.OwnerId == "" {
+					req.OwnerId = "auth-user-123"
+				}
+			}
+			return nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Create collection without OwnerId - hook should set it
+	resp, err := service.CreateCollection(ctx, &v1.CreateCollectionRequest{
+		Name: "My Folder",
+		// OwnerId intentionally empty
+	})
+	if err != nil {
+		t.Fatalf("CreateCollection failed: %v", err)
+	}
+
+	if resp.Collection.OwnerId != "auth-user-123" {
+		t.Errorf("Expected OwnerId=auth-user-123, got %s", resp.Collection.OwnerId)
+	}
+}
+
+// TestCollectionsService_UserIDFromContext tests user ID resolution from context.
+func TestCollectionsService_UserIDFromContext(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create service with custom context key
+	service := backends.NewGORMCollectionsService(db,
+		backends.WithUserIDContextKey("my-user-key"),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	// Create a collection first (with explicit owner)
+	collResp, _ := service.CreateCollection(context.Background(), &v1.CreateCollectionRequest{
+		Name:    "Test Collection",
+		OwnerId: "explicit-owner",
+	})
+
+	// Add item with user ID from context
+	ctx := context.WithValue(context.Background(), "my-user-key", "context-user-456")
+	addResp, err := service.AddToCollection(ctx, &v1.AddToCollectionRequest{
+		CollectionId: collResp.Collection.Id,
+		EntityId:     "doc-1",
+		// AddedBy intentionally empty - should be resolved from context
+	})
+	if err != nil {
+		t.Fatalf("AddToCollection failed: %v", err)
+	}
+
+	if addResp.Item.AddedBy != "context-user-456" {
+		t.Errorf("Expected AddedBy=context-user-456, got %s", addResp.Item.AddedBy)
 	}
 }
