@@ -14,7 +14,7 @@ service LikesService {
   // If user already has a reaction, it replaces the previous one.
   rpc AddReaction(AddReactionRequest) returns (AddReactionResponse) {
     option (google.api.http) = {
-      post: "/v1/likes"
+      post: "/likes"
       body: "*"
     };
   }
@@ -22,7 +22,7 @@ service LikesService {
   // RemoveReaction removes a user's reaction from an entity.
   rpc RemoveReaction(RemoveReactionRequest) returns (RemoveReactionResponse) {
     option (google.api.http) = {
-      delete: "/v1/likes"
+      delete: "/likes"
     };
   }
 
@@ -30,7 +30,7 @@ service LikesService {
   // it removes it. If different or none, it sets the new reaction.
   rpc ToggleReaction(ToggleReactionRequest) returns (ToggleReactionResponse) {
     option (google.api.http) = {
-      post: "/v1/likes/toggle"
+      post: "/likes/toggle"
       body: "*"
     };
   }
@@ -38,35 +38,35 @@ service LikesService {
   // GetUserReaction returns a user's current reaction on an entity (if any).
   rpc GetUserReaction(GetUserReactionRequest) returns (GetUserReactionResponse) {
     option (google.api.http) = {
-      get: "/v1/likes/user"
+      get: "/likes/user"
     };
   }
 
   // GetLikeCounts returns aggregated reaction counts for an entity.
   rpc GetLikeCounts(GetLikeCountsRequest) returns (GetLikeCountsResponse) {
     option (google.api.http) = {
-      get: "/v1/likes/counts/{entity_id}"
+      get: "/likes/counts"
     };
   }
 
   // ListReactors returns users who reacted to an entity.
   rpc ListReactors(ListReactorsRequest) returns (ListReactorsResponse) {
     option (google.api.http) = {
-      get: "/v1/likes/reactors/{entity_id}"
+      get: "/likes/reactors"
     };
   }
 
   // ListUserReactions returns all reactions by a specific user.
   rpc ListUserReactions(ListUserReactionsRequest) returns (ListUserReactionsResponse) {
     option (google.api.http) = {
-      get: "/v1/likes/user/{user_id}"
+      get: "/likes/users/{user_id}"
     };
   }
 
   // BatchGetUserReactions returns a user's reactions for multiple entities.
   rpc BatchGetUserReactions(BatchGetUserReactionsRequest) returns (BatchGetUserReactionsResponse) {
     option (google.api.http) = {
-      post: "/v1/likes/batch/user-reactions"
+      post: "/likes/batch/user-reactions"
       body: "*"
     };
   }
@@ -74,7 +74,7 @@ service LikesService {
   // BatchGetLikeCounts returns reaction counts for multiple entities.
   rpc BatchGetLikeCounts(BatchGetLikeCountsRequest) returns (BatchGetLikeCountsResponse) {
     option (google.api.http) = {
-      post: "/v1/likes/batch/counts"
+      post: "/likes/batch/counts"
       body: "*"
     };
   }
@@ -82,7 +82,7 @@ service LikesService {
   // CreateReactionType creates a new reaction type (admin operation).
   rpc CreateReactionType(CreateReactionTypeRequest) returns (CreateReactionTypeResponse) {
     option (google.api.http) = {
-      post: "/v1/likes/reaction-types"
+      post: "/likes/reaction-types"
       body: "*"
     };
   }
@@ -90,7 +90,7 @@ service LikesService {
   // ListReactionTypes returns all available reaction types.
   rpc ListReactionTypes(ListReactionTypesRequest) returns (ListReactionTypesResponse) {
     option (google.api.http) = {
-      get: "/v1/likes/reaction-types"
+      get: "/likes/reaction-types"
     };
   }
 }

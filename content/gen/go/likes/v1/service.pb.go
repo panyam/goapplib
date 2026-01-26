@@ -1220,19 +1220,19 @@ const file_likes_v1_service_proto_rawDesc = "" +
 	"\rreaction_type\x18\x01 \x01(\v2\x1e.content.likes.v1.ReactionTypeR\freactionType\"\x1a\n" +
 	"\x18ListReactionTypesRequest\"b\n" +
 	"\x19ListReactionTypesResponse\x12E\n" +
-	"\x0ereaction_types\x18\x01 \x03(\v2\x1e.content.likes.v1.ReactionTypeR\rreactionTypes2\x80\f\n" +
-	"\fLikesService\x12p\n" +
-	"\vAddReaction\x12$.content.likes.v1.AddReactionRequest\x1a%.content.likes.v1.AddReactionResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/likes\x12v\n" +
-	"\x0eRemoveReaction\x12'.content.likes.v1.RemoveReactionRequest\x1a(.content.likes.v1.RemoveReactionResponse\"\x11\x82\xd3\xe4\x93\x02\v*\t/v1/likes\x12\x80\x01\n" +
-	"\x0eToggleReaction\x12'.content.likes.v1.ToggleReactionRequest\x1a(.content.likes.v1.ToggleReactionResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*\"\x10/v1/likes/toggle\x12~\n" +
-	"\x0fGetUserReaction\x12(.content.likes.v1.GetUserReactionRequest\x1a).content.likes.v1.GetUserReactionResponse\"\x16\x82\xd3\xe4\x93\x02\x10\x12\x0e/v1/likes/user\x12\x86\x01\n" +
-	"\rGetLikeCounts\x12&.content.likes.v1.GetLikeCountsRequest\x1a'.content.likes.v1.GetLikeCountsResponse\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/v1/likes/counts/{entity_id}\x12\x85\x01\n" +
-	"\fListReactors\x12%.content.likes.v1.ListReactorsRequest\x1a&.content.likes.v1.ListReactorsResponse\"&\x82\xd3\xe4\x93\x02 \x12\x1e/v1/likes/reactors/{entity_id}\x12\x8e\x01\n" +
-	"\x11ListUserReactions\x12*.content.likes.v1.ListUserReactionsRequest\x1a+.content.likes.v1.ListUserReactionsResponse\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/v1/likes/user/{user_id}\x12\xa3\x01\n" +
-	"\x15BatchGetUserReactions\x12..content.likes.v1.BatchGetUserReactionsRequest\x1a/.content.likes.v1.BatchGetUserReactionsResponse\")\x82\xd3\xe4\x93\x02#:\x01*\"\x1e/v1/likes/batch/user-reactions\x12\x92\x01\n" +
-	"\x12BatchGetLikeCounts\x12+.content.likes.v1.BatchGetLikeCountsRequest\x1a,.content.likes.v1.BatchGetLikeCountsResponse\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/v1/likes/batch/counts\x12\x94\x01\n" +
-	"\x12CreateReactionType\x12+.content.likes.v1.CreateReactionTypeRequest\x1a,.content.likes.v1.CreateReactionTypeResponse\"#\x82\xd3\xe4\x93\x02\x1d:\x01*\"\x18/v1/likes/reaction-types\x12\x8e\x01\n" +
-	"\x11ListReactionTypes\x12*.content.likes.v1.ListReactionTypesRequest\x1a+.content.likes.v1.ListReactionTypesResponse\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/v1/likes/reaction-typesB\xc2\x01\n" +
+	"\x0ereaction_types\x18\x01 \x03(\v2\x1e.content.likes.v1.ReactionTypeR\rreactionTypes2\xc5\v\n" +
+	"\fLikesService\x12m\n" +
+	"\vAddReaction\x12$.content.likes.v1.AddReactionRequest\x1a%.content.likes.v1.AddReactionResponse\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/likes\x12s\n" +
+	"\x0eRemoveReaction\x12'.content.likes.v1.RemoveReactionRequest\x1a(.content.likes.v1.RemoveReactionResponse\"\x0e\x82\xd3\xe4\x93\x02\b*\x06/likes\x12}\n" +
+	"\x0eToggleReaction\x12'.content.likes.v1.ToggleReactionRequest\x1a(.content.likes.v1.ToggleReactionResponse\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/likes/toggle\x12{\n" +
+	"\x0fGetUserReaction\x12(.content.likes.v1.GetUserReactionRequest\x1a).content.likes.v1.GetUserReactionResponse\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/likes/user\x12w\n" +
+	"\rGetLikeCounts\x12&.content.likes.v1.GetLikeCountsRequest\x1a'.content.likes.v1.GetLikeCountsResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/likes/counts\x12v\n" +
+	"\fListReactors\x12%.content.likes.v1.ListReactorsRequest\x1a&.content.likes.v1.ListReactorsResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/likes/reactors\x12\x8c\x01\n" +
+	"\x11ListUserReactions\x12*.content.likes.v1.ListUserReactionsRequest\x1a+.content.likes.v1.ListUserReactionsResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/likes/users/{user_id}\x12\xa0\x01\n" +
+	"\x15BatchGetUserReactions\x12..content.likes.v1.BatchGetUserReactionsRequest\x1a/.content.likes.v1.BatchGetUserReactionsResponse\"&\x82\xd3\xe4\x93\x02 :\x01*\"\x1b/likes/batch/user-reactions\x12\x8f\x01\n" +
+	"\x12BatchGetLikeCounts\x12+.content.likes.v1.BatchGetLikeCountsRequest\x1a,.content.likes.v1.BatchGetLikeCountsResponse\"\x1e\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/likes/batch/counts\x12\x91\x01\n" +
+	"\x12CreateReactionType\x12+.content.likes.v1.CreateReactionTypeRequest\x1a,.content.likes.v1.CreateReactionTypeResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/likes/reaction-types\x12\x8b\x01\n" +
+	"\x11ListReactionTypes\x12*.content.likes.v1.ListReactionTypesRequest\x1a+.content.likes.v1.ListReactionTypesResponse\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/likes/reaction-typesB\xc2\x01\n" +
 	"\x14com.content.likes.v1B\fServiceProtoP\x01Z:github.com/panyam/goapplib/content/gen/go/likes/v1;likesv1\xa2\x02\x03CLX\xaa\x02\x10Content.Likes.V1\xca\x02\x10Content\\Likes\\V1\xe2\x02\x1cContent\\Likes\\V1\\GPBMetadata\xea\x02\x12Content::Likes::V1b\x06proto3"
 
 var (

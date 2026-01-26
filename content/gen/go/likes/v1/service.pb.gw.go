@@ -159,22 +159,21 @@ func local_request_LikesService_GetUserReaction_0(ctx context.Context, marshaler
 	return msg, metadata, err
 }
 
+var filter_LikesService_GetLikeCounts_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+
 func request_LikesService_GetLikeCounts_0(ctx context.Context, marshaler runtime.Marshaler, client LikesServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq GetLikeCountsRequest
 		metadata runtime.ServerMetadata
-		err      error
 	)
 	if req.Body != nil {
 		_, _ = io.Copy(io.Discard, req.Body)
 	}
-	val, ok := pathParams["entity_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "entity_id")
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	protoReq.EntityId, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "entity_id", err)
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_LikesService_GetLikeCounts_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	msg, err := client.GetLikeCounts(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
@@ -184,38 +183,26 @@ func local_request_LikesService_GetLikeCounts_0(ctx context.Context, marshaler r
 	var (
 		protoReq GetLikeCountsRequest
 		metadata runtime.ServerMetadata
-		err      error
 	)
-	val, ok := pathParams["entity_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "entity_id")
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	protoReq.EntityId, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "entity_id", err)
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_LikesService_GetLikeCounts_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	msg, err := server.GetLikeCounts(ctx, &protoReq)
 	return msg, metadata, err
 }
 
-var filter_LikesService_ListReactors_0 = &utilities.DoubleArray{Encoding: map[string]int{"entity_id": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+var filter_LikesService_ListReactors_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
 func request_LikesService_ListReactors_0(ctx context.Context, marshaler runtime.Marshaler, client LikesServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq ListReactorsRequest
 		metadata runtime.ServerMetadata
-		err      error
 	)
 	if req.Body != nil {
 		_, _ = io.Copy(io.Discard, req.Body)
-	}
-	val, ok := pathParams["entity_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "entity_id")
-	}
-	protoReq.EntityId, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "entity_id", err)
 	}
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -231,16 +218,7 @@ func local_request_LikesService_ListReactors_0(ctx context.Context, marshaler ru
 	var (
 		protoReq ListReactorsRequest
 		metadata runtime.ServerMetadata
-		err      error
 	)
-	val, ok := pathParams["entity_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "entity_id")
-	}
-	protoReq.EntityId, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "entity_id", err)
-	}
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -418,7 +396,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/AddReaction", runtime.WithHTTPPathPattern("/v1/likes"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/AddReaction", runtime.WithHTTPPathPattern("/likes"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -438,7 +416,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/RemoveReaction", runtime.WithHTTPPathPattern("/v1/likes"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/RemoveReaction", runtime.WithHTTPPathPattern("/likes"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -458,7 +436,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/ToggleReaction", runtime.WithHTTPPathPattern("/v1/likes/toggle"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/ToggleReaction", runtime.WithHTTPPathPattern("/likes/toggle"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -478,7 +456,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/GetUserReaction", runtime.WithHTTPPathPattern("/v1/likes/user"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/GetUserReaction", runtime.WithHTTPPathPattern("/likes/user"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -498,7 +476,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/GetLikeCounts", runtime.WithHTTPPathPattern("/v1/likes/counts/{entity_id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/GetLikeCounts", runtime.WithHTTPPathPattern("/likes/counts"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -518,7 +496,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/ListReactors", runtime.WithHTTPPathPattern("/v1/likes/reactors/{entity_id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/ListReactors", runtime.WithHTTPPathPattern("/likes/reactors"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -538,7 +516,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/ListUserReactions", runtime.WithHTTPPathPattern("/v1/likes/user/{user_id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/ListUserReactions", runtime.WithHTTPPathPattern("/likes/users/{user_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -558,7 +536,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/BatchGetUserReactions", runtime.WithHTTPPathPattern("/v1/likes/batch/user-reactions"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/BatchGetUserReactions", runtime.WithHTTPPathPattern("/likes/batch/user-reactions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -578,7 +556,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/BatchGetLikeCounts", runtime.WithHTTPPathPattern("/v1/likes/batch/counts"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/BatchGetLikeCounts", runtime.WithHTTPPathPattern("/likes/batch/counts"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -598,7 +576,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/CreateReactionType", runtime.WithHTTPPathPattern("/v1/likes/reaction-types"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/CreateReactionType", runtime.WithHTTPPathPattern("/likes/reaction-types"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -618,7 +596,7 @@ func RegisterLikesServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/ListReactionTypes", runtime.WithHTTPPathPattern("/v1/likes/reaction-types"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/content.likes.v1.LikesService/ListReactionTypes", runtime.WithHTTPPathPattern("/likes/reaction-types"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -676,7 +654,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/AddReaction", runtime.WithHTTPPathPattern("/v1/likes"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/AddReaction", runtime.WithHTTPPathPattern("/likes"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -693,7 +671,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/RemoveReaction", runtime.WithHTTPPathPattern("/v1/likes"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/RemoveReaction", runtime.WithHTTPPathPattern("/likes"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -710,7 +688,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/ToggleReaction", runtime.WithHTTPPathPattern("/v1/likes/toggle"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/ToggleReaction", runtime.WithHTTPPathPattern("/likes/toggle"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -727,7 +705,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/GetUserReaction", runtime.WithHTTPPathPattern("/v1/likes/user"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/GetUserReaction", runtime.WithHTTPPathPattern("/likes/user"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -744,7 +722,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/GetLikeCounts", runtime.WithHTTPPathPattern("/v1/likes/counts/{entity_id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/GetLikeCounts", runtime.WithHTTPPathPattern("/likes/counts"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -761,7 +739,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/ListReactors", runtime.WithHTTPPathPattern("/v1/likes/reactors/{entity_id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/ListReactors", runtime.WithHTTPPathPattern("/likes/reactors"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -778,7 +756,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/ListUserReactions", runtime.WithHTTPPathPattern("/v1/likes/user/{user_id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/ListUserReactions", runtime.WithHTTPPathPattern("/likes/users/{user_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -795,7 +773,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/BatchGetUserReactions", runtime.WithHTTPPathPattern("/v1/likes/batch/user-reactions"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/BatchGetUserReactions", runtime.WithHTTPPathPattern("/likes/batch/user-reactions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -812,7 +790,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/BatchGetLikeCounts", runtime.WithHTTPPathPattern("/v1/likes/batch/counts"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/BatchGetLikeCounts", runtime.WithHTTPPathPattern("/likes/batch/counts"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -829,7 +807,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/CreateReactionType", runtime.WithHTTPPathPattern("/v1/likes/reaction-types"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/CreateReactionType", runtime.WithHTTPPathPattern("/likes/reaction-types"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -846,7 +824,7 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/ListReactionTypes", runtime.WithHTTPPathPattern("/v1/likes/reaction-types"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/content.likes.v1.LikesService/ListReactionTypes", runtime.WithHTTPPathPattern("/likes/reaction-types"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -863,17 +841,17 @@ func RegisterLikesServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 }
 
 var (
-	pattern_LikesService_AddReaction_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "likes"}, ""))
-	pattern_LikesService_RemoveReaction_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "likes"}, ""))
-	pattern_LikesService_ToggleReaction_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "likes", "toggle"}, ""))
-	pattern_LikesService_GetUserReaction_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "likes", "user"}, ""))
-	pattern_LikesService_GetLikeCounts_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "likes", "counts", "entity_id"}, ""))
-	pattern_LikesService_ListReactors_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "likes", "reactors", "entity_id"}, ""))
-	pattern_LikesService_ListUserReactions_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "likes", "user", "user_id"}, ""))
-	pattern_LikesService_BatchGetUserReactions_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "likes", "batch", "user-reactions"}, ""))
-	pattern_LikesService_BatchGetLikeCounts_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"v1", "likes", "batch", "counts"}, ""))
-	pattern_LikesService_CreateReactionType_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "likes", "reaction-types"}, ""))
-	pattern_LikesService_ListReactionTypes_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "likes", "reaction-types"}, ""))
+	pattern_LikesService_AddReaction_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"likes"}, ""))
+	pattern_LikesService_RemoveReaction_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"likes"}, ""))
+	pattern_LikesService_ToggleReaction_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"likes", "toggle"}, ""))
+	pattern_LikesService_GetUserReaction_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"likes", "user"}, ""))
+	pattern_LikesService_GetLikeCounts_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"likes", "counts"}, ""))
+	pattern_LikesService_ListReactors_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"likes", "reactors"}, ""))
+	pattern_LikesService_ListUserReactions_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"likes", "users", "user_id"}, ""))
+	pattern_LikesService_BatchGetUserReactions_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"likes", "batch", "user-reactions"}, ""))
+	pattern_LikesService_BatchGetLikeCounts_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"likes", "batch", "counts"}, ""))
+	pattern_LikesService_CreateReactionType_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"likes", "reaction-types"}, ""))
+	pattern_LikesService_ListReactionTypes_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"likes", "reaction-types"}, ""))
 )
 
 var (

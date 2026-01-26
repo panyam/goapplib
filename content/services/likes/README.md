@@ -52,6 +52,46 @@ path, handler := likesv1connect.NewLikesServiceHandler(likes.NewConnectLikesServ
 mux.Handle(path, handler)
 ```
 
+### Mountable Services
+
+The service can be mounted at arbitrary paths with entity ID extracted from URL parameters:
+
+```go
+import (
+    "github.com/panyam/goapplib/content/services/likes/backends"
+    "github.com/panyam/goapplib/content/services/common"
+)
+
+// Create service
+service := backends.NewGORMLikesService(db)
+
+// Mount at /songs/{songId}/likes - entity_id extracted from URL
+handler := service.RESTHandler(ctx, common.WithEntityParam("songId"))
+router.Handle("/songs/{songId}/likes/", handler)
+
+// Results in URLs like:
+// POST /songs/song123/likes/         -> AddReaction with entity_id=song123
+// GET  /songs/song123/likes/counts   -> GetLikeCounts for entity_id=song123
+// GET  /songs/song123/likes/reactors -> ListReactors for entity_id=song123
+```
+
+For more control over the gRPC-gateway mux:
+
+```go
+import "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+
+mux := runtime.NewServeMux(/* custom options */)
+service.RegisterRESTHandlers(ctx, mux)
+router.Handle("/songs/{songId}/likes/", common.WrapWithEntityExtraction("songId", mux))
+```
+
+Connect RPC mounting:
+
+```go
+path, handler := service.ConnectHandler(ctx, common.WithEntityParam("songId"))
+router.Handle("/songs/{songId}/rpc/", handler)
+```
+
 ## Quick Start
 
 ### GORM Backend (PostgreSQL/MySQL/SQLite)
