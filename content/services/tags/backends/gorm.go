@@ -29,6 +29,66 @@ func NewGORMTagsService(db *gorm.DB) *GORMTagsService {
 	}
 }
 
+// NewGORMTagsServiceWithOptions creates a new GORM-backed tags service with options.
+func NewGORMTagsServiceWithOptions(db *gorm.DB, opts ...tags.ServiceOption) *GORMTagsService {
+	provider := &gormTagsStorageProvider{db: db}
+	base := tags.NewBaseTagsService(provider, opts...)
+	return &GORMTagsService{
+		BaseTagsService: base,
+		db:              db,
+	}
+}
+
+// Re-export hook types and options for convenience
+type (
+	HookContext              = tags.HookContext
+	Event                    = tags.Event
+	EventType                = tags.EventType
+	AuthorizeHook            = tags.AuthorizeHook
+	ValidateEntityHook       = tags.ValidateEntityHook
+	BeforeTagSaveHook        = tags.BeforeTagSaveHook
+	AfterTagSaveHook         = tags.AfterTagSaveHook
+	BeforeTagDeleteHook      = tags.BeforeTagDeleteHook
+	AfterTagDeleteHook       = tags.AfterTagDeleteHook
+	BeforeEntityTagSaveHook  = tags.BeforeEntityTagSaveHook
+	AfterEntityTagSaveHook   = tags.AfterEntityTagSaveHook
+	BeforeEntityTagDeleteHook = tags.BeforeEntityTagDeleteHook
+	AfterEntityTagDeleteHook  = tags.AfterEntityTagDeleteHook
+	AfterTagsReadHook        = tags.AfterTagsReadHook
+	OnEventHook              = tags.OnEventHook
+)
+
+// Re-export event types
+const (
+	EventTagCreated     = tags.EventTagCreated
+	EventTagUpdated     = tags.EventTagUpdated
+	EventTagDeleted     = tags.EventTagDeleted
+	EventEntityTagged   = tags.EventEntityTagged
+	EventEntityUntagged = tags.EventEntityUntagged
+	EventTagsMerged     = tags.EventTagsMerged
+	EventTagPromoted    = tags.EventTagPromoted
+)
+
+// Re-export option functions
+var (
+	WithHooks                 = tags.WithHooks
+	WithOnAuthorize           = tags.WithOnAuthorize
+	WithValidateEntity        = tags.WithValidateEntity
+	WithBeforeTagSave         = tags.WithBeforeTagSave
+	WithAfterTagSave          = tags.WithAfterTagSave
+	WithBeforeTagDelete       = tags.WithBeforeTagDelete
+	WithAfterTagDelete        = tags.WithAfterTagDelete
+	WithBeforeEntityTagSave   = tags.WithBeforeEntityTagSave
+	WithAfterEntityTagSave    = tags.WithAfterEntityTagSave
+	WithBeforeEntityTagDelete = tags.WithBeforeEntityTagDelete
+	WithAfterEntityTagDelete  = tags.WithAfterEntityTagDelete
+	WithAfterTagsRead         = tags.WithAfterTagsRead
+	WithOnEvent               = tags.WithOnEvent
+	WithNormalizer            = tags.WithNormalizer
+	WithUserIDContextKey      = tags.WithUserIDContextKey
+	WithCache                 = tags.WithCache
+)
+
 // AutoMigrate creates the database tables.
 func (s *GORMTagsService) AutoMigrate() error {
 	return s.db.AutoMigrate(

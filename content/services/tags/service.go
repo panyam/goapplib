@@ -139,14 +139,34 @@ type BaseTagsService struct {
 
 	// Normalizer function (defaults to lowercase + trim)
 	Normalizer func(string) string
+
+	// UserIDContextKey is the context key for reading user ID.
+	// Defaults to DefaultUserIDContextKey if not set.
+	UserIDContextKey any
+
+	// Hooks for customization
+	Hooks Hooks
 }
 
 // NewBaseTagsService creates a new BaseTagsService with the given storage provider.
-func NewBaseTagsService(provider TagsStorageProvider) *BaseTagsService {
-	return &BaseTagsService{
+func NewBaseTagsService(provider TagsStorageProvider, opts ...ServiceOption) *BaseTagsService {
+	s := &BaseTagsService{
 		StorageProvider: provider,
 		Normalizer:      DefaultNormalizer,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// resolveUserID returns the user ID from the request, falling back to context if empty.
+// This allows interceptors/middleware to set user ID in context.
+func (s *BaseTagsService) resolveUserID(ctx context.Context, requestUserID string) string {
+	if requestUserID != "" {
+		return requestUserID
+	}
+	return GetUserIDFromContext(ctx, s.UserIDContextKey)
 }
 
 // DefaultNormalizer is the default normalization function.
@@ -163,6 +183,22 @@ func (s *BaseTagsService) InitializeCache() {
 
 // CreateTag creates a new tag or returns existing if duplicate.
 func (s *BaseTagsService) CreateTag(ctx context.Context, req *v1.CreateTagRequest) (*v1.CreateTagResponse, error) {
+	// Resolve owner ID from request or context
+	req.OwnerId = s.resolveUserID(ctx, req.OwnerId)
+
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "CreateTag",
+			UserID:    req.OwnerId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate required fields
 	if req.Value == "" {
 		return nil, ErrValueRequired
 	}
@@ -207,8 +243,30 @@ func (s *BaseTagsService) CreateTag(ctx context.Context, req *v1.CreateTagReques
 		tag.Scope = v1.TagScope_TAG_SCOPE_PRIVATE
 	}
 
+	// BeforeTagSave hook
+	if s.Hooks.BeforeTagSave != nil {
+		if err := s.Hooks.BeforeTagSave(ctx, tag); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.StorageProvider.SaveTag(ctx, tag); err != nil {
 		return nil, err
+	}
+
+	// AfterTagSave hook (errors logged, don't fail operation)
+	if s.Hooks.AfterTagSave != nil {
+		_ = s.Hooks.AfterTagSave(ctx, tag)
+	}
+
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:   EventTagCreated,
+			TagID:  tag.Id,
+			UserID: req.OwnerId,
+			Tag:    tag,
+		})
 	}
 
 	s.cacheTag(tag)
@@ -304,6 +362,19 @@ func (s *BaseTagsService) UpdateTag(ctx context.Context, req *v1.UpdateTagReques
 
 // DeleteTag removes a tag and optionally untags all entities.
 func (s *BaseTagsService) DeleteTag(ctx context.Context, req *v1.DeleteTagRequest) (*v1.DeleteTagResponse, error) {
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "DeleteTag",
+			UserID:    GetUserIDFromContext(ctx, s.UserIDContextKey),
+			TagID:     req.Id,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
 	if req.Id == "" {
 		return nil, ErrTagIDRequired
 	}
@@ -314,6 +385,13 @@ func (s *BaseTagsService) DeleteTag(ctx context.Context, req *v1.DeleteTagReques
 	}
 	if existing == nil {
 		return &v1.DeleteTagResponse{Deleted: false}, nil
+	}
+
+	// BeforeTagDelete hook
+	if s.Hooks.BeforeTagDelete != nil {
+		if err := s.Hooks.BeforeTagDelete(ctx, existing); err != nil {
+			return nil, err
+		}
 	}
 
 	var entitiesUntagged int64
@@ -329,6 +407,21 @@ func (s *BaseTagsService) DeleteTag(ctx context.Context, req *v1.DeleteTagReques
 	// Delete the tag
 	if err := s.StorageProvider.DeleteTag(ctx, req.Id); err != nil {
 		return nil, err
+	}
+
+	// AfterTagDelete hook (errors logged, don't fail operation)
+	if s.Hooks.AfterTagDelete != nil {
+		_ = s.Hooks.AfterTagDelete(ctx, existing)
+	}
+
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:             EventTagDeleted,
+			TagID:            req.Id,
+			Tag:              existing,
+			EntitiesAffected: entitiesUntagged,
+		})
 	}
 
 	s.invalidateTagCache(req.Id)
@@ -381,8 +474,36 @@ func (s *BaseTagsService) ListTags(ctx context.Context, req *v1.ListTagsRequest)
 
 // TagEntity applies a tag to an entity.
 func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityRequest) (*v1.TagEntityResponse, error) {
+	// Resolve owner and tagger from request or context
+	req.OwnerId = s.resolveUserID(ctx, req.OwnerId)
+	if req.TaggedBy == "" {
+		req.TaggedBy = s.resolveUserID(ctx, req.TaggedBy)
+	}
+
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "TagEntity",
+			UserID:    req.TaggedBy,
+			EntityID:  req.EntityId,
+			TagID:     req.TagId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate required fields
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
+	}
+
+	// Validate entity hook
+	if s.Hooks.ValidateEntity != nil {
+		if err := s.Hooks.ValidateEntity(ctx, req.EntityId); err != nil {
+			return nil, err
+		}
 	}
 
 	var tag *v1.Tag
@@ -474,8 +595,20 @@ func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityReques
 		CreatedAt:  timestamppb.New(now),
 	}
 
+	// BeforeEntityTagSave hook
+	if s.Hooks.BeforeEntityTagSave != nil {
+		if err := s.Hooks.BeforeEntityTagSave(ctx, entityTag, tag); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.StorageProvider.SaveEntityTag(ctx, entityTag); err != nil {
 		return nil, err
+	}
+
+	// AfterEntityTagSave hook (errors logged, don't fail operation)
+	if s.Hooks.AfterEntityTagSave != nil {
+		_ = s.Hooks.AfterEntityTagSave(ctx, entityTag, tag)
 	}
 
 	// Update tag usage count
@@ -483,6 +616,17 @@ func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityReques
 	tag.UpdatedAt = timestamppb.New(now)
 	if err := s.StorageProvider.SaveTag(ctx, tag); err != nil {
 		// Log but don't fail - count is denormalized
+	}
+
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:     EventEntityTagged,
+			TagID:    tag.Id,
+			EntityID: req.EntityId,
+			UserID:   taggedBy,
+			Tag:      tag,
+		})
 	}
 
 	s.invalidateTagCache(tag.Id)
@@ -496,6 +640,24 @@ func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityReques
 
 // UntagEntity removes a tag from an entity.
 func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRequest) (*v1.UntagEntityResponse, error) {
+	// Resolve tagged_by from request or context
+	req.TaggedBy = s.resolveUserID(ctx, req.TaggedBy)
+
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "UntagEntity",
+			UserID:    req.TaggedBy,
+			EntityID:  req.EntityId,
+			TagID:     req.TagId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate required fields
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
@@ -530,9 +692,21 @@ func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRe
 		return &v1.UntagEntityResponse{Removed: false}, nil
 	}
 
+	// BeforeEntityTagDelete hook
+	if s.Hooks.BeforeEntityTagDelete != nil {
+		if err := s.Hooks.BeforeEntityTagDelete(ctx, existing); err != nil {
+			return nil, err
+		}
+	}
+
 	// Delete entity tag
 	if err := s.StorageProvider.DeleteEntityTag(ctx, tagID, req.EntityId, req.TaggedBy); err != nil {
 		return nil, err
+	}
+
+	// AfterEntityTagDelete hook (errors logged, don't fail operation)
+	if s.Hooks.AfterEntityTagDelete != nil {
+		_ = s.Hooks.AfterEntityTagDelete(ctx, existing)
 	}
 
 	// Update tag usage count
@@ -547,11 +721,35 @@ func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRe
 		s.invalidateTagCache(tag.Id)
 	}
 
+	// OnEvent hook
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:     EventEntityUntagged,
+			TagID:    tagID,
+			EntityID: req.EntityId,
+			UserID:   req.TaggedBy,
+			Tag:      tag,
+		})
+	}
+
 	return &v1.UntagEntityResponse{Removed: true}, nil
 }
 
 // GetEntityTags returns all tags for a specific entity.
 func (s *BaseTagsService) GetEntityTags(ctx context.Context, req *v1.GetEntityTagsRequest) (*v1.GetEntityTagsResponse, error) {
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "GetEntityTags",
+			UserID:    GetUserIDFromContext(ctx, s.UserIDContextKey),
+			EntityID:  req.EntityId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
@@ -573,6 +771,11 @@ func (s *BaseTagsService) GetEntityTags(ctx context.Context, req *v1.GetEntityTa
 		if tag != nil {
 			tags = append(tags, tag)
 		}
+	}
+
+	// AfterTagsRead hook
+	if len(tags) > 0 && s.Hooks.AfterTagsRead != nil {
+		_ = s.Hooks.AfterTagsRead(ctx, tags)
 	}
 
 	return &v1.GetEntityTagsResponse{Tags: tags}, nil

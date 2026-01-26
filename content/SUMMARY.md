@@ -117,7 +117,7 @@ Indexes are project-wide (not namespace-specific). Wait for indexes to build in 
 | Service             | Protos | GORM Backend | Datastore Backend | Hooks | Tests | Docs |
 |---------------------|--------|--------------|-------------------|-------|-------|------|
 | LikesService        | ✅     | ✅           | ✅                | ✅    | ✅    | ✅   |
-| TagsService         | ✅     | ✅           | ✅                | ⏳    | ✅    | ✅   |
+| TagsService         | ✅     | ✅           | ✅                | ✅    | ✅    | ✅   |
 | CollectionsService  | ✅     | ✅           | ✅                | ⏳    | ✅    | ✅   |
 | NotesService        | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
 | CommentsService     | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |

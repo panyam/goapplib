@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/tags/v1"
+	"github.com/panyam/goapplib/content/services/tags"
 	"github.com/panyam/goapplib/content/services/tags/backends"
 )
 
@@ -449,5 +450,447 @@ func TestTagsService_ListTags(t *testing.T) {
 	}
 	if resp.Tags[0].Value != "User1Tag" {
 		t.Errorf("Expected User1Tag, got %s", resp.Tags[0].Value)
+	}
+}
+
+// ========== Hooks and Context Tests ==========
+
+// TestTagsService_UserIDFromContext tests that user ID is resolved from context.
+func TestTagsService_UserIDFromContext(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Use a custom context key
+	type myCtxKey string
+	const userKey myCtxKey = "my_user_id"
+
+	service := backends.NewGORMTagsServiceWithOptions(db,
+		backends.WithUserIDContextKey(userKey),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	// Set user ID in context
+	ctx := context.WithValue(context.Background(), userKey, "user-from-context")
+
+	// Create tag without specifying OwnerId in request
+	resp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
+		Value: "ContextTag",
+		// OwnerId intentionally omitted - should come from context
+	})
+	if err != nil {
+		t.Fatalf("CreateTag failed: %v", err)
+	}
+
+	if resp.Tag.OwnerId != "user-from-context" {
+		t.Errorf("Expected OwnerId=user-from-context, got %s", resp.Tag.OwnerId)
+	}
+}
+
+// TestTagsService_OnAuthorizeHook tests the authorization hook.
+func TestTagsService_OnAuthorizeHook(t *testing.T) {
+	db := setupTestDB(t)
+
+	authCalled := false
+	authDenied := false
+
+	service := backends.NewGORMTagsServiceWithOptions(db,
+		backends.WithOnAuthorize(func(ctx context.Context, hookCtx *backends.HookContext) error {
+			authCalled = true
+			if hookCtx.Operation != "CreateTag" {
+				t.Errorf("Expected operation=CreateTag, got %s", hookCtx.Operation)
+			}
+			if authDenied {
+				return fmt.Errorf("access denied")
+			}
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Test successful authorization
+	_, err := service.CreateTag(ctx, &v1.CreateTagRequest{
+		Value:   "AuthTest",
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateTag failed: %v", err)
+	}
+	if !authCalled {
+		t.Error("Expected OnAuthorize hook to be called")
+	}
+
+	// Test authorization denial
+	authCalled = false
+	authDenied = true
+	_, err = service.CreateTag(ctx, &v1.CreateTagRequest{
+		Value:   "Denied",
+		OwnerId: "user-1",
+	})
+	if err == nil {
+		t.Error("Expected CreateTag to fail when authorization denied")
+	}
+	if !authCalled {
+		t.Error("Expected OnAuthorize hook to be called")
+	}
+}
+
+// TestTagsService_ValidateEntityHook tests the entity validation hook.
+func TestTagsService_ValidateEntityHook(t *testing.T) {
+	db := setupTestDB(t)
+
+	validEntities := map[string]bool{
+		"book-1": true,
+		"book-2": true,
+	}
+
+	service := backends.NewGORMTagsServiceWithOptions(db,
+		backends.WithValidateEntity(func(ctx context.Context, entityID string) error {
+			if !validEntities[entityID] {
+				return fmt.Errorf("entity not found: %s", entityID)
+			}
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Test valid entity
+	_, err := service.TagEntity(ctx, &v1.TagEntityRequest{
+		EntityId: "book-1",
+		Value:    "Fiction",
+		OwnerId:  "user-1",
+		TaggedBy: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("TagEntity failed for valid entity: %v", err)
+	}
+
+	// Test invalid entity
+	_, err = service.TagEntity(ctx, &v1.TagEntityRequest{
+		EntityId: "invalid-book",
+		Value:    "Fiction",
+		OwnerId:  "user-1",
+		TaggedBy: "user-1",
+	})
+	if err == nil {
+		t.Error("Expected TagEntity to fail for invalid entity")
+	}
+}
+
+// TestTagsService_BeforeAfterTagSaveHooks tests the tag save lifecycle hooks.
+func TestTagsService_BeforeAfterTagSaveHooks(t *testing.T) {
+	db := setupTestDB(t)
+
+	beforeSaveCalled := false
+	afterSaveCalled := false
+	var savedTagID string
+
+	service := backends.NewGORMTagsServiceWithOptions(db,
+		backends.WithBeforeTagSave(func(ctx context.Context, tag *v1.Tag) error {
+			beforeSaveCalled = true
+			if tag.Value == "" {
+				return fmt.Errorf("value should be set")
+			}
+			return nil
+		}),
+		backends.WithAfterTagSave(func(ctx context.Context, tag *v1.Tag) error {
+			afterSaveCalled = true
+			savedTagID = tag.Id
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	resp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
+		Value:   "HookTest",
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateTag failed: %v", err)
+	}
+
+	if !beforeSaveCalled {
+		t.Error("Expected BeforeTagSave hook to be called")
+	}
+	if !afterSaveCalled {
+		t.Error("Expected AfterTagSave hook to be called")
+	}
+	if savedTagID != resp.Tag.Id {
+		t.Errorf("Expected savedTagID=%s, got %s", resp.Tag.Id, savedTagID)
+	}
+}
+
+// TestTagsService_BeforeAfterEntityTagSaveHooks tests the entity tag save lifecycle hooks.
+func TestTagsService_BeforeAfterEntityTagSaveHooks(t *testing.T) {
+	db := setupTestDB(t)
+
+	beforeSaveCalled := false
+	afterSaveCalled := false
+	var savedEntityID string
+
+	service := backends.NewGORMTagsServiceWithOptions(db,
+		backends.WithBeforeEntityTagSave(func(ctx context.Context, entityTag *v1.EntityTag, tag *v1.Tag) error {
+			beforeSaveCalled = true
+			if entityTag.EntityId == "" {
+				return fmt.Errorf("entity_id should be set")
+			}
+			return nil
+		}),
+		backends.WithAfterEntityTagSave(func(ctx context.Context, entityTag *v1.EntityTag, tag *v1.Tag) error {
+			afterSaveCalled = true
+			savedEntityID = entityTag.EntityId
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	resp, err := service.TagEntity(ctx, &v1.TagEntityRequest{
+		EntityId: "song-1",
+		Value:    "Jazz",
+		OwnerId:  "user-1",
+		TaggedBy: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("TagEntity failed: %v", err)
+	}
+
+	if !beforeSaveCalled {
+		t.Error("Expected BeforeEntityTagSave hook to be called")
+	}
+	if !afterSaveCalled {
+		t.Error("Expected AfterEntityTagSave hook to be called")
+	}
+	if savedEntityID != resp.EntityTag.EntityId {
+		t.Errorf("Expected savedEntityID=%s, got %s", resp.EntityTag.EntityId, savedEntityID)
+	}
+}
+
+// TestTagsService_BeforeAfterDeleteHooks tests the delete lifecycle hooks.
+func TestTagsService_BeforeAfterDeleteHooks(t *testing.T) {
+	db := setupTestDB(t)
+
+	beforeDeleteCalled := false
+	afterDeleteCalled := false
+	var deletedTagValue string
+
+	service := backends.NewGORMTagsServiceWithOptions(db,
+		backends.WithBeforeTagDelete(func(ctx context.Context, tag *v1.Tag) error {
+			beforeDeleteCalled = true
+			return nil
+		}),
+		backends.WithAfterTagDelete(func(ctx context.Context, tag *v1.Tag) error {
+			afterDeleteCalled = true
+			deletedTagValue = tag.Value
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// First create a tag
+	createResp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
+		Value:   "ToDelete",
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateTag failed: %v", err)
+	}
+
+	// Now delete it
+	_, err = service.DeleteTag(ctx, &v1.DeleteTagRequest{
+		Id: createResp.Tag.Id,
+	})
+	if err != nil {
+		t.Fatalf("DeleteTag failed: %v", err)
+	}
+
+	if !beforeDeleteCalled {
+		t.Error("Expected BeforeTagDelete hook to be called")
+	}
+	if !afterDeleteCalled {
+		t.Error("Expected AfterTagDelete hook to be called")
+	}
+	if deletedTagValue != "ToDelete" {
+		t.Errorf("Expected deletedTagValue=ToDelete, got %s", deletedTagValue)
+	}
+}
+
+// TestTagsService_OnEventHook tests the event notification hook.
+func TestTagsService_OnEventHook(t *testing.T) {
+	db := setupTestDB(t)
+
+	var events []*backends.Event
+
+	service := backends.NewGORMTagsServiceWithOptions(db,
+		backends.WithOnEvent(func(ctx context.Context, event *backends.Event) error {
+			events = append(events, event)
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Create tag - should trigger EventTagCreated
+	createResp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
+		Value:   "EventTest",
+		OwnerId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateTag failed: %v", err)
+	}
+
+	if len(events) != 1 {
+		t.Fatalf("Expected 1 event, got %d", len(events))
+	}
+	if events[0].Type != backends.EventTagCreated {
+		t.Errorf("Expected event type=%s, got %s", backends.EventTagCreated, events[0].Type)
+	}
+
+	// Tag entity - should trigger EventEntityTagged
+	_, err = service.TagEntity(ctx, &v1.TagEntityRequest{
+		EntityId: "item-1",
+		TagId:    createResp.Tag.Id,
+		TaggedBy: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("TagEntity failed: %v", err)
+	}
+
+	if len(events) != 2 {
+		t.Fatalf("Expected 2 events, got %d", len(events))
+	}
+	if events[1].Type != backends.EventEntityTagged {
+		t.Errorf("Expected event type=%s, got %s", backends.EventEntityTagged, events[1].Type)
+	}
+
+	// Untag entity - should trigger EventEntityUntagged
+	_, err = service.UntagEntity(ctx, &v1.UntagEntityRequest{
+		EntityId: "item-1",
+		TagId:    createResp.Tag.Id,
+		TaggedBy: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("UntagEntity failed: %v", err)
+	}
+
+	if len(events) != 3 {
+		t.Fatalf("Expected 3 events, got %d", len(events))
+	}
+	if events[2].Type != backends.EventEntityUntagged {
+		t.Errorf("Expected event type=%s, got %s", backends.EventEntityUntagged, events[2].Type)
+	}
+
+	// Delete tag - should trigger EventTagDeleted
+	_, err = service.DeleteTag(ctx, &v1.DeleteTagRequest{
+		Id: createResp.Tag.Id,
+	})
+	if err != nil {
+		t.Fatalf("DeleteTag failed: %v", err)
+	}
+
+	if len(events) != 4 {
+		t.Fatalf("Expected 4 events, got %d", len(events))
+	}
+	if events[3].Type != backends.EventTagDeleted {
+		t.Errorf("Expected event type=%s, got %s", backends.EventTagDeleted, events[3].Type)
+	}
+}
+
+// TestTagsService_AfterTagsReadHook tests the after read hook for data enrichment.
+func TestTagsService_AfterTagsReadHook(t *testing.T) {
+	db := setupTestDB(t)
+
+	enrichmentCalled := false
+
+	service := backends.NewGORMTagsServiceWithOptions(db,
+		backends.WithAfterTagsRead(func(ctx context.Context, tagsRead []*v1.Tag) error {
+			enrichmentCalled = true
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Create and tag
+	_, err := service.TagEntity(ctx, &v1.TagEntityRequest{
+		EntityId: "item-1",
+		Value:    "TestRead",
+		OwnerId:  "user-1",
+		TaggedBy: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("TagEntity failed: %v", err)
+	}
+
+	// Get entity tags - should trigger AfterTagsRead
+	_, err = service.GetEntityTags(ctx, &v1.GetEntityTagsRequest{
+		EntityId: "item-1",
+	})
+	if err != nil {
+		t.Fatalf("GetEntityTags failed: %v", err)
+	}
+
+	if !enrichmentCalled {
+		t.Error("Expected AfterTagsRead hook to be called")
+	}
+}
+
+// TestTagsService_HookCanModifyRequest tests that auth hook can modify request.
+func TestTagsService_HookCanModifyRequest(t *testing.T) {
+	db := setupTestDB(t)
+
+	service := backends.NewGORMTagsServiceWithOptions(db,
+		backends.WithOnAuthorize(func(ctx context.Context, hookCtx *tags.HookContext) error {
+			// Modify the request to set owner ID from "authenticated" context
+			if req, ok := hookCtx.Request.(*v1.CreateTagRequest); ok {
+				if req.OwnerId == "" {
+					req.OwnerId = "auth-user-456"
+				}
+			}
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Create tag without OwnerId - hook should set it
+	resp, err := service.CreateTag(ctx, &v1.CreateTagRequest{
+		Value: "AuthModified",
+		// OwnerId intentionally empty
+	})
+	if err != nil {
+		t.Fatalf("CreateTag failed: %v", err)
+	}
+
+	if resp.Tag.OwnerId != "auth-user-456" {
+		t.Errorf("Expected OwnerId=auth-user-456, got %s", resp.Tag.OwnerId)
 	}
 }
