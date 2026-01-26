@@ -29,6 +29,54 @@ func NewGORMLikesService(db *gorm.DB) *GORMLikesService {
 	}
 }
 
+// NewGORMLikesServiceWithOptions creates a new GORM-backed likes service with options.
+func NewGORMLikesServiceWithOptions(db *gorm.DB, opts ...likes.ServiceOption) *GORMLikesService {
+	provider := &gormLikesStorageProvider{db: db}
+	base := likes.NewBaseLikesService(provider, opts...)
+	return &GORMLikesService{
+		BaseLikesService: base,
+		db:               db,
+	}
+}
+
+// Re-export hook types and options for convenience
+type (
+	HookContext        = likes.HookContext
+	Event              = likes.Event
+	EventType          = likes.EventType
+	AuthorizeHook      = likes.AuthorizeHook
+	ValidateEntityHook = likes.ValidateEntityHook
+	BeforeSaveHook     = likes.BeforeSaveHook
+	AfterSaveHook      = likes.AfterSaveHook
+	BeforeDeleteHook   = likes.BeforeDeleteHook
+	AfterDeleteHook    = likes.AfterDeleteHook
+	AfterReadHook      = likes.AfterReadHook
+	OnEventHook        = likes.OnEventHook
+)
+
+// Re-export event types
+const (
+	EventReactionAdded   = likes.EventReactionAdded
+	EventReactionRemoved = likes.EventReactionRemoved
+	EventReactionChanged = likes.EventReactionChanged
+)
+
+// Re-export option functions
+var (
+	WithHooks              = likes.WithHooks
+	WithOnAuthorize        = likes.WithOnAuthorize
+	WithValidateEntity     = likes.WithValidateEntity
+	WithBeforeSave         = likes.WithBeforeSave
+	WithAfterSave          = likes.WithAfterSave
+	WithBeforeDelete       = likes.WithBeforeDelete
+	WithAfterDelete        = likes.WithAfterDelete
+	WithAfterRead          = likes.WithAfterRead
+	WithOnEvent            = likes.WithOnEvent
+	WithDefaultReactionType = likes.WithDefaultReactionType
+	WithUserIDContextKey   = likes.WithUserIDContextKey
+	WithCache              = likes.WithCache
+)
+
 // AutoMigrate creates the database tables.
 func (s *GORMLikesService) AutoMigrate() error {
 	return s.db.AutoMigrate(

@@ -448,3 +448,403 @@ func TestLikesService_ReactionTypes(t *testing.T) {
 
 // Placeholder for filepath import (used by setupSQLiteDB)
 var _ = filepath.Join
+
+// ========== Hooks and Context Tests ==========
+
+// TestLikesService_UserIDFromContext tests that user ID is resolved from context.
+func TestLikesService_UserIDFromContext(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Use a custom context key
+	type myCtxKey string
+	const userKey myCtxKey = "my_user_id"
+
+	service := backends.NewGORMLikesServiceWithOptions(db,
+		backends.WithUserIDContextKey(userKey),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	// Set user ID in context
+	ctx := context.WithValue(context.Background(), userKey, "user-from-context")
+
+	// Add reaction without specifying UserId in request
+	resp, err := service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-1",
+		ReactionType: "like",
+		// UserId intentionally omitted - should come from context
+	})
+	if err != nil {
+		t.Fatalf("AddReaction failed: %v", err)
+	}
+
+	if resp.Like.UserId != "user-from-context" {
+		t.Errorf("Expected UserId=user-from-context, got %s", resp.Like.UserId)
+	}
+
+	// Verify we can get the reaction using context-based user ID
+	getResp, err := service.GetUserReaction(ctx, &v1.GetUserReactionRequest{
+		EntityId: "post-1",
+		// UserId intentionally omitted
+	})
+	if err != nil {
+		t.Fatalf("GetUserReaction failed: %v", err)
+	}
+	if getResp.Like == nil {
+		t.Error("Expected to find the reaction")
+	}
+}
+
+// TestLikesService_OnAuthorizeHook tests the authorization hook.
+func TestLikesService_OnAuthorizeHook(t *testing.T) {
+	db := setupTestDB(t)
+
+	authCalled := false
+	authDenied := false
+
+	service := backends.NewGORMLikesServiceWithOptions(db,
+		backends.WithOnAuthorize(func(ctx context.Context, hookCtx *backends.HookContext) error {
+			authCalled = true
+			if hookCtx.Operation != "AddReaction" {
+				t.Errorf("Expected operation=AddReaction, got %s", hookCtx.Operation)
+			}
+			if authDenied {
+				return fmt.Errorf("access denied")
+			}
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Test successful authorization
+	_, err := service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-1",
+		UserId:       "user-1",
+		ReactionType: "like",
+	})
+	if err != nil {
+		t.Fatalf("AddReaction failed: %v", err)
+	}
+	if !authCalled {
+		t.Error("Expected OnAuthorize hook to be called")
+	}
+
+	// Test authorization denial
+	authCalled = false
+	authDenied = true
+	_, err = service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-2",
+		UserId:       "user-1",
+		ReactionType: "like",
+	})
+	if err == nil {
+		t.Error("Expected AddReaction to fail when authorization denied")
+	}
+	if !authCalled {
+		t.Error("Expected OnAuthorize hook to be called")
+	}
+}
+
+// TestLikesService_ValidateEntityHook tests the entity validation hook.
+func TestLikesService_ValidateEntityHook(t *testing.T) {
+	db := setupTestDB(t)
+
+	validEntities := map[string]bool{
+		"post-1": true,
+		"post-2": true,
+	}
+
+	service := backends.NewGORMLikesServiceWithOptions(db,
+		backends.WithValidateEntity(func(ctx context.Context, entityID string) error {
+			if !validEntities[entityID] {
+				return fmt.Errorf("entity not found: %s", entityID)
+			}
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Test valid entity
+	_, err := service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-1",
+		UserId:       "user-1",
+		ReactionType: "like",
+	})
+	if err != nil {
+		t.Fatalf("AddReaction failed for valid entity: %v", err)
+	}
+
+	// Test invalid entity
+	_, err = service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "invalid-post",
+		UserId:       "user-1",
+		ReactionType: "like",
+	})
+	if err == nil {
+		t.Error("Expected AddReaction to fail for invalid entity")
+	}
+}
+
+// TestLikesService_BeforeAfterSaveHooks tests the save lifecycle hooks.
+func TestLikesService_BeforeAfterSaveHooks(t *testing.T) {
+	db := setupTestDB(t)
+
+	beforeSaveCalled := false
+	afterSaveCalled := false
+	var savedLikeID string
+
+	service := backends.NewGORMLikesServiceWithOptions(db,
+		backends.WithBeforeSave(func(ctx context.Context, like *v1.Like) error {
+			beforeSaveCalled = true
+			// Verify we can inspect the like before save
+			if like.EntityId == "" {
+				return fmt.Errorf("entity_id should be set")
+			}
+			return nil
+		}),
+		backends.WithAfterSave(func(ctx context.Context, like *v1.Like) error {
+			afterSaveCalled = true
+			savedLikeID = like.Id
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	resp, err := service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-1",
+		UserId:       "user-1",
+		ReactionType: "like",
+	})
+	if err != nil {
+		t.Fatalf("AddReaction failed: %v", err)
+	}
+
+	if !beforeSaveCalled {
+		t.Error("Expected BeforeSave hook to be called")
+	}
+	if !afterSaveCalled {
+		t.Error("Expected AfterSave hook to be called")
+	}
+	if savedLikeID != resp.Like.Id {
+		t.Errorf("Expected savedLikeID=%s, got %s", resp.Like.Id, savedLikeID)
+	}
+}
+
+// TestLikesService_BeforeAfterDeleteHooks tests the delete lifecycle hooks.
+func TestLikesService_BeforeAfterDeleteHooks(t *testing.T) {
+	db := setupTestDB(t)
+
+	beforeDeleteCalled := false
+	afterDeleteCalled := false
+	var deletedEntityID string
+
+	service := backends.NewGORMLikesServiceWithOptions(db,
+		backends.WithBeforeDelete(func(ctx context.Context, like *v1.Like) error {
+			beforeDeleteCalled = true
+			return nil
+		}),
+		backends.WithAfterDelete(func(ctx context.Context, like *v1.Like) error {
+			afterDeleteCalled = true
+			deletedEntityID = like.EntityId
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// First add a reaction
+	_, err := service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-1",
+		UserId:       "user-1",
+		ReactionType: "like",
+	})
+	if err != nil {
+		t.Fatalf("AddReaction failed: %v", err)
+	}
+
+	// Now remove it
+	_, err = service.RemoveReaction(ctx, &v1.RemoveReactionRequest{
+		EntityId: "post-1",
+		UserId:   "user-1",
+	})
+	if err != nil {
+		t.Fatalf("RemoveReaction failed: %v", err)
+	}
+
+	if !beforeDeleteCalled {
+		t.Error("Expected BeforeDelete hook to be called")
+	}
+	if !afterDeleteCalled {
+		t.Error("Expected AfterDelete hook to be called")
+	}
+	if deletedEntityID != "post-1" {
+		t.Errorf("Expected deletedEntityID=post-1, got %s", deletedEntityID)
+	}
+}
+
+// TestLikesService_OnEventHook tests the event notification hook.
+func TestLikesService_OnEventHook(t *testing.T) {
+	db := setupTestDB(t)
+
+	var events []*backends.Event
+
+	service := backends.NewGORMLikesServiceWithOptions(db,
+		backends.WithOnEvent(func(ctx context.Context, event *backends.Event) error {
+			events = append(events, event)
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Add reaction - should trigger EventReactionAdded
+	_, err := service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-1",
+		UserId:       "user-1",
+		ReactionType: "like",
+	})
+	if err != nil {
+		t.Fatalf("AddReaction failed: %v", err)
+	}
+
+	if len(events) != 1 {
+		t.Fatalf("Expected 1 event, got %d", len(events))
+	}
+	if events[0].Type != backends.EventReactionAdded {
+		t.Errorf("Expected event type=%s, got %s", backends.EventReactionAdded, events[0].Type)
+	}
+
+	// Change reaction - should trigger EventReactionChanged
+	_, err = service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-1",
+		UserId:       "user-1",
+		ReactionType: "love",
+	})
+	if err != nil {
+		t.Fatalf("AddReaction (change) failed: %v", err)
+	}
+
+	if len(events) != 2 {
+		t.Fatalf("Expected 2 events, got %d", len(events))
+	}
+	if events[1].Type != backends.EventReactionChanged {
+		t.Errorf("Expected event type=%s, got %s", backends.EventReactionChanged, events[1].Type)
+	}
+	if events[1].OldType != "like" || events[1].NewType != "love" {
+		t.Errorf("Expected change from like to love, got %s to %s", events[1].OldType, events[1].NewType)
+	}
+
+	// Remove reaction - should trigger EventReactionRemoved
+	_, err = service.RemoveReaction(ctx, &v1.RemoveReactionRequest{
+		EntityId: "post-1",
+		UserId:   "user-1",
+	})
+	if err != nil {
+		t.Fatalf("RemoveReaction failed: %v", err)
+	}
+
+	if len(events) != 3 {
+		t.Fatalf("Expected 3 events, got %d", len(events))
+	}
+	if events[2].Type != backends.EventReactionRemoved {
+		t.Errorf("Expected event type=%s, got %s", backends.EventReactionRemoved, events[2].Type)
+	}
+}
+
+// TestLikesService_AfterReadHook tests the after read hook for data enrichment.
+func TestLikesService_AfterReadHook(t *testing.T) {
+	db := setupTestDB(t)
+
+	enrichmentCalled := false
+
+	service := backends.NewGORMLikesServiceWithOptions(db,
+		backends.WithAfterRead(func(ctx context.Context, likes []*v1.Like) error {
+			enrichmentCalled = true
+			// Could enrich likes here (e.g., add user display names)
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Add a reaction
+	_, err := service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-1",
+		UserId:       "user-1",
+		ReactionType: "like",
+	})
+	if err != nil {
+		t.Fatalf("AddReaction failed: %v", err)
+	}
+
+	// Get reaction - should trigger AfterRead
+	_, err = service.GetUserReaction(ctx, &v1.GetUserReactionRequest{
+		EntityId: "post-1",
+		UserId:   "user-1",
+	})
+	if err != nil {
+		t.Fatalf("GetUserReaction failed: %v", err)
+	}
+
+	if !enrichmentCalled {
+		t.Error("Expected AfterRead hook to be called")
+	}
+}
+
+// TestLikesService_HookCanModifyRequest tests that auth hook can modify request.
+func TestLikesService_HookCanModifyRequest(t *testing.T) {
+	db := setupTestDB(t)
+
+	service := backends.NewGORMLikesServiceWithOptions(db,
+		backends.WithOnAuthorize(func(ctx context.Context, hookCtx *backends.HookContext) error {
+			// Modify the request to set user ID from "authenticated" context
+			if req, ok := hookCtx.Request.(*v1.AddReactionRequest); ok {
+				if req.UserId == "" {
+					req.UserId = "auth-user-123"
+				}
+			}
+			return nil
+		}),
+	)
+	if err := service.AutoMigrate(); err != nil {
+		t.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Add reaction without UserId - hook should set it
+	resp, err := service.AddReaction(ctx, &v1.AddReactionRequest{
+		EntityId:     "post-1",
+		ReactionType: "like",
+		// UserId intentionally empty
+	})
+	if err != nil {
+		t.Fatalf("AddReaction failed: %v", err)
+	}
+
+	if resp.Like.UserId != "auth-user-123" {
+		t.Errorf("Expected UserId=auth-user-123, got %s", resp.Like.UserId)
+	}
+}

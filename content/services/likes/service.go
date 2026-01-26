@@ -93,14 +93,25 @@ type BaseLikesService struct {
 
 	// Default reaction type if not specified
 	DefaultReactionType string
+
+	// UserIDContextKey is the context key for reading user ID.
+	// Defaults to DefaultUserIDContextKey if not set.
+	UserIDContextKey any
+
+	// Hooks for customization
+	Hooks Hooks
 }
 
 // NewBaseLikesService creates a new BaseLikesService with the given storage provider.
-func NewBaseLikesService(provider LikesStorageProvider) *BaseLikesService {
-	return &BaseLikesService{
+func NewBaseLikesService(provider LikesStorageProvider, opts ...ServiceOption) *BaseLikesService {
+	s := &BaseLikesService{
 		StorageProvider:     provider,
 		DefaultReactionType: "like",
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // InitializeCache sets up the in-memory cache for counts.
@@ -111,11 +122,35 @@ func (s *BaseLikesService) InitializeCache() {
 
 // AddReaction adds or updates a user's reaction to an entity.
 func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionRequest) (*v1.AddReactionResponse, error) {
+	// Resolve user ID from request or context (interceptor/middleware sets context)
+	req.UserId = s.resolveUserID(ctx, req.UserId)
+
+	// Authorization hook (can validate, deny, or further modify request)
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "AddReaction",
+			UserID:    req.UserId,
+			EntityID:  req.EntityId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate required fields
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
 	if req.UserId == "" {
 		return nil, ErrUserIDRequired
+	}
+
+	// Validate entity hook
+	if s.Hooks.ValidateEntity != nil {
+		if err := s.Hooks.ValidateEntity(ctx, req.EntityId); err != nil {
+			return nil, err
+		}
 	}
 
 	reactionType := req.ReactionType
@@ -142,8 +177,20 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 		existing.ReactionType = reactionType
 		existing.UpdatedAt = timestamppb.New(now)
 
+		// BeforeSave hook
+		if s.Hooks.BeforeSave != nil {
+			if err := s.Hooks.BeforeSave(ctx, existing); err != nil {
+				return nil, err
+			}
+		}
+
 		if err := s.StorageProvider.SaveLike(ctx, existing); err != nil {
 			return nil, err
+		}
+
+		// AfterSave hook (errors logged, don't fail operation)
+		if s.Hooks.AfterSave != nil {
+			_ = s.Hooks.AfterSave(ctx, existing)
 		}
 
 		// Update counts if reaction type changed
@@ -159,6 +206,18 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 				return nil, err
 			}
 			s.invalidateCountsCache(req.EntityId)
+
+			// OnEvent hook for reaction change
+			if s.Hooks.OnEvent != nil {
+				_ = s.Hooks.OnEvent(ctx, &Event{
+					Type:     EventReactionChanged,
+					EntityID: req.EntityId,
+					UserID:   req.UserId,
+					Like:     existing,
+					OldType:  oldType,
+					NewType:  reactionType,
+				})
+			}
 		}
 
 		return &v1.AddReactionResponse{
@@ -178,8 +237,20 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 		CreatorId:    req.UserId,
 	}
 
+	// BeforeSave hook
+	if s.Hooks.BeforeSave != nil {
+		if err := s.Hooks.BeforeSave(ctx, like); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.StorageProvider.SaveLike(ctx, like); err != nil {
 		return nil, err
+	}
+
+	// AfterSave hook (errors logged, don't fail operation)
+	if s.Hooks.AfterSave != nil {
+		_ = s.Hooks.AfterSave(ctx, like)
 	}
 
 	// Update counts
@@ -192,6 +263,16 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 	}
 	s.invalidateCountsCache(req.EntityId)
 
+	// OnEvent hook for new reaction
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:     EventReactionAdded,
+			EntityID: req.EntityId,
+			UserID:   req.UserId,
+			Like:     like,
+		})
+	}
+
 	return &v1.AddReactionResponse{
 		Like:   like,
 		Counts: counts,
@@ -200,6 +281,23 @@ func (s *BaseLikesService) AddReaction(ctx context.Context, req *v1.AddReactionR
 
 // RemoveReaction removes a user's reaction from an entity.
 func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveReactionRequest) (*v1.RemoveReactionResponse, error) {
+	// Resolve user ID from request or context
+	req.UserId = s.resolveUserID(ctx, req.UserId)
+
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "RemoveReaction",
+			UserID:    req.UserId,
+			EntityID:  req.EntityId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate required fields
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
@@ -220,9 +318,21 @@ func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveRea
 		}, nil
 	}
 
+	// BeforeDelete hook
+	if s.Hooks.BeforeDelete != nil {
+		if err := s.Hooks.BeforeDelete(ctx, existing); err != nil {
+			return nil, err
+		}
+	}
+
 	// Delete the reaction
 	if err := s.StorageProvider.DeleteLike(ctx, req.EntityId, req.UserId); err != nil {
 		return nil, err
+	}
+
+	// AfterDelete hook (errors logged, don't fail operation)
+	if s.Hooks.AfterDelete != nil {
+		_ = s.Hooks.AfterDelete(ctx, existing)
 	}
 
 	// Update counts
@@ -246,6 +356,16 @@ func (s *BaseLikesService) RemoveReaction(ctx context.Context, req *v1.RemoveRea
 		return nil, err
 	}
 	s.invalidateCountsCache(req.EntityId)
+
+	// OnEvent hook for reaction removed
+	if s.Hooks.OnEvent != nil {
+		_ = s.Hooks.OnEvent(ctx, &Event{
+			Type:     EventReactionRemoved,
+			EntityID: req.EntityId,
+			UserID:   req.UserId,
+			Like:     existing,
+		})
+	}
 
 	return &v1.RemoveReactionResponse{
 		Removed: true,
@@ -305,6 +425,23 @@ func (s *BaseLikesService) ToggleReaction(ctx context.Context, req *v1.ToggleRea
 
 // GetUserReaction returns a user's current reaction on an entity.
 func (s *BaseLikesService) GetUserReaction(ctx context.Context, req *v1.GetUserReactionRequest) (*v1.GetUserReactionResponse, error) {
+	// Resolve user ID from request or context
+	req.UserId = s.resolveUserID(ctx, req.UserId)
+
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "GetUserReaction",
+			UserID:    req.UserId,
+			EntityID:  req.EntityId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate required fields
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
@@ -315,6 +452,11 @@ func (s *BaseLikesService) GetUserReaction(ctx context.Context, req *v1.GetUserR
 	like, err := s.StorageProvider.GetLike(ctx, req.EntityId, req.UserId)
 	if err != nil {
 		return nil, err
+	}
+
+	// AfterRead hook
+	if like != nil && s.Hooks.AfterRead != nil {
+		_ = s.Hooks.AfterRead(ctx, []*v1.Like{like})
 	}
 
 	return &v1.GetUserReactionResponse{
@@ -363,6 +505,20 @@ func (s *BaseLikesService) GetLikeCounts(ctx context.Context, req *v1.GetLikeCou
 
 // ListReactors returns users who reacted to an entity.
 func (s *BaseLikesService) ListReactors(ctx context.Context, req *v1.ListReactorsRequest) (*v1.ListReactorsResponse, error) {
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "ListReactors",
+			UserID:    GetUserIDFromContext(ctx, s.UserIDContextKey), // For authorization context
+			EntityID:  req.EntityId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate required fields
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
@@ -382,6 +538,11 @@ func (s *BaseLikesService) ListReactors(ctx context.Context, req *v1.ListReactor
 		return nil, err
 	}
 
+	// AfterRead hook
+	if len(likes) > 0 && s.Hooks.AfterRead != nil {
+		_ = s.Hooks.AfterRead(ctx, likes)
+	}
+
 	var nextToken string
 	if offset+len(likes) < total {
 		nextToken = fmt.Sprintf("%d", offset+len(likes))
@@ -398,6 +559,22 @@ func (s *BaseLikesService) ListReactors(ctx context.Context, req *v1.ListReactor
 
 // ListUserReactions returns all reactions by a specific user.
 func (s *BaseLikesService) ListUserReactions(ctx context.Context, req *v1.ListUserReactionsRequest) (*v1.ListUserReactionsResponse, error) {
+	// Resolve user ID from request or context
+	req.UserId = s.resolveUserID(ctx, req.UserId)
+
+	// Authorization hook
+	if s.Hooks.OnAuthorize != nil {
+		hookCtx := &HookContext{
+			Operation: "ListUserReactions",
+			UserID:    req.UserId,
+			Request:   req,
+		}
+		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate required fields
 	if req.UserId == "" {
 		return nil, ErrUserIDRequired
 	}
@@ -415,6 +592,11 @@ func (s *BaseLikesService) ListUserReactions(ctx context.Context, req *v1.ListUs
 	likes, total, err := s.StorageProvider.ListLikesByUser(ctx, req.UserId, pageSize, offset)
 	if err != nil {
 		return nil, err
+	}
+
+	// AfterRead hook
+	if len(likes) > 0 && s.Hooks.AfterRead != nil {
+		_ = s.Hooks.AfterRead(ctx, likes)
 	}
 
 	var nextToken string
@@ -501,6 +683,15 @@ func (s *BaseLikesService) ListReactionTypes(ctx context.Context, req *v1.ListRe
 }
 
 // Helper methods
+
+// resolveUserID returns the user ID from the request, falling back to context if empty.
+// This allows interceptors/middleware to set user ID in context.
+func (s *BaseLikesService) resolveUserID(ctx context.Context, requestUserID string) string {
+	if requestUserID != "" {
+		return requestUserID
+	}
+	return GetUserIDFromContext(ctx, s.UserIDContextKey)
+}
 
 func (s *BaseLikesService) getOrCreateCounts(ctx context.Context, entityID string) (*v1.LikeCounts, error) {
 	counts, err := s.StorageProvider.GetLikeCounts(ctx, entityID)

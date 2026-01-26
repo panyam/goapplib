@@ -114,20 +114,53 @@ Indexes are project-wide (not namespace-specific). Wait for indexes to build in 
 
 ## Implementation Status
 
-| Service | Protos | GORM Backend | Datastore Backend | Tests | Docs |
-|---------|--------|--------------|-------------------|-------|------|
-| LikesService | ✅ | ✅ | ✅ | ✅ | ✅ |
-| TagsService | ✅ | ✅ | ✅ | ✅ | ✅ |
-| CollectionsService | ✅ | ✅ | ✅ | ✅ | ✅ |
-| NotesService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
-| CommentsService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
-| UserActivityService | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+| Service             | Protos | GORM Backend | Datastore Backend | Hooks | Tests | Docs |
+|---------------------|--------|--------------|-------------------|-------|-------|------|
+| LikesService        | ✅     | ✅           | ✅                | ✅    | ✅    | ✅   |
+| TagsService         | ✅     | ✅           | ✅                | ⏳    | ✅    | ✅   |
+| CollectionsService  | ✅     | ✅           | ✅                | ⏳    | ✅    | ✅   |
+| NotesService        | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
+| CommentsService     | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
+| UserActivityService | ⏳     | ⏳           | ⏳                | ⏳    | ⏳    | ⏳   |
 
 ### Design Simplifications
 
 **Removed `entity_type`**: All services now use only `entity_id` to identify entities. The entity type can be encoded in the ID if needed (e.g., "song:123") or determined by the service/table instance being used.
 
 **Removed `owner_type`**: Collections and Tags services now use only `owner_id` in "type:id" format (e.g., "user:123", "org:456"). This simplifies Datastore indexes by removing one field from composite indexes.
+
+### Hooks Pattern (LikesService)
+
+Services support lifecycle hooks for customization:
+
+```go
+service := backends.NewGORMLikesServiceWithOptions(db,
+    backends.WithUserIDContextKey(myCtxKey),  // Context key for user ID
+    backends.WithOnAuthorize(authHook),       // Authorization check
+    backends.WithValidateEntity(validateHook), // Entity validation
+    backends.WithBeforeSave(beforeSaveHook),  // Before save
+    backends.WithAfterSave(afterSaveHook),    // After save
+    backends.WithOnEvent(eventHook),          // Event notifications
+)
+```
+
+**Available Hooks:**
+- `OnAuthorize` - Called before operations for auth checks; receives request for modification
+- `ValidateEntity` - Validate entity exists before attaching data
+- `BeforeSave` / `AfterSave` - Lifecycle around save operations
+- `BeforeDelete` / `AfterDelete` - Lifecycle around delete operations
+- `AfterRead` - Data enrichment after reading
+- `OnEvent` - Notifications (EventReactionAdded, EventReactionRemoved, EventReactionChanged)
+
+**Context-based User ID:**
+Services auto-resolve user ID from context if not in request. This allows interceptors/middleware to set auth context:
+```go
+// In interceptor
+ctx = likes.WithUserID(ctx, myCtxKey, "user:123")
+
+// Service uses it automatically
+service.AddReaction(ctx, &AddReactionRequest{EntityId: "post:1"})  // UserId auto-filled
+```
 
 ### Tags Service Notes
 
