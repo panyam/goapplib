@@ -23,24 +23,40 @@ type DatastoreLikesService struct {
 	indexesValidated bool
 }
 
+// DatastoreServiceOptions holds configuration options for the Datastore likes service.
+type DatastoreServiceOptions struct {
+	// Datastore-specific options (index validation, kind names)
+	DatastoreOptions []dsidx.ServiceOption
+	// Likes service options (hooks, user ID context key, etc.)
+	ServiceOptions []likes.ServiceOption
+}
+
 // NewDatastoreLikesService creates a new Datastore-backed likes service.
 // Options:
 //   - dsidx.WithValidation(ctx): Validate indexes exist (warns by default, use WithValidationMode to change)
 //   - dsidx.WithValidationMode(mode): Set validation mode (ValidationNone, ValidationWarn, ValidationError)
 func NewDatastoreLikesService(client *datastore.Client, namespace string, options ...dsidx.ServiceOption) (*DatastoreLikesService, error) {
+	return NewDatastoreLikesServiceWithOpts(client, namespace, DatastoreServiceOptions{
+		DatastoreOptions: options,
+	})
+}
+
+// NewDatastoreLikesServiceWithOpts creates a new Datastore-backed likes service with full options.
+// Use this when you need to pass both datastore options and service options (e.g., WithUserIDContextKey).
+func NewDatastoreLikesServiceWithOpts(client *datastore.Client, namespace string, options DatastoreServiceOptions) (*DatastoreLikesService, error) {
 	provider := &datastoreLikesStorageProvider{
 		client:    client,
 		namespace: namespace,
 	}
-	base := likes.NewBaseLikesService(provider)
+	base := likes.NewBaseLikesService(provider, options.ServiceOptions...)
 	service := &DatastoreLikesService{
 		BaseLikesService: base,
 		client:           client,
 		namespace:        namespace,
 	}
 
-	// Apply options
-	opts := dsidx.ApplyOptions(options...)
+	// Apply datastore options
+	opts := dsidx.ApplyOptions(options.DatastoreOptions...)
 	if opts.ValidateCtx != nil {
 		if err := service.EnsureIndexesWithMode(opts.ValidateCtx, opts.ValidationMode); err != nil {
 			return nil, err

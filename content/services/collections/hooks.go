@@ -4,11 +4,13 @@ import (
 	"context"
 
 	v1 "github.com/panyam/goapplib/content/gen/go/collections/v1"
+	"github.com/panyam/goapplib/content/services/common"
 )
 
 // DefaultUserIDContextKey is the default context key for the authenticated user ID.
 // Can be overridden per service instance via WithUserIDContextKey.
-const DefaultUserIDContextKey = "collections:user_id"
+// Uses the common default so all goapplib services share the same key.
+const DefaultUserIDContextKey = common.DefaultUserIDContextKey
 
 // GetUserIDFromContext returns the user ID from context using the given key.
 // Returns empty string if not set.

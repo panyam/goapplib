@@ -185,6 +185,12 @@ const (
 
 	// MetadataKeyUserID is the gRPC metadata key for user ID.
 	MetadataKeyUserID = "x-user-id"
+
+	// DefaultUserIDContextKey is the default context key for the authenticated user ID.
+	// All goapplib services use this same key by default, so a single interceptor can
+	// set the user ID and all services will read it.
+	// Apps can override this per-service using WithUserIDContextKey if needed.
+	DefaultUserIDContextKey = "goapplib:user_id"
 )
 
 // GatewayMuxOption configures a gRPC-gateway ServeMux for entity extraction.

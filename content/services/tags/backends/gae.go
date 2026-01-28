@@ -36,13 +36,29 @@ type DatastoreTagsService struct {
 	tagUsageCountsKind string
 }
 
+// DatastoreServiceOptions holds configuration options for the Datastore tags service.
+type DatastoreServiceOptions struct {
+	// Datastore-specific options (index validation, kind names)
+	DatastoreOptions []dsidx.ServiceOption
+	// Tags service options (hooks, normalizer, user ID context key, etc.)
+	ServiceOptions []tags.ServiceOption
+}
+
 // NewDatastoreTagsService creates a new Datastore-backed tags service.
 // Options:
 //   - dsidx.WithValidation(ctx): Validate indexes exist (warns by default, use WithValidationMode to change)
 //   - dsidx.WithValidationMode(mode): Set validation mode (ValidationNone, ValidationWarn, ValidationError)
 //   - dsidx.WithKindNames(map[string]string{"Tag": "MyTag"}): Override kind names
 func NewDatastoreTagsService(client *datastore.Client, namespace string, options ...dsidx.ServiceOption) (*DatastoreTagsService, error) {
-	opts := dsidx.ApplyOptions(options...)
+	return NewDatastoreTagsServiceWithOpts(client, namespace, DatastoreServiceOptions{
+		DatastoreOptions: options,
+	})
+}
+
+// NewDatastoreTagsServiceWithOpts creates a new Datastore-backed tags service with full options.
+// Use this when you need to pass both datastore options and service options (e.g., WithUserIDContextKey).
+func NewDatastoreTagsServiceWithOpts(client *datastore.Client, namespace string, options DatastoreServiceOptions) (*DatastoreTagsService, error) {
+	opts := dsidx.ApplyOptions(options.DatastoreOptions...)
 
 	// Resolve kind names (use defaults if not overridden)
 	tagKind := DefaultTagKind
@@ -68,7 +84,7 @@ func NewDatastoreTagsService(client *datastore.Client, namespace string, options
 		entityTagKind:      entityTagKind,
 		tagUsageCountsKind: tagUsageCountsKind,
 	}
-	base := tags.NewBaseTagsService(provider)
+	base := tags.NewBaseTagsService(provider, options.ServiceOptions...)
 	service := &DatastoreTagsService{
 		BaseTagsService:    base,
 		client:             client,

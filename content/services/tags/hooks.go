@@ -9,7 +9,8 @@ import (
 
 // DefaultUserIDContextKey is the default context key for the authenticated user ID.
 // Can be overridden per service instance via WithUserIDContextKey.
-const DefaultUserIDContextKey = "tags:user_id"
+// Uses the common default so all goapplib services share the same key.
+const DefaultUserIDContextKey = common.DefaultUserIDContextKey
 
 // GetUserIDFromContext returns the user ID from context using the given key.
 // Returns empty string if not set.
