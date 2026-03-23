@@ -1,0 +1,53 @@
+# GoAppLib
+
+## Version
+0.0.26
+
+## Provides
+- web-app-scaffold: Server-rendered web application framework (stdlib-native)
+- view-context: Generic ViewContext type system for page rendering
+- page-mixins: Composable mixins (WithPagination, WithFiltering, WithAuth, WithHtmx)
+- htmx-support: HTMX request detection and response utilities
+- responsive-ui: Built-in UI components (drawers, modals, pagination, search filters)
+- users-service: UsersService with multi-backend support (FS, GORM, Google Datastore)
+- auth-integration: Integration with oneauth for authentication
+- template-management: Template management via Templar integration
+- rate-limiting: Rate limiting middleware for auth vs API endpoints
+- admin-pages: Admin pages and user management
+
+## Module
+github.com/panyam/goapplib
+
+## Location
+newstack/goapplib/main
+
+## Stack Dependencies
+- goutils (github.com/panyam/goutils)
+- oneauth (github.com/panyam/oneauth)
+- protoc-gen-dal (github.com/panyam/protoc-gen-dal)
+- templar (github.com/panyam/templar)
+
+## Integration
+
+### Go Module
+```go
+// go.mod
+require github.com/panyam/goapplib 0.0.26
+
+// Local development
+replace github.com/panyam/goapplib => ~/newstack/goapplib/main
+```
+
+### Key Imports
+```go
+import "github.com/panyam/goapplib/views"
+```
+
+## Status
+Active
+
+## Conventions
+- Generic ViewContext
+- Stdlib-native (no custom router)
+- Mixin-based composition
+- BasePage mixin pattern
