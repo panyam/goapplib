@@ -9,6 +9,7 @@
 - page-mixins: Composable mixins (WithPagination, WithFiltering, WithAuth, WithHtmx)
 - htmx-support: HTMX request detection and response utilities
 - responsive-ui: Built-in UI components (drawers, modals, pagination, search filters)
+- border-layout: 5-region layout component (North/South/East/West/Center) with pure CSS flexbox
 - users-service: UsersService with multi-backend support (FS, GORM, Google Datastore)
 - auth-integration: Integration with oneauth for authentication
 - template-management: Template management via Templar integration

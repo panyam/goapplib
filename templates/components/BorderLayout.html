@@ -1,0 +1,100 @@
+<!--
+BorderLayout - Reusable 5-region layout template
+
+Provides a flexible BorderLayout container with 5 regions:
+
+- North (top toolbar/header)
+- South (bottom toolbar/footer)
+- East (right sidebar)
+- West (left sidebar)
+- Center (main content - takes remaining space)
+
+The center always takes remaining space. All other regions are optional
+and hidden when empty. Sizing flow is one-way (parent → child):
+
+1. North/South content → height changes
+2. East/West content → width changes
+3. Remaining space → Center
+4. Center size → content size
+5. Content NEVER influences parent size (constrained by min-height: 0)
+
+Parameters:
+.ContentId    - ID for the center content div (default: "border-layout-content")
+.WrapperClass - Additional CSS classes for the wrapper (optional)
+.CenterClass  - Additional CSS classes for the center region (optional)
+.FlexMode     - How wrapper behaves in flex parent:
+                "fill" (default) - flex-1 + min-height:0, takes remaining space
+                "fixed" - width/height: 100%, fills parent container
+                "auto" - natural size based on content
+
+Standard IDs (for JavaScript access):
+- border-layout-wrapper: Main container
+- border-layout-north: North region
+- border-layout-south: South region
+- border-layout-east: East region
+- border-layout-west: West region
+- border-layout-center: Center region
+- [ContentId]: The content div inside center (default: "border-layout-content")
+
+Block overrides (all optional):
+- BorderLayout_North: Top toolbar/header content
+- BorderLayout_South: Bottom footer/status bar content
+- BorderLayout_East: Right sidebar content
+- BorderLayout_West: Left sidebar content
+
+Example usage:
+
+{{ define "BorderLayout_North" }}
+  <div class="p-2 bg-gray-100 border-b">My Toolbar</div>
+{{ end }}
+
+{{ template "BorderLayout" (dict "ContentId" "my-canvas" "FlexMode" "fill") }}
+-->
+
+{{ define "BorderLayout" }}
+
+{{ $contentId := or .ContentId "border-layout-content" }}
+{{ $wrapperClass := or .WrapperClass "" }}
+{{ $centerClass := or .CenterClass "" }}
+{{ $flexMode := or .FlexMode "fill" }}
+
+<div
+  id="border-layout-wrapper"
+  class="flex flex-col {{ $wrapperClass }}"
+  {{ if eq $flexMode "fill" }}
+    style="flex: 1 1 0%; min-height: 0; min-width: 0;"
+  {{ else if eq $flexMode "fixed" }}
+    style="width: 100%; height: 100%;"
+  {{ end }}
+>
+  <!-- North Region (Toolbar/Header) -->
+  {{ block "BorderLayout_North" . }}{{ end }}
+
+  <!-- Middle Row: West, Center, East -->
+  <div class="flex-1 flex flex-row" style="min-height: 0; overflow: hidden">
+    <!-- West Region (Left Sidebar) -->
+    {{ block "BorderLayout_West" . }}{{ end }}
+
+    <!-- Center Region - takes remaining space -->
+    <!-- flex-1 fills space, min-width/height: 0 prevents content from pushing parent -->
+    <div
+      id="border-layout-center"
+      class="flex-1 {{ $centerClass }}"
+      style="min-width: 0; min-height: 0; overflow: hidden; position: relative"
+    >
+      <div
+        id="{{ $contentId }}"
+        class="w-full h-full"
+        style="position: relative; overflow: hidden"
+      >
+      </div>
+    </div>
+
+    <!-- East Region (Right Sidebar) -->
+    {{ block "BorderLayout_East" . }}{{ end }}
+  </div>
+
+  <!-- South Region (Footer/Status Bar) -->
+  {{ block "BorderLayout_South" . }}{{ end }}
+</div>
+{{ end }}

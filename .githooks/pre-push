@@ -1,0 +1,9 @@
+#!/bin/sh
+# Pre-push hook: run all Go tests before pushing
+# Activate with: git config core.hooksPath .githooks
+
+set -e
+
+echo "Running tests before push..."
+cd main && go test ./...
+echo "All tests passed."

@@ -42,6 +42,7 @@ goapplib/
     ├── BasePage.html
     ├── Header.html
     └── components/
+        ├── BorderLayout.html
         ├── Drawer.html
         ├── EntityGrid.html
         ├── EntityTable.html
@@ -86,6 +87,7 @@ goal.RegisterGroup[GamesGroup](app, mux, "/games")
 
 ### 7. Responsive Components
 Templates include mobile-friendly patterns:
+- **BorderLayout** — 5-region layout (North/South/East/West/Center) using pure CSS flexbox with configurable flex modes
 - Drawers with swipe gestures
 - Bottom navigation bar
 - Responsive grids
