@@ -84,17 +84,29 @@ func SetupTemplates(paths ...string) *tmplr.TemplateGroup {
 // DefaultFuncMap returns the default template functions.
 func DefaultFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"safeHTML": func(s string) template.HTML {
-			return template.HTML(s)
+		"safeHTML": func(s any) template.HTML {
+			if s == nil {
+				return ""
+			}
+			return template.HTML(fmt.Sprintf("%v", s))
 		},
-		"safeHTMLAttr": func(s string) template.HTMLAttr {
-			return template.HTMLAttr(s)
+		"safeHTMLAttr": func(s any) template.HTMLAttr {
+			if s == nil {
+				return ""
+			}
+			return template.HTMLAttr(fmt.Sprintf("%v", s))
 		},
-		"safeJS": func(s string) template.JS {
-			return template.JS(s)
+		"safeJS": func(s any) template.JS {
+			if s == nil {
+				return ""
+			}
+			return template.JS(fmt.Sprintf("%v", s))
 		},
-		"safeURL": func(s string) template.URL {
-			return template.URL(s)
+		"safeURL": func(s any) template.URL {
+			if s == nil {
+				return ""
+			}
+			return template.URL(fmt.Sprintf("%v", s))
 		},
 		"default": func(defaultVal, val any) any {
 			if val == nil {

@@ -16,11 +16,12 @@ A lightweight, stdlib-native Go library for building server-rendered web applica
 6. [Route Registration](#route-registration)
 7. [Page Groups](#page-groups)
 8. [Templates](#templates)
-9. [HTMX Integration](#htmx-integration)
-10. [Responsive Patterns](#responsive-patterns)
-11. [Template Installation](#template-installation)
-12. [UsersService](#usersservice)
-13. [API Reference](#api-reference)
+9. [BorderLayout](#borderlayout)
+10. [HTMX Integration](#htmx-integration)
+11. [Responsive Patterns](#responsive-patterns)
+12. [Template Installation](#template-installation)
+13. [UsersService](#usersservice)
+14. [API Reference](#api-reference)
 
 ---
 
@@ -663,6 +664,7 @@ templates/
 ├── BasePage.html           # Root layout
 ├── Header.html             # Navigation header
 ├── components/
+│   ├── BorderLayout.html
 │   ├── Pagination.html
 │   ├── EntityGrid.html
 │   ├── EntityTable.html
@@ -779,6 +781,53 @@ templates/
 {{ define "GameListingPage" }}
 {{ template "EntityListingPage" . }}
 {{ end }}
+```
+
+---
+
+## BorderLayout
+
+A 5-region layout component using pure CSS flexbox. Regions: North (top), South (bottom), East (right), West (left), Center (fills remaining space). All regions except Center are optional and collapse when empty. No JavaScript required.
+
+```
+┌──────────────────────────────┐
+│           North              │  ← fixed height
+├──────┬───────────────┬───────┤
+│      │               │       │
+│ West │    Center     │ East  │  ← Center fills remaining space
+│      │               │       │
+├──────┴───────────────┴───────┤
+│           South              │  ← fixed height
+└──────────────────────────────┘
+```
+
+**Parameters:**
+- `.ContentId` — ID for center content div (default: `"border-layout-content"`)
+- `.WrapperClass` — Additional CSS classes on wrapper
+- `.CenterClass` — Additional CSS classes on center region
+- `.FlexMode` — `"fill"` (default, flex-1), `"fixed"` (100% w/h), `"auto"` (natural size)
+
+**Block overrides:** `BorderLayout_North`, `BorderLayout_South`, `BorderLayout_East`, `BorderLayout_West`
+
+**Standard IDs:** `border-layout-wrapper`, `border-layout-center`, `border-layout-north`, `border-layout-south`, `border-layout-east`, `border-layout-west`
+
+```html
+{{# include "components/BorderLayout.html" #}}
+
+{{ define "BorderLayout_North" }}
+<div class="p-2 bg-gray-100 border-b flex items-center gap-2">
+  <h1 class="text-lg font-bold">Editor</h1>
+  <button class="btn-sm">Save</button>
+</div>
+{{ end }}
+
+{{ define "BorderLayout_South" }}
+<div class="p-1 text-xs text-gray-500 border-t">
+  Status: Ready
+</div>
+{{ end }}
+
+{{ template "BorderLayout" (dict "ContentId" "editor-canvas" "FlexMode" "fill") }}
 ```
 
 ---

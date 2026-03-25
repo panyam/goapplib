@@ -10,11 +10,14 @@ require (
 	github.com/panyam/goutils v0.1.13
 	github.com/panyam/oneauth v0.0.26
 	github.com/panyam/protoc-gen-dal v0.0.10
-	github.com/panyam/templar v0.0.29
+	github.com/panyam/templar v0.0.32
 	golang.org/x/oauth2 v0.34.0
+	google.golang.org/api v0.259.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
+	gorm.io/driver/postgres v1.6.0
+	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 )
 
@@ -49,10 +52,7 @@ require (
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
-	google.golang.org/api v0.259.0 // indirect
 	google.golang.org/genproto v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251222181119-0a764e51fe1b // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gorm.io/driver/postgres v1.6.0 // indirect
-	gorm.io/driver/sqlite v1.6.0 // indirect
 )

@@ -69,8 +69,8 @@ github.com/panyam/oneauth v0.0.26 h1:hRk7bwsxchfqN0v7FJSdANALZyBAPrs5JRoqgciF9vQ
 github.com/panyam/oneauth v0.0.26/go.mod h1:8+k7sA8BF1KH59e22tSyV8t4qhvgt0lT4qfZkvt0ZQo=
 github.com/panyam/protoc-gen-dal v0.0.10 h1:/IgVQz3C8MerCbpvOxvShaxlhbYwXfLI4yMTkG/wchU=
 github.com/panyam/protoc-gen-dal v0.0.10/go.mod h1:EfGfJro7w5lmqORD2W/fyn3Gh5Sukztgcmiqcps2Muc=
-github.com/panyam/templar v0.0.29 h1:+cNqCoMJHsdM4XTNhDbvgUvPLWDrBcgr79MJgmbd5xY=
-github.com/panyam/templar v0.0.29/go.mod h1:MMZb7+uv6B7mFNVJLx5PC7cFRzIn/baroBESBdNro20=
+github.com/panyam/templar v0.0.32 h1:mNNTqtgzE7TiBI1yftYwGYL45Fz20p0p8aaGsVZmZ/A=
+github.com/panyam/templar v0.0.32/go.mod h1:MMZb7+uv6B7mFNVJLx5PC7cFRzIn/baroBESBdNro20=
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 h1:GFCKgmp0tecUJ0sJuv4pzYCqS9+RGSn52M3FUwPs+uo=
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10/go.mod h1:t/avpk3KcrXxUnYOhZhMXJlSEyie6gQbtLq5NM3loB8=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
