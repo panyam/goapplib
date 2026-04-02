@@ -141,9 +141,9 @@ resp, err := userService.CreateUser(ctx, &v1.CreateUserRequest{
 **Deprecated**: AuthService is now a thin pass-through to oneauth. For new code, use oneauth directly.
 
 The AuthService wrapper is maintained for backwards compatibility but delegates entirely to oneauth:
-- `EnsureAuthUser` → `oneauth.NewEnsureAuthUserFunc` (with channel linking support)
-- `CreateLocalUser` → `oneauth.NewCreateUserFunc`
-- `ValidateLocalCredentials` → `oneauth.NewCredentialsValidator`
+- `EnsureAuthUser` → `localauth.NewEnsureAuthUserFunc` (with channel linking support)
+- `CreateLocalUser` → `localauth.NewCreateUserFunc`
+- `ValidateLocalCredentials` → `localauth.NewCredentialsValidator`
 - Now supports `UsernameStore` for username-based login
 
 ```go
@@ -152,18 +152,18 @@ import "github.com/panyam/goapplib/services"
 authService := services.NewAuthService("/path/to/storage")
 user, err := authService.EnsureAuthUser("oauth", "google", token, userInfo)
 
-// Recommended: Use oneauth directly
+// Recommended: Use oneauth directly (v0.0.40+ sub-module imports)
 import (
-    "github.com/panyam/oneauth"
+    "github.com/panyam/oneauth/localauth"
     "github.com/panyam/oneauth/stores/gorm"
 )
-config := oneauth.EnsureAuthUserConfig{
+config := localauth.EnsureAuthUserConfig{
     UserStore:     gorm.NewUserStore(db),
     IdentityStore: gorm.NewIdentityStore(db),
     ChannelStore:  gorm.NewChannelStore(db),
     UsernameStore: gorm.NewUsernameStore(db), // Optional
 }
-ensureUser := oneauth.NewEnsureAuthUserFunc(config)
+ensureUser := localauth.NewEnsureAuthUserFunc(config)
 user, err := ensureUser("oauth", "google", token, userInfo)
 ```
 

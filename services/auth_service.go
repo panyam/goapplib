@@ -1,7 +1,8 @@
 package services
 
 import (
-	oa "github.com/panyam/oneauth"
+	oa "github.com/panyam/oneauth/core"
+	la "github.com/panyam/oneauth/localauth"
 	"github.com/panyam/oneauth/stores/fs"
 	"golang.org/x/oauth2"
 )
@@ -92,25 +93,25 @@ func NewAuthServiceWithAllStores(userStore oa.UserStore, identityStore oa.Identi
 
 // initEnsureUser initializes the internal ensureUser function using oneauth
 func (s *AuthService) initEnsureUser() {
-	config := oa.EnsureAuthUserConfig{
+	config := la.EnsureAuthUserConfig{
 		UserStore:     s.UserStore,
 		IdentityStore: s.IdentityStore,
 		ChannelStore:  s.ChannelStore,
 		UsernameStore: s.UsernameStore,
 	}
-	s.ensureUser = oa.NewEnsureAuthUserFunc(config)
+	s.ensureUser = la.NewEnsureAuthUserFunc(config)
 }
 
 // CreateLocalUser creates a new user with local authentication.
 // Pass-through to oneauth.NewCreateUserFunc.
 func (s *AuthService) CreateLocalUser(creds *oa.Credentials) (oa.User, error) {
-	return oa.NewCreateUserFunc(s.UserStore, s.IdentityStore, s.ChannelStore)(creds)
+	return la.NewCreateUserFunc(s.UserStore, s.IdentityStore, s.ChannelStore)(creds)
 }
 
 // ValidateLocalCredentials validates username/password and returns the user.
 // Pass-through to oneauth.NewCredentialsValidator.
 func (s *AuthService) ValidateLocalCredentials(username, password, usernameType string) (oa.User, error) {
-	return oa.NewCredentialsValidator(s.IdentityStore, s.ChannelStore, s.UserStore)(username, password, usernameType)
+	return la.NewCredentialsValidator(s.IdentityStore, s.ChannelStore, s.UserStore)(username, password, usernameType)
 }
 
 // ValidateLocalCredentialsWithUsername validates credentials allowing username-based login.
@@ -120,19 +121,19 @@ func (s *AuthService) ValidateLocalCredentialsWithUsername(username, password, u
 		// Fall back to standard validator if no UsernameStore
 		return s.ValidateLocalCredentials(username, password, usernameType)
 	}
-	return oa.NewCredentialsValidatorWithUsername(s.IdentityStore, s.ChannelStore, s.UserStore, s.UsernameStore)(username, password, usernameType)
+	return la.NewCredentialsValidatorWithUsername(s.IdentityStore, s.ChannelStore, s.UserStore, s.UsernameStore)(username, password, usernameType)
 }
 
 // VerifyEmailByToken verifies an email using a verification token.
 // Pass-through to oneauth.NewVerifyEmailFunc.
 func (s *AuthService) VerifyEmailByToken(token string) error {
-	return oa.NewVerifyEmailFunc(s.IdentityStore, s.TokenStore)(token)
+	return la.NewVerifyEmailFunc(s.IdentityStore, s.TokenStore)(token)
 }
 
 // UpdatePassword updates the password for a user identified by email.
 // Pass-through to oneauth.NewUpdatePasswordFunc.
 func (s *AuthService) UpdatePassword(email, newPassword string) error {
-	return oa.NewUpdatePasswordFunc(s.IdentityStore, s.ChannelStore)(email, newPassword)
+	return la.NewUpdatePasswordFunc(s.IdentityStore, s.ChannelStore)(email, newPassword)
 }
 
 // EnsureAuthUser handles user creation/lookup for both OAuth and local authentication.

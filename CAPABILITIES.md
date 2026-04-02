@@ -24,7 +24,7 @@ newstack/goapplib/main
 
 ## Stack Dependencies
 - goutils (github.com/panyam/goutils)
-- oneauth (github.com/panyam/oneauth)
+- oneauth (github.com/panyam/oneauth) — uses core + localauth + stores/fs subpackages (v0.0.40+)
 - protoc-gen-dal (github.com/panyam/protoc-gen-dal)
 - templar (github.com/panyam/templar)
 
