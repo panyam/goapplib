@@ -131,7 +131,7 @@ type ViewContext struct {
 
     // Authentication
     AuthMiddleware *oneauth.Middleware
-    AuthService    oneauth.AuthUserStore
+    AuthService    federatedauth.AuthUserStore
 
     // Optional: HTMX support
     Htmx *goapplib.HtmxContext
@@ -339,7 +339,7 @@ type WithAuth struct {
 }
 
 // Load requires ViewContext with auth
-func (p *WithAuth) LoadWithAuth(r *http.Request, authMw *oneauth.Middleware, authSvc oneauth.AuthUserStore) (error, bool) {
+func (p *WithAuth) LoadWithAuth(r *http.Request, authMw *oneauth.Middleware, authSvc federatedauth.AuthUserStore) (error, bool) {
     p.LoggedInUserId = authMw.GetLoggedInUserId(r)
     p.IsLoggedIn = p.LoggedInUserId != ""
 
@@ -1103,7 +1103,7 @@ import (
 type ViewContext struct {
     ClientMgr      *services.ClientMgr
     AuthMiddleware *oneauth.Middleware
-    AuthService    oneauth.AuthUserStore
+    AuthService    federatedauth.AuthUserStore
 }
 
 // GameListingPage

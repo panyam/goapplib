@@ -4,24 +4,24 @@ import (
 	v1 "github.com/panyam/goapplib/gen/go/goapplib/v1"
 )
 
-// UserBridge wraps a goapplib.v1.User to implement the oneauth.User interface.
-// This allows seamless integration between goapplib's User proto and oneauth's
-// authentication system.
+// UserBridge wraps a goapplib.v1.User to implement the oneauth accounts.User
+// interface. This allows seamless integration between goapplib's User proto and
+// oneauth's authentication system.
 //
 // # Usage
 //
 // After authenticating with AuthService, create a UserBridge to pass to
-// systems that expect a oneauth.User:
+// systems that expect a accounts.User:
 //
 //	user := &v1.User{Id: "123", Name: "John"}
 //	bridge := services.NewUserBridge(user)
-//	// bridge now implements oneauth.User interface
+//	// bridge now implements accounts.User interface
 //	fmt.Println(bridge.Id())       // "123"
 //	fmt.Println(bridge.Profile())  // map[name:John ...]
 //
-// # oneauth.User Interface
+// # accounts.User Interface
 //
-// The oneauth.User interface requires:
+// The accounts.User interface requires:
 //   - Id() string: returns the user's unique identifier
 //   - Profile() map[string]any: returns user profile data as a map
 //
@@ -36,7 +36,7 @@ func NewUserBridge(user *v1.User) *UserBridge {
 	return &UserBridge{user: user}
 }
 
-// Id implements oneauth.User interface.
+// Id implements accounts.User interface.
 // Returns the user's unique identifier.
 func (u *UserBridge) Id() string {
 	if u.user == nil {
@@ -45,7 +45,7 @@ func (u *UserBridge) Id() string {
 	return u.user.GetId()
 }
 
-// Profile implements oneauth.User interface.
+// Profile implements accounts.User interface.
 // Returns user profile data as a map, including name, email, image_url,
 // description, and tags. The extras field is also included if present.
 func (u *UserBridge) Profile() map[string]any {

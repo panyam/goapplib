@@ -32,7 +32,7 @@ goapplib/
 ├── services/           # Service interfaces and implementations
 │   ├── users_service.go         # UsersService interface + BaseUsersService
 │   ├── auth_service.go          # AuthService (deprecated - pass-through to oneauth)
-│   ├── oneauth_bridge.go        # UserBridge adapts v1.User to oneauth.User
+│   ├── oneauth_bridge.go        # UserBridge adapts v1.User to accounts.User
 │   └── backends/
 │       ├── fs/users_service.go      # FileSystem backend
 │       ├── gorm/users_service.go    # GORM/PostgreSQL backend
@@ -152,7 +152,7 @@ import "github.com/panyam/goapplib/services"
 authService := services.NewAuthService("/path/to/storage")
 user, err := authService.EnsureAuthUser("oauth", "google", token, userInfo)
 
-// Recommended: Use oneauth directly (v0.0.40+ sub-module imports)
+// Recommended: Use oneauth directly (v0.1.0+ sub-module imports)
 import (
     "github.com/panyam/oneauth/localauth"
     "github.com/panyam/oneauth/stores/gorm"
