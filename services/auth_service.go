@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+
 	"github.com/panyam/oneauth/accounts"
 	"github.com/panyam/oneauth/federatedauth"
 	"github.com/panyam/oneauth/localauth"
@@ -146,48 +148,48 @@ func (s *AuthService) EnsureAuthUser(authtype, provider string, token *oauth2.To
 // --- Store interface pass-throughs (for interface compliance) ---
 
 // Implement accounts.UserStore interface.
-func (s *AuthService) CreateUser(userId string, isActive bool, profile map[string]any) (accounts.User, error) {
-	return s.UserStore.CreateUser(userId, isActive, profile)
+func (s *AuthService) CreateUser(ctx context.Context, req *accounts.CreateUserRequest) (*accounts.CreateUserResponse, error) {
+	return s.UserStore.CreateUser(ctx, req)
 }
 
-func (s *AuthService) GetUserById(userId string) (accounts.User, error) {
-	return s.UserStore.GetUserById(userId)
+func (s *AuthService) GetUserById(ctx context.Context, req *accounts.GetUserByIDRequest) (*accounts.GetUserByIDResponse, error) {
+	return s.UserStore.GetUserById(ctx, req)
 }
 
-func (s *AuthService) SaveUser(user accounts.User) error {
-	return s.UserStore.SaveUser(user)
+func (s *AuthService) SaveUser(ctx context.Context, req *accounts.SaveUserRequest) (*accounts.SaveUserResponse, error) {
+	return s.UserStore.SaveUser(ctx, req)
 }
 
 // Implement accounts.IdentityStore interface.
-func (s *AuthService) GetIdentity(identityType, identityValue string, createIfMissing bool) (*accounts.Identity, bool, error) {
-	return s.IdentityStore.GetIdentity(identityType, identityValue, createIfMissing)
+func (s *AuthService) GetIdentity(ctx context.Context, req *accounts.GetIdentityRequest) (*accounts.GetIdentityResponse, error) {
+	return s.IdentityStore.GetIdentity(ctx, req)
 }
 
-func (s *AuthService) SaveIdentity(identity *accounts.Identity) error {
-	return s.IdentityStore.SaveIdentity(identity)
+func (s *AuthService) SaveIdentity(ctx context.Context, req *accounts.SaveIdentityRequest) (*accounts.SaveIdentityResponse, error) {
+	return s.IdentityStore.SaveIdentity(ctx, req)
 }
 
-func (s *AuthService) SetUserForIdentity(identityType, identityValue string, newUserId string) error {
-	return s.IdentityStore.SetUserForIdentity(identityType, identityValue, newUserId)
+func (s *AuthService) SetUserForIdentity(ctx context.Context, req *accounts.SetUserForIdentityRequest) (*accounts.SetUserForIdentityResponse, error) {
+	return s.IdentityStore.SetUserForIdentity(ctx, req)
 }
 
-func (s *AuthService) MarkIdentityVerified(identityType, identityValue string) error {
-	return s.IdentityStore.MarkIdentityVerified(identityType, identityValue)
+func (s *AuthService) MarkIdentityVerified(ctx context.Context, req *accounts.MarkIdentityVerifiedRequest) (*accounts.MarkIdentityVerifiedResponse, error) {
+	return s.IdentityStore.MarkIdentityVerified(ctx, req)
 }
 
-func (s *AuthService) GetUserIdentities(userId string) ([]*accounts.Identity, error) {
-	return s.IdentityStore.GetUserIdentities(userId)
+func (s *AuthService) GetUserIdentities(ctx context.Context, req *accounts.GetUserIdentitiesRequest) (*accounts.GetUserIdentitiesResponse, error) {
+	return s.IdentityStore.GetUserIdentities(ctx, req)
 }
 
 // Implement accounts.ChannelStore interface.
-func (s *AuthService) GetChannel(provider string, identityKey string, createIfMissing bool) (*accounts.Channel, bool, error) {
-	return s.ChannelStore.GetChannel(provider, identityKey, createIfMissing)
+func (s *AuthService) GetChannel(ctx context.Context, req *accounts.GetChannelRequest) (*accounts.GetChannelResponse, error) {
+	return s.ChannelStore.GetChannel(ctx, req)
 }
 
-func (s *AuthService) SaveChannel(channel *accounts.Channel) error {
-	return s.ChannelStore.SaveChannel(channel)
+func (s *AuthService) SaveChannel(ctx context.Context, req *accounts.SaveChannelRequest) (*accounts.SaveChannelResponse, error) {
+	return s.ChannelStore.SaveChannel(ctx, req)
 }
 
-func (s *AuthService) GetChannelsByIdentity(identityKey string) ([]*accounts.Channel, error) {
-	return s.ChannelStore.GetChannelsByIdentity(identityKey)
+func (s *AuthService) GetChannelsByIdentity(ctx context.Context, req *accounts.GetChannelsByIdentityRequest) (*accounts.GetChannelsByIdentityResponse, error) {
+	return s.ChannelStore.GetChannelsByIdentity(ctx, req)
 }

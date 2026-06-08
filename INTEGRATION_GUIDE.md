@@ -34,8 +34,8 @@ module mysite
 go 1.24.0
 
 require (
-    github.com/panyam/goapplib v0.0.13
-    github.com/panyam/templar v0.0.28
+    github.com/panyam/goapplib v0.0.26
+    github.com/panyam/templar v0.1.0
 )
 ```
 

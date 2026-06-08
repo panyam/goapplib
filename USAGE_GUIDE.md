@@ -344,9 +344,10 @@ func (p *WithAuth) LoadWithAuth(r *http.Request, authMw *oneauth.Middleware, aut
     p.IsLoggedIn = p.LoggedInUserId != ""
 
     if p.IsLoggedIn {
-        user, _ := authSvc.GetUserById(p.LoggedInUserId)
-        if user != nil {
-            p.Username = user.Profile()["username"].(string)
+        // oneauth v0.1.x: stores take a context + request and return a response.
+        resp, _ := authSvc.GetUserById(r.Context(), &accounts.GetUserByIDRequest{UserID: p.LoggedInUserId})
+        if resp != nil && resp.User != nil {
+            p.Username = resp.User.Profile()["username"].(string)
         }
     }
     return nil, false

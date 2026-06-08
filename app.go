@@ -71,7 +71,7 @@ func SetupTemplates(paths ...string) *tmplr.TemplateGroup {
 
 	loader := &tmplr.LoaderList{}
 	for _, path := range paths {
-		loader.AddLoader(tmplr.NewFileSystemLoader(path))
+		loader.AddLoader(tmplr.NewFileSystemLoader(tmplr.LocalFolder(path)))
 	}
 	templates.Loader = loader
 

@@ -67,12 +67,12 @@ github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/panyam/goutils v0.1.13 h1:V819IdZTEJ3rpu33ZqohC6O9ou7KOu6cxfigoYT12OQ=
 github.com/panyam/goutils v0.1.13/go.mod h1:vd3iFcv1DjaeV6h8tslIJh9d09RLndg8UYNSGROBrM4=
-github.com/panyam/oneauth v0.1.0 h1:fMa6m3UGmZChhXKQssLFNarv9nM8Ka+CZQ3tFl3SKfc=
-github.com/panyam/oneauth v0.1.0/go.mod h1:EAmer8OH3x4QRM5VueLANJgfAyzivhGwaSfJZ3rUrbM=
+github.com/panyam/oneauth v0.1.13 h1:NHrrbnXiyXbnnW7Wex1N984flAasR+4sod0r7wCDLUQ=
+github.com/panyam/oneauth v0.1.13/go.mod h1:kujwUd36OsM8WyA4c++5acpK2yAgVX3Qa0iu4oI8Cp8=
 github.com/panyam/protoc-gen-dal v0.0.10 h1:/IgVQz3C8MerCbpvOxvShaxlhbYwXfLI4yMTkG/wchU=
 github.com/panyam/protoc-gen-dal v0.0.10/go.mod h1:EfGfJro7w5lmqORD2W/fyn3Gh5Sukztgcmiqcps2Muc=
-github.com/panyam/templar v0.0.32 h1:mNNTqtgzE7TiBI1yftYwGYL45Fz20p0p8aaGsVZmZ/A=
-github.com/panyam/templar v0.0.32/go.mod h1:MMZb7+uv6B7mFNVJLx5PC7cFRzIn/baroBESBdNro20=
+github.com/panyam/templar v0.1.0 h1:yy4sqois9gvNhIy2xsNyRoI5r/qvz1tVY+YuxnmzbWY=
+github.com/panyam/templar v0.1.0/go.mod h1:Pqn7VhOod9MGZ0GqrwoHw16jFjiAxPgWXZBAFou1fZ0=
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 h1:GFCKgmp0tecUJ0sJuv4pzYCqS9+RGSn52M3FUwPs+uo=
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10/go.mod h1:t/avpk3KcrXxUnYOhZhMXJlSEyie6gQbtLq5NM3loB8=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
