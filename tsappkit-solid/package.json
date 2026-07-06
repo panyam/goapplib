@@ -1,0 +1,57 @@
+{
+  "name": "@panyam/tsappkit-solid",
+  "version": "0.0.1",
+  "description": "Solid adapter for @panyam/tsappkit: mount Solid islands inside the tsappkit component lifecycle. The framework-specific reactivity lives here so tsappkit core stays framework-neutral.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "solid",
+    "solid-js",
+    "tsappkit",
+    "island",
+    "component",
+    "lifecycle"
+  ],
+  "author": "panyam",
+  "license": "MIT",
+  "peerDependencies": {
+    "@panyam/tsappkit": "^0.0.5",
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "@solidjs/testing-library": "^0.8.10",
+    "esbuild-plugin-solid": "^0.6.0",
+    "jsdom": "^29.1.1",
+    "solid-js": "^1.9.14",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vite-plugin-solid": "^2.11.12",
+    "vitest": "^4.1.9"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
