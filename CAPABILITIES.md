@@ -1,7 +1,7 @@
 # GoAppLib
 
 ## Version
-0.1.1
+0.2.0
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)
@@ -15,6 +15,7 @@
 - template-management: Template management via Templar integration
 - rate-limiting: Rate limiting middleware for auth vs API endpoints
 - admin-pages: Admin pages and user management
+- page-spec: A page's layout and the islands it mounts (`page.Spec`), validated and written as a JSON script by `templates/page/Islands.html` for tsappkit's island page to mount from a registry; apps extend it by embedding (#30)
 
 ## Module
 github.com/panyam/goapplib
@@ -42,6 +43,7 @@ replace github.com/panyam/goapplib => ~/newstack/goapplib/main
 ### Key Imports
 ```go
 import "github.com/panyam/goapplib/views"
+import "github.com/panyam/goapplib/page" // page.Spec, page.Island, page.ScriptJSON
 ```
 
 ## Status
