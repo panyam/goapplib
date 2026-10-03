@@ -1,6 +1,6 @@
 {
   "name": "@panyam/tsappkit-solid",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Solid adapter for @panyam/tsappkit: mount Solid islands inside the tsappkit component lifecycle. The framework-specific reactivity lives here so tsappkit core stays framework-neutral.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -14,7 +14,9 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
   ],
   "scripts": {
     "build": "tsup",
@@ -36,11 +38,11 @@
   "author": "panyam",
   "license": "MIT",
   "peerDependencies": {
-    "@panyam/tsappkit": "^0.0.5",
+    "@panyam/tsappkit": "^0.0.5 || ^0.1.0",
     "solid-js": "^1.9.0"
   },
   "devDependencies": {
-    "@panyam/tsappkit": "^0.0.5",
+    "@panyam/tsappkit": "^0.1.0",
     "@solidjs/testing-library": "^0.8.10",
     "esbuild-plugin-solid": "^0.6.0",
     "jsdom": "^29.1.1",

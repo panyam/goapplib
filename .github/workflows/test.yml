@@ -24,7 +24,9 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-          cache-dependency-path: tsappkit/pnpm-lock.yaml
+          cache-dependency-path: |
+            tsappkit/pnpm-lock.yaml
+            tsappkit-solid/pnpm-lock.yaml
 
       - name: Run tests
         run: make test
