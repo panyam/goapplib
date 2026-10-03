@@ -27,6 +27,13 @@ export { TemplateLoader } from './TemplateLoader';
 export { SplashScreen } from './SplashScreen';
 export { MobileBottomDrawer } from './MobileBottomDrawer';
 
+// Island pages (islands mounted from a server-written page spec)
+export { IslandPage } from './page/IslandPage';
+export { readSpec, SPEC_ELEMENT_ID } from './page/spec';
+export type { IslandSpec, PageSpec, SpecExtension } from './page/spec';
+export { mountIslands } from './page/mount';
+export type { IslandFactory, Registry } from './page/mount';
+
 // Utilities
 export { isInInputContext, hasModifierKeys, shouldIgnoreShortcut } from './DOMUtils';
 export {

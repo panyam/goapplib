@@ -1,7 +1,7 @@
 # GoAppLib
 
 ## Version
-0.2.0
+0.3.0
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)
@@ -16,6 +16,7 @@
 - rate-limiting: Rate limiting middleware for auth vs API endpoints
 - admin-pages: Admin pages and user management
 - page-spec: A page's layout and the islands it mounts (`page.Spec`), validated and written as a JSON script by `templates/page/Islands.html` for tsappkit's island page to mount from a registry; apps extend it by embedding (#30)
+- island-page: `@panyam/tsappkit` 0.1.0 `IslandPage<Ctx, Ext>` reads the page spec from `#page-spec` and mounts each island into its `data-slot` from a registry (`name -> factory`), with `readSpec` (apps read their own spec fields through an extension) and `mountIslands`; a bad entry is logged and skipped (#27)
 
 ## Module
 github.com/panyam/goapplib
