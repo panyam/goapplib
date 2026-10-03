@@ -1,6 +1,6 @@
 {
   "name": "@panyam/tsappkit",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "description": "TypeScript application toolkit with component lifecycle management, event system, UI utilities, and documentation site components",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -30,7 +30,9 @@
     "dev": "tsup --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "typescript",
@@ -44,10 +46,13 @@
   "author": "panyam",
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "ace-builds": "^1.43.0",
+    "jsdom": "^29.1.1",
     "sass": "^1.77.0",
     "tsup": "^8.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.11"
   },
   "peerDependencies": {
     "ace-builds": "^1.0.0"

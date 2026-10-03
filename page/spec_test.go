@@ -3,6 +3,7 @@ package page
 import (
 	"encoding/json"
 	"html/template"
+	"os"
 	"strings"
 	"testing"
 )
@@ -125,5 +126,22 @@ func TestExtendingTheSpec(t *testing.T) {
 func TestScriptJSONOfSomethingUnencodable(t *testing.T) {
 	if got := ScriptJSON(map[string]any{"f": func() {}}); got != "null" {
 		t.Fatalf("ScriptJSON(func) = %s, want null", got)
+	}
+}
+
+// testdata/spec.json is what tsappkit's readSpec is tested against
+// (tsappkit/src/page/spec.test.ts), so a change to the format on either side
+// fails a test.
+func TestJSONMatchesTheSpecTsappkitReads(t *testing.T) {
+	s := Spec{Layout: "drawer", Islands: []Island{
+		{Name: "player", Slot: "main", Presentation: "page", Config: map[string]any{"note": "</script>", "urls": []any{"/a.json"}}},
+		{Name: "chat", Slot: "side"},
+	}}
+	want, err := os.ReadFile("testdata/spec.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(s.JSON()); got != strings.TrimSpace(string(want)) {
+		t.Fatalf("JSON() =\n%s\nwant (testdata/spec.json)\n%s", got, want)
 	}
 }

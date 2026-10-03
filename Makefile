@@ -16,3 +16,4 @@ setup: ## Configure git hooks and local dev environment
 
 test: ## Run all tests
 	go test ./...
+	cd tsappkit && pnpm install --frozen-lockfile && pnpm test

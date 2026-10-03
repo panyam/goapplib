@@ -17,11 +17,12 @@ A lightweight, stdlib-native Go library for building server-rendered web applica
 7. [Page Groups](#page-groups)
 8. [Templates](#templates)
 9. [BorderLayout](#borderlayout)
-10. [HTMX Integration](#htmx-integration)
-11. [Responsive Patterns](#responsive-patterns)
-12. [Template Installation](#template-installation)
-13. [UsersService](#usersservice)
-14. [API Reference](#api-reference)
+10. [Island Pages](#island-pages)
+11. [HTMX Integration](#htmx-integration)
+12. [Responsive Patterns](#responsive-patterns)
+13. [Template Installation](#template-installation)
+14. [UsersService](#usersservice)
+15. [API Reference](#api-reference)
 
 ---
 
@@ -830,6 +831,64 @@ A 5-region layout component using pure CSS flexbox. Regions: North (top), South 
 
 {{ template "BorderLayout" (dict "ContentId" "editor-canvas" "FlexMode" "fill") }}
 ```
+
+---
+
+## Island Pages
+
+An island page is server-rendered, with a few client-side islands mounted into it. The server says which islands a page gets in a page spec; one tsappkit page class reads the spec and mounts each island from a registry. There's no hand-written `main.ts` finding elements by id.
+
+### The Go side
+
+Build a `page.Spec`, check it, and write it with the `PageSpecScript` partial (`templates/page/Islands.html`). The layout template places the slots as elements with `data-slot`:
+
+```go
+spec := page.Spec{Layout: "drawer", Islands: []page.Island{
+    {Name: "player", Slot: "main", Presentation: "page", Config: map[string]any{"url": "/a.json"}},
+    {Name: "chat", Slot: "side"},
+}}
+if err := spec.Validate(); err != nil { ... }
+```
+
+```html
+<main data-slot="main"></main>
+<aside data-slot="side"></aside>
+{{ template "PageSpecScript" .Spec }}
+```
+
+An app that needs more in its spec embeds `page.Spec` in its own type (see the `page` package doc).
+
+### The browser side
+
+Subclass `IslandPage` from `@panyam/tsappkit`. `registry()` names the islands this bundle can mount; `makeContext()` builds what they share, once, before the first island mounts:
+
+```ts
+import { IslandPage, type PageSpec } from "@panyam/tsappkit";
+
+type Ctx = { api: ApiClient };
+type Ext = { things: Thing[] };   // the fields the app's Go spec adds, if any
+
+class HomePage extends IslandPage<Ctx, Ext> {
+  protected registry() {
+    return {
+      player: (el, island, ctx, bus) => new PlayerIsland(el, island.config, ctx, bus),
+      chat: (el, island, ctx, bus) => new ChatIsland(el, ctx, bus),
+    };
+  }
+  protected readExtension(raw: Record<string, unknown>): Ext {
+    return { things: Array.isArray(raw.things) ? raw.things.map(toThing) : [] };
+  }
+  protected makeContext(spec: PageSpec & Ext): Ctx {
+    return { api: new ApiClient(spec.things) };
+  }
+}
+
+IslandPage.loadAfterPageLoaded("homePage", HomePage, "HomePage");
+```
+
+Each factory returns an `LCMComponent`, so islands go through the usual lifecycle. An island the registry doesn't know, a slot that isn't on the page, or a factory that throws is logged with `console.warn` and skipped; the rest of the page still mounts. Give each esbuild entry its own registry so it only bundles the islands it can mount.
+
+`readSpec` and `mountIslands` are exported too, for a page that mounts islands without `BasePage`.
 
 ---
 
