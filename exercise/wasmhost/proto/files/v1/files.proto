@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+// A toy service for the wasmhost exercise (goapplib issue 33). It reads the files a page mounted
+// into the worker, and burns CPU on demand so the exercise can check the page stays responsive.
+package files.v1;
+
+option go_package = "github.com/panyam/goapplib/exercise/wasmhost/gen/go/files/v1;filesv1";
+
+service FilesService {
+  // ReadFile returns a file from the worker's mounts, by path from the root ("docs/hello.txt").
+  rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
+  // Spin keeps the worker busy for ms milliseconds and returns how many loop iterations it ran.
+  rpc Spin(SpinRequest) returns (SpinResponse);
+}
+
+message ReadFileRequest {
+  string path = 1;
+}
+
+message ReadFileResponse {
+  string content = 1;
+}
+
+message SpinRequest {
+  int32 ms = 1;
+}
+
+message SpinResponse {
+  int64 iterations = 1;
+}

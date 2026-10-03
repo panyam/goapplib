@@ -16,6 +16,12 @@
       "import": "./dist/docs/index.mjs",
       "require": "./dist/docs/index.js"
     },
+    "./wasmhost": {
+      "types": "./dist/wasmhost/index.d.ts",
+      "import": "./dist/wasmhost/index.mjs",
+      "require": "./dist/wasmhost/index.js"
+    },
+    "./wasmhost/worker.js": "./dist/wasmhost/worker.js",
     "./styles/*": "./styles/*",
     "./dist/*": "./dist/*"
   },

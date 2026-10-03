@@ -14,7 +14,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version-file: go.mod
 
       - uses: pnpm/action-setup@v4
         with:
@@ -24,7 +24,36 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-          cache-dependency-path: tsappkit/pnpm-lock.yaml
+          cache-dependency-path: |
+            tsappkit/pnpm-lock.yaml
+            exercise/wasmhost/pnpm-lock.yaml
 
       - name: Run tests
         run: make test
+
+  # Mission #33's exercise: a toy Connect service as wasm in a Web Worker, driven in headless Chromium.
+  exercise-wasmhost:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: exercise/wasmhost/pnpm-lock.yaml
+
+      - name: Install Chromium
+        working-directory: exercise/wasmhost
+        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+
+      - name: Run the exercise
+        run: make exercise-wasmhost
