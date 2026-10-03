@@ -26,6 +26,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: |
             tsappkit/pnpm-lock.yaml
+            tsappkit-solid/pnpm-lock.yaml
             exercise/wasmhost/pnpm-lock.yaml
 
       - name: Run tests

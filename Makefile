@@ -21,6 +21,7 @@ test: ## Run all tests
 	go test ./...
 	$(MAKE) wasm-test
 	cd tsappkit && pnpm install --frozen-lockfile && pnpm test
+	cd tsappkit-solid && pnpm install --frozen-lockfile && pnpm test
 
 # The timeout matters: a wasmhost export that blocks the event loop hangs rather than failing.
 wasm-test: ## Run the wasmhost tests as wasm under Node
