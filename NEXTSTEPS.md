@@ -11,5 +11,5 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## Across threads
 
-- tsappkit 0.4.0 (load strategies) is merged but unreleased; tag when a consumer page adopts it for #60's done-when, likely after #35.
-- npm trusted publishing still isn't set up. The v0.5.0 tag's publish run failed with E404 and both packages went up by hand. Before the next `v*` tag, add the trusted publisher for `@panyam/tsappkit` and `@panyam/tsappkit-solid` on npmjs.com (`panyam` / `goapplib` / `publish.yml`), or plan on `--otp` publishes.
+- v0.6.0 is the first lock-step release (goapplib, tsappkit and tsappkit-solid all 0.6.0; the never-released tsappkit 0.4.0 is folded into it). It carries #36's load strategies and #35's lazy chunks, for #60's done-when consumer page.
+- npm trusted publishing needs `npm trust github` run once per package (command in CLAUDE.md) before the v0.6.0 tag, or the publish job fails with E404 as v0.5.0's did.

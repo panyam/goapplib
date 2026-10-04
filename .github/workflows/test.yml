@@ -36,6 +36,10 @@ jobs:
       - name: Run tests
         run: make test
 
+      # goapplib and both TS packages share CAPABILITIES.md's version.
+      - name: Check versions match
+        run: scripts/check-versions.sh
+
       # Fails when a package changed without a version bump (scripts/npm-publish.sh).
       - name: Check npm packages
         run: DRY_RUN=1 scripts/npm-publish.sh
