@@ -35,6 +35,10 @@ jobs:
       - name: Run tests
         run: make test
 
+      # Fails when a package changed without a version bump (scripts/npm-publish.sh).
+      - name: Check npm packages
+        run: DRY_RUN=1 scripts/npm-publish.sh
+
   # Mission #33's exercise: a toy Connect service as wasm in a Web Worker, driven in headless Chromium.
   exercise-wasmhost:
     runs-on: ubuntu-latest

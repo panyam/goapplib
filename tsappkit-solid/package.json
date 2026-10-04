@@ -56,5 +56,10 @@
     "onlyBuiltDependencies": [
       "esbuild"
     ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/panyam/goapplib.git",
+    "directory": "tsappkit-solid"
   }
 }

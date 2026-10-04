@@ -6,6 +6,7 @@ A Go web-app framework (server-rendered pages, mixins, htmx, templates through t
 
 - `make setup` sets up the git hooks. `make test` runs all the tests.
 - When a capability lands, tag a release (`v0.x.y`). Consumers (thambura, agni, lilbattle) bump to the tag.
+- A `v*` tag also publishes the TS packages (`.github/workflows/publish.yml`, through `scripts/npm-publish.sh`): each package whose `package.json` version isn't on npm yet is built, tested, published and waited on until `npm view` shows it. So bump `tsappkit`'s or `tsappkit-solid`'s version in any PR that changes it. CI's `DRY_RUN=1 scripts/npm-publish.sh` fails when a package's contents differ from the published version with the same number. Auth is npm trusted publishing, so there's no token; a failed run can be retried from the Actions tab (`workflow_dispatch`).
 
 ## Issues and missions
 
