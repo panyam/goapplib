@@ -13,7 +13,7 @@ A Go web-app framework (server-rendered pages, mixins, htmx, templates through t
 
 Work is queued by the missions it serves. The conventions are in `~/.claude/skills/retriage/CONVENTIONS.md`.
 
-- No active mission. #33 `mission_worker_host` closed on 2026-10-04 with agni on goapplib's wasmhost (v0.5.0); #34 `mission_island_pages` closed the same day with thambura on tsappkit's `IslandPage`. Pick the next one with `retriage`.
+- Active mission: #60 `mission_lazy_islands`: a page with many islands downloads and mounts only the islands on screen. Its exercise is `make exercise-islands` (#61 builds it). #33 `mission_worker_host` and #34 `mission_island_pages` closed on 2026-10-04.
 - A new issue gets a priority (`P0`–`P3`) when it's filed, plus either a `mission_<slug>` label and a blocked-by link from its mission, or `waiting` with its trigger named in the body. Never both P and `waiting`.
 - Lifts from apps (thambura, agni) are `waiting` until a second app needs them. The issue body names that app.
 - To see what's next, run `~/.claude/skills/retriage/queue.sh`.

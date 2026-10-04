@@ -5,9 +5,9 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- No active mission. #33 `mission_worker_host` closed 2026-10-04: agni#884 moved agni onto wasmhost (goapplib v0.5.0, tsappkit 0.3.0), agni's `wasm.spec.ts` passes, and dropping a design carries on in agni#851. Next: `retriage` to choose a mission.
-- Ready without a mission: #48 (wasmhost guide page, P2), #39 (slot fallbacks, P2). Waiting: #49, #56. Open dependabot PRs: #59, #25.
-- This run: closed #33.
+- Mission #60 `mission_lazy_islands`: 0/5 tickets. Next ready: #61 (build `make exercise-islands`, failing until #36 and #35 land), then #39 (slot fallbacks). Exercise never run yet.
+- Off-mission P3: #37, #38, #40, #41, #48. Content services (#6-#9, #13-#15, #17) and #18 are now `waiting` with triggers.
+- This run: retriage after closing #33. Created #60 and #61, moved #35, #36 and #39 to P1, #42 to P2 and #48 to P3, and parked 10 tickets.
 
 ## Across threads
 
