@@ -15,6 +15,12 @@ export interface IslandSpec {
   presentation?: string;
   /** Handed to the factory as is. Always an object. */
   config: Record<string, unknown>;
+  /**
+   * When it mounts: `eager` (also when absent), `idle`, `visible` or
+   * `media:<query>` (see parseLoad). IslandPage waits for it; mountIslands
+   * does when given a `defer`.
+   */
+  load?: string;
 }
 
 export interface PageSpec {
@@ -61,6 +67,7 @@ export function readSpec<Ext extends object>(text: string | null | undefined, ex
       slot: is.slot,
       ...(typeof is.presentation === "string" && { presentation: is.presentation }),
       config: isObject(is.config) ? is.config : {},
+      ...(typeof is.load === "string" && { load: is.load }),
     });
   }
   const spec: PageSpec = { layout: raw.layout, islands };

@@ -14,6 +14,8 @@ const island = (name: string) => (el: HTMLElement, spec: { config: unknown }, ct
   return { name } as unknown as LCMComponent;
 };
 
+const scheduled: { load: string | undefined; slot: string | undefined; mount: () => void }[] = [];
+
 class TestPage extends IslandPage<Ctx, Ext> {
   protected registry() {
     return { player: island("player"), chat: island("chat") };
@@ -27,6 +29,10 @@ class TestPage extends IslandPage<Ctx, Ext> {
   }
   mount() {
     return this.initializeSpecificComponents();
+  }
+  protected override scheduleLoad(load: Parameters<IslandPage<Ctx>["scheduleLoad"]>[0], el: HTMLElement, mount: () => void) {
+    if (load.kind === "eager") mount();
+    else scheduled.push({ load: load.kind, slot: el.dataset.slot, mount });
   }
 }
 
@@ -44,6 +50,7 @@ describe("IslandPage", () => {
     window.matchMedia ??= ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
     mounted.length = 0;
     contexts.length = 0;
+    scheduled.length = 0;
     warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
   afterEach(() => warn.mockRestore());
@@ -80,4 +87,37 @@ describe("IslandPage", () => {
     }
     expect(contexts).toHaveLength(0);
   });
+
+  it("waits to mount a deferred island, then runs it through the lifecycle", async () => {
+    const phases: string[] = [];
+    class LatePage extends TestPage {
+      protected registry() {
+        return {
+          ...super.registry(),
+          below: () =>
+            ({
+              performLocalInit: () => (phases.push("init"), []),
+              setupDependencies: () => void phases.push("deps"),
+              activate: () => void phases.push("activate"),
+              deactivate: () => {},
+            }) as LCMComponent,
+        };
+      }
+    }
+    document.body.innerHTML =
+      `<script type="application/json" id="page-spec">${JSON.stringify({
+        layout: "a",
+        islands: [
+          { name: "player", slot: "main" },
+          { name: "below", slot: "bottom", load: "visible" },
+        ],
+      })}</script>` + `<section data-slot="main"></section><section data-slot="bottom"></section>`;
+    const out = new LatePage("late").mount();
+    expect(out).toHaveLength(1);
+    expect(scheduled.map((s) => [s.load, s.slot])).toEqual([["visible", "bottom"]]);
+    expect(phases).toEqual([]);
+    scheduled[0].mount();
+    await vi.waitFor(() => expect(phases).toEqual(["init", "deps", "activate"]));
+  });
 });
+
