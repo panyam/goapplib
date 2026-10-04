@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 	"strings"
 )
 
@@ -178,4 +179,19 @@ func (a *Assets) For(spec Spec) []string {
 		}
 	}
 	return out
+}
+
+// Names lists the islands Assets has a chunk for, sorted: the registry's lazy
+// entries, as CheckIslands wants them. Islands bundled with the entry aren't
+// among them. A nil Assets has none.
+func (a *Assets) Names() []string {
+	if a == nil {
+		return nil
+	}
+	names := make([]string, 0, len(a.Islands))
+	for n := range a.Islands {
+		names = append(names, n)
+	}
+	slices.Sort(names)
+	return names
 }

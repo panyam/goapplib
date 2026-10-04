@@ -119,5 +119,30 @@ describe("IslandPage", () => {
     scheduled[0].mount();
     await vi.waitFor(() => expect(phases).toEqual(["init", "deps", "activate"]));
   });
-});
 
+  it("labels each slot with the island overlay only when the URL asks for ?islands", () => {
+    const spec = JSON.stringify({
+      layout: "a",
+      islands: [
+        { name: "player", slot: "main" },
+        { name: "chat", slot: "drawer", load: "visible" },
+        { name: "nobody", slot: "side" },
+      ],
+    });
+    page(spec, ["main", "drawer", "side"]).mount();
+    expect(document.querySelectorAll("[data-island-debug]")).toHaveLength(0);
+
+    window.history.replaceState({}, "", "/?islands");
+    try {
+      page(spec, ["main", "drawer", "side"]).mount();
+      const label = (slot: string) => document.querySelector<HTMLElement>(`[data-slot="${slot}"]`)!.dataset.islandDebug;
+      expect(label("main")).toMatch(/^player · main · eager · mounted \d+ ms$/);
+      expect(label("drawer")).toBe("chat · drawer · visible · waiting");
+      expect(label("side")).toBe("nobody · side · eager · not in the registry");
+      scheduled.at(-1)!.mount();
+      expect(label("drawer")).toMatch(/^chat · drawer · visible · mounted \d+ ms$/);
+    } finally {
+      window.history.replaceState({}, "", "/");
+    }
+  });
+});

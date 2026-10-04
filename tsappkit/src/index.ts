@@ -32,6 +32,7 @@ export { IslandPage } from './page/IslandPage';
 export { readSpec, SPEC_ELEMENT_ID } from './page/spec';
 export type { IslandSpec, PageSpec, SpecExtension } from './page/spec';
 export { lazy, mountIslands } from './page/mount';
+export { IslandOverlay } from './page/overlay';
 export type { IslandFactory, LazyIsland, MountOptions, Registry } from './page/mount';
 export { parseLoad, scheduleMount } from './page/load';
 export type { LoadEnv, LoadStrategy } from './page/load';

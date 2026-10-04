@@ -205,4 +205,41 @@ describe("mountIslands", () => {
       expect(logs.join("\n")).toMatch(/"throws" failed to load: no import\(\)/);
     });
   });
+
+  it("reports every mount through onMount and every skipped island through onSkip", async () => {
+    const mounts: string[] = [];
+    const skips: string[] = [];
+    let mountBelow = () => {};
+    const spec: PageSpec = {
+      layout: "a",
+      islands: [
+        { name: "hero", slot: "top", config: {} },
+        { name: "below", slot: "bottom", load: "visible", config: {} },
+        { name: "lazyOne", slot: "side", config: {} },
+        { name: "ghost", slot: "foot", config: {} },
+        { name: "hero", slot: "missing", config: {} },
+        { name: "boom", slot: "x", config: {} },
+        { name: "broken", slot: "y", config: {} },
+      ],
+    };
+    const registry: Registry<typeof ctx, El, string, typeof bus> = {
+      hero: () => "hero-c",
+      below: () => "below-c",
+      lazyOne: lazy(async () => () => "lazy-c"),
+      boom: () => {
+        throw new Error("boom");
+      },
+      broken: lazy(() => Promise.reject(new Error("404"))),
+    };
+    mountIslands(spec, registry, (slot) => (slot === "missing" ? null : { slot }), () => ctx, bus, () => {}, {
+      defer: (_i, _el, m) => (mountBelow = m),
+      onMount: (c, island, el) => mounts.push(`${island.name}:${c}@${el.slot}`),
+      onSkip: (island, reason) => skips.push(`${island.name}@${island.slot}: ${reason}`),
+    });
+    expect(mounts).toEqual(["hero:hero-c@top"]);
+    mountBelow();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mounts).toEqual(["hero:hero-c@top", "below:below-c@bottom", "lazyOne:lazy-c@side"]);
+    expect(skips).toEqual(["ghost@foot: not in the registry", "hero@missing: no slot", "boom@x: factory threw", "broken@y: failed to load"]);
+  });
 });
