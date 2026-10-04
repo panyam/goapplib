@@ -32,6 +32,9 @@ const url = await new Promise((ok, fail) => {
 });
 
 const results = [];
+// Slots whose island has mounted but whose Go-rendered fallback is still there (issue 39's
+// one-owner-per-region rule: the island replaces the placeholder).
+const fallbacks = [];
 const check = (name, ok, detail) => results.push({ name, ok, detail });
 
 const browser = await chromium.launch();
@@ -50,6 +53,7 @@ const order = [
   "visible-mounts-on-scroll",
   "visible-loads-on-scroll",
   "media-query",
+  "fallback-replaced-on-mount",
   "modulepreload",
   "console",
 ];
@@ -88,6 +92,7 @@ async function wide(browser) {
   const { page, scripts, errors } = await open(browser, { width: 1200, height: 800 });
   const at = await snapshot(page);
   await shoot(page, "1-wide-at-load.png");
+  fallbacks.push(...(await fallbacksLeft(page)).map((s) => `${s} at load, 1200 px`));
   console.log(`  1200 px, at load: requested ${scripts.join(", ")}; loaded [${at.loaded}]; mounted [${at.mounted}]`);
 
   check("mount-eager-only", same(at.mounted, ["hero"]), `at load, islands mounted [${at.mounted}]; want [hero]`);
@@ -100,6 +105,7 @@ async function wide(browser) {
     .waitForFunction(() => window.exercise?.mounted.includes("below"), null, { timeout: 3000 })
     .then(() => true, () => false);
   const loadedAfter = await page.evaluate(() => window.exercise.loaded.includes("below"));
+  fallbacks.push(...(await fallbacksLeft(page)).map((s) => `${s} after scrolling`));
   await shoot(page, "3-wide-bottom-after-scrolling.png");
   check(
     "visible-mounts-on-scroll",
@@ -138,6 +144,12 @@ async function narrowViewport(browser) {
     !wide.narrowAtWide && at.mounted.includes("narrow"),
     `narrow mounted at 1200 px: ${wide.narrowAtWide}, at 400 px: ${at.mounted.includes("narrow")}; want false then true`,
   );
+  fallbacks.push(...(await fallbacksLeft(page)).map((s) => `${s} at 400 px`));
+  check(
+    "fallback-replaced-on-mount",
+    fallbacks.length === 0,
+    fallbacks.length ? `mounted slots still showing their fallback: ${fallbacks.join(", ")}` : "every mounted slot's fallback is gone (top at load, bottom after scrolling, side at 400 px)",
+  );
   const all = [...wide.errors, ...errors];
   check("console", all.length === 0, all.length ? all.join(" | ") : "no console errors on either page");
 }
@@ -155,6 +167,10 @@ async function open(browser, viewport) {
   await page.waitForFunction(() => window.exercise?.mounted.includes("hero"), null, { timeout: 10_000 });
   await page.waitForTimeout(500);
   return { page, scripts, errors };
+}
+
+function fallbacksLeft(page) {
+  return page.$$eval("[data-slot][data-mounted]", (els) => els.filter((el) => el.querySelector("[data-fallback]")).map((el) => el.dataset.slot));
 }
 
 function snapshot(page) {
