@@ -1,6 +1,6 @@
 {
   "name": "@panyam/tsappkit-solid",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Solid adapter for @panyam/tsappkit: mount Solid islands inside the tsappkit component lifecycle. The framework-specific reactivity lives here so tsappkit core stays framework-neutral.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -38,7 +38,7 @@
   "author": "panyam",
   "license": "MIT",
   "peerDependencies": {
-    "@panyam/tsappkit": "^0.0.5 || ^0.1.0",
+    "@panyam/tsappkit": "^0.0.5 || ^0.1.0 || ^0.2.0",
     "solid-js": "^1.9.0"
   },
   "devDependencies": {
