@@ -81,9 +81,12 @@ self.onmessage = async (ev) => {
       post({ id: req.id, ok: true });
     } else if (req.kind === "stats") {
       post({ id: req.id, ok: true, memoryBytes: memory?.buffer.byteLength ?? 0 });
-    } else {
+    } else if (req.kind === "unmount") {
       await host.unmount(req.name);
       post({ id: req.id, ok: true });
+    } else {
+      // A page newer than this worker can send a kind it doesn't know; say so rather than guess.
+      throw new Error(`unknown request kind ${JSON.stringify((req as { kind: unknown }).kind)}`);
     }
   } catch (err) {
     post({ id: req.id, ok: false, error: err instanceof Error ? err.message : String(err) });
