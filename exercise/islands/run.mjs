@@ -42,6 +42,7 @@ try {
   await serverRendered(browser);
   await wide(browser);
   await narrowViewport(browser);
+  await overlay(browser);
 } finally {
   await browser.close();
   server.kill();
@@ -55,6 +56,7 @@ const order = [
   "media-query",
   "fallback-replaced-on-mount",
   "modulepreload",
+  "island-overlay",
   "console",
 ];
 results.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
@@ -154,7 +156,30 @@ async function narrowViewport(browser) {
   check("console", all.length === 0, all.length ? all.join(" | ") : "no console errors on either page");
 }
 
-async function open(browser, viewport) {
+// The page with ?islands at desktop width: IslandPage's debug overlay labels each slot with its
+// island's state (issue 42), and below's label turns from waiting to mounted as it scrolls in.
+async function overlay(browser) {
+  const { page, errors } = await open(browser, { width: 1200, height: 800 }, "?islands");
+  const labels = () => page.$$eval("[data-island-debug]", (els) => Object.fromEntries(els.map((el) => [el.dataset.slot, el.dataset.islandDebug])));
+  const at = await labels();
+  await shoot(page, "5-wide-overlay-at-load.png");
+  await page.locator('[data-slot="bottom"]').scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => window.exercise?.mounted.includes("below"), null, { timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(100);
+  const after = await labels();
+  await shoot(page, "6-wide-overlay-after-scrolling.png");
+  check(
+    "island-overlay",
+    /^hero · top · eager · mounted \d+ ms$/.test(at.top ?? "") &&
+      at.bottom === "below · bottom · visible · waiting" &&
+      at.side === "narrow · side · media:(max-width: 600px) · waiting" &&
+      /^below · bottom · visible · mounted \d+ ms$/.test(after.bottom ?? "") &&
+      errors.length === 0,
+    `at load: ${JSON.stringify(at)}; after scrolling, bottom: ${JSON.stringify(after.bottom)}`,
+  );
+}
+
+async function open(browser, viewport, query = "") {
   const page = await browser.newPage({ viewport });
   const scripts = [];
   const errors = [];
@@ -163,7 +188,7 @@ async function open(browser, viewport) {
   });
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(url);
+  await page.goto(url + query);
   await page.waitForFunction(() => window.exercise?.mounted.includes("hero"), null, { timeout: 10_000 });
   await page.waitForTimeout(500);
   return { page, scripts, errors };

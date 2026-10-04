@@ -80,3 +80,13 @@ func TestPageWritesAValidSpecAndAFallbackInEachSlot(t *testing.T) {
 		}
 	}
 }
+
+func TestSpecNamesOnlyIslandsTheBuildHas(t *testing.T) {
+	assets, err := page.LoadEsbuildMetafile(filepath.Join("..", "..", "page", "testdata", "esbuild-meta.json"), page.EsbuildOptions{OutDir: "dist", URLPrefix: "/static/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := page.CheckIslands(assets.Names(), spec); err != nil {
+		t.Fatal(err)
+	}
+}

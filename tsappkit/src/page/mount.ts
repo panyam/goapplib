@@ -48,6 +48,18 @@ export interface MountOptions<El, C> {
   defer?: (island: IslandSpec, el: El, mount: () => void) => void;
   /** Gets what the factory built for each island mounted later: through `defer`, or from a lazy entry. */
   onLateMount?: (component: C, island: IslandSpec) => void;
+  /**
+   * Gets every island that mounts, eager or late, with its slot, as it
+   * mounts (before onLateMount for a late one). IslandPage's debug overlay
+   * uses it to show when each island arrived.
+   */
+  onMount?: (component: C, island: IslandSpec, el: El) => void;
+  /**
+   * Gets every island that won't mount, with a short reason ("not in the
+   * registry", "no slot", "failed to load", "no factory", "factory threw"),
+   * alongside the message `log` gets.
+   */
+  onSkip?: (island: IslandSpec, reason: string) => void;
 }
 
 /**
@@ -80,16 +92,20 @@ export function mountIslands<Ctx, El, C, B>(
   options: MountOptions<El, C> = {},
 ): C[] {
   const out: C[] = [];
+  const skip = (island: IslandSpec, reason: string, message: string) => {
+    log(message);
+    options.onSkip?.(island, reason);
+  };
   let ctx: Ctx | undefined;
   for (const island of spec.islands) {
     const entry = Object.prototype.hasOwnProperty.call(registry, island.name) ? registry[island.name] : undefined;
     if (!entry) {
-      log(`page spec: no island called "${island.name}" in this page's registry`);
+      skip(island, "not in the registry", `page spec: no island called "${island.name}" in this page's registry`);
       continue;
     }
     const el = findSlot(island.slot);
     if (el === null) {
-      log(`page spec: island "${island.name}" wants slot "${island.slot}", which isn't on the page`);
+      skip(island, "no slot", `page spec: island "${island.name}" wants slot "${island.slot}", which isn't on the page`);
       continue;
     }
     const build = (factory: IslandFactory<Ctx, El, C, B>): C | undefined => {
@@ -97,14 +113,16 @@ export function mountIslands<Ctx, El, C, B>(
         ctx ??= context();
         return factory(el, island, ctx, bus);
       } catch (err) {
-        log(`page spec: island "${island.name}" failed to mount: ${message(err)}`);
+        skip(island, "factory threw", `page spec: island "${island.name}" failed to mount: ${message(err)}`);
         return undefined;
       }
     };
     const mountLate = () => {
       const late = (factory: IslandFactory<Ctx, El, C, B>) => {
         const c = build(factory);
-        if (c !== undefined) options.onLateMount?.(c, island);
+        if (c === undefined) return;
+        options.onMount?.(c, island, el);
+        options.onLateMount?.(c, island);
       };
       if (typeof entry === "function") {
         late(entry);
@@ -115,9 +133,9 @@ export function mountIslands<Ctx, El, C, B>(
         (m) => {
           const factory = typeof m === "function" ? m : m?.default;
           if (typeof factory === "function") late(factory);
-          else log(`page spec: island "${island.name}" loaded, but its module has no factory (a default export or the function itself)`);
+          else skip(island, "no factory", `page spec: island "${island.name}" loaded, but its module has no factory (a default export or the function itself)`);
         },
-        (err) => log(`page spec: island "${island.name}" failed to load: ${message(err)}`),
+        (err) => skip(island, "failed to load", `page spec: island "${island.name}" failed to load: ${message(err)}`),
       );
     };
     const strategy = parseLoad(island.load);
@@ -133,7 +151,10 @@ export function mountIslands<Ctx, El, C, B>(
       continue;
     }
     const c = build(entry);
-    if (c !== undefined) out.push(c);
+    if (c !== undefined) {
+      out.push(c);
+      options.onMount?.(c, island, el);
+    }
   }
   return out;
 }

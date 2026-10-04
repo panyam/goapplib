@@ -907,6 +907,25 @@ What Go renders inside an island's `data-slot` is a placeholder for the time bef
 
 The island replaces the placeholder when it mounts. `SolidIsland` (`@panyam/tsappkit-solid`) clears its element on the first `activate`, in the same task that renders its tree, so the slot is never empty in between. Solid's own `render` appends, so a Solid tree mounted some other way needs to clear the element first. A hand-written island does the same with `el.replaceChildren(...)`. `make exercise-islands` checks that every mounted slot's fallback is gone.
 
+### Checking and debugging islands
+
+A spec that names an island the registry doesn't have only shows up as a console warning on whichever page uses it. `page.CheckIslands` finds those in a test, across all of an app's specs at once. Give it the names the registry can mount: `Assets.Names()` lists the lazy entries from the metafile, and islands bundled with the entry are added by hand:
+
+```go
+func TestSpecsNameKnownIslands(t *testing.T) {
+	assets, err := page.LoadEsbuildMetafile("dist/meta.json", page.EsbuildOptions{OutDir: "dist", URLPrefix: "/static/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	known := append(assets.Names(), "toolbar") // toolbar is a plain factory, bundled with the entry
+	if err := page.CheckIslands(known, homeSpec, gameSpec); err != nil {
+		t.Fatal(err) // page specs name islands the registry doesn't have: "chat" (in home, game)
+	}
+}
+```
+
+In the browser, add `?islands` to a page's URL and `IslandPage` outlines each slot and labels it with its island, slot, load strategy and state: `hero · top · eager · mounted 212 ms`, `below · bottom · visible · waiting`, or a red `ghost · foot · eager · not in the registry`. Labels change as islands mount, and the times are from navigation start. Override `showIslandOverlay()` to tie it to your own debug setting. While it's on, labelled slots are `position: relative`, which can move an island's absolutely positioned content a bit. `mountIslands` reports the same things through its `onMount` and `onSkip` options, for pages without `BasePage`.
+
 ### Lazy islands and preload links
 
 A registry entry wrapped in `lazy` loads its island's module only when the island mounts, so with esbuild's `--splitting` each island is its own chunk and a page downloads only the islands its spec names, each when its `Load` says:
