@@ -298,6 +298,13 @@ the view interface, renders from that data, and binds events declaratively.
   goal is abandoned for that surface. You maintain view logic per frontend if you support
   more than one. More moving parts.
 
+Each region of a page has one owner, a Go template or an island, and never both. Go may
+render a placeholder in an island's slot (skeleton boxes, a `<noscript>` line), and the island
+replaces it when it mounts. The placeholder is never a second rendering of the island's
+content. Rendering the content in templates and then having JS find and hydrate those elements
+was lilbattle's mistake: every change touched both and they drifted. USAGE_GUIDE.md's "Slot
+fallbacks" section has the details.
+
 The honest recommendation for a reusable stack: **build the semantic command as the
 primitive (Principle 5), ship the HTML-over-the-wire renderer as the default (Future A stays
 the path of least resistance), and leave Future B available as an island for the surfaces

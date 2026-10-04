@@ -892,6 +892,21 @@ Each factory returns an `LCMComponent`, so islands go through the usual lifecycl
 
 `readSpec` and `mountIslands` are exported too, for a page that mounts islands without `BasePage`.
 
+### Slot fallbacks: one owner per region
+
+Every region of the page has one owner. Either a Go template draws it, or an island does, and never both. The lesson came from lilbattle, where templates rendered the real content and then custom JS found those elements and "hydrated" them, so every change meant editing both and the two drifted apart.
+
+What Go renders inside an island's `data-slot` is a placeholder for the time before the island mounts, which since lazy islands and load strategies can be quite a while. Make it fixed-size skeleton boxes so the layout doesn't jump when the island arrives, plus a `<noscript>` line if the island is all there is. It shouldn't be a second rendering of the island's content:
+
+```html
+<section data-slot="tools">
+  <div class="skeleton h-64"></div>
+  <noscript>The tool panel needs JavaScript.</noscript>
+</section>
+```
+
+The island replaces the placeholder when it mounts. `SolidIsland` (`@panyam/tsappkit-solid`) clears its element on the first `activate`, in the same task that renders its tree, so the slot is never empty in between. Solid's own `render` appends, so a Solid tree mounted some other way needs to clear the element first. A hand-written island does the same with `el.replaceChildren(...)`. `make exercise-islands` checks that every mounted slot's fallback is gone.
+
 ### Lazy islands and preload links
 
 A registry entry wrapped in `lazy` loads its island's module only when the island mounts, so with esbuild's `--splitting` each island is its own chunk and a page downloads only the islands its spec names, each when its `Load` says:

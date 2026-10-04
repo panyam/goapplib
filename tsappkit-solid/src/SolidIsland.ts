@@ -10,9 +10,14 @@ import { BaseComponent, EventBus } from '@panyam/tsappkit';
  * (e.g. a presenter). It is disposed in `deactivate`, which runs Solid's
  * `onCleanup` handlers and removes the inserted nodes.
  *
- * The island owns its `rootElement`'s children while active, so give it a
- * dedicated element. This class is the only place framework (Solid) reactivity
- * lives; tsappkit core and any presenter behind it stay framework-neutral.
+ * The island owns all of its `rootElement`'s children while active, so give it
+ * a dedicated element (an island page's `data-slot`). Whatever was there
+ * before, such as the skeleton or `<noscript>` line Go rendered as the slot's
+ * fallback, is removed on the first `activate`, in the same task that renders
+ * the tree, so the slot never shows empty. Solid's `render` appends rather
+ * than replacing, which is why this clears first. This class is the only place
+ * framework (Solid) reactivity lives; tsappkit core and any presenter behind
+ * it stay framework-neutral.
  */
 export class SolidIsland extends BaseComponent {
   private disposeRoot?: () => void;
@@ -28,11 +33,13 @@ export class SolidIsland extends BaseComponent {
   }
 
   /**
-   * Mount the Solid tree into `rootElement`. Idempotent: calling it again while
-   * already mounted is a no-op (the existing root is kept, not remounted).
+   * Replace `rootElement`'s children with the Solid tree. Idempotent: calling
+   * it again while already mounted is a no-op (the existing root is kept, not
+   * cleared or remounted).
    */
   public activate(): void {
     if (this.disposeRoot) return;
+    this.rootElement.replaceChildren();
     this.disposeRoot = render(this.renderRoot, this.rootElement);
   }
 

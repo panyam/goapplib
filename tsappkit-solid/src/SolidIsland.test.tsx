@@ -45,4 +45,25 @@ describe('SolidIsland', () => {
     island.activate();
     expect(root.querySelectorAll('[data-testid="one"]').length).toBe(1);
   });
+
+  it("replaces the slot's server-rendered fallback when it mounts", () => {
+    const { root, island } = mount(() => <span data-testid="real">real</span>);
+    root.innerHTML = '<div class="skeleton"></div><noscript>The panel needs JavaScript.</noscript>';
+    expect(root.querySelector('.skeleton')).not.toBeNull();
+    island.activate();
+    expect(root.children.length).toBe(1);
+    expect(root.querySelector('[data-testid="real"]')?.textContent).toBe('real');
+    expect(root.querySelector('.skeleton, noscript')).toBeNull();
+  });
+
+  it('keeps its tree on a repeated activate rather than clearing it again', () => {
+    const [n, setN] = createSignal(0);
+    const { root, island } = mount(() => <span data-testid="n">{n()}</span>);
+    island.activate();
+    setN(3);
+    island.activate();
+    expect(root.querySelectorAll('[data-testid="n"]').length).toBe(1);
+    setN(4);
+    expect(root.querySelector('[data-testid="n"]')?.textContent).toBe('4');
+  });
 });
