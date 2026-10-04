@@ -3,7 +3,7 @@
 // lands in window.exercise for run.mjs to check, and in the page for a person to read.
 import { createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { mountFiles, startWorker, workerFetch } from "../../../tsappkit/src/wasmhost";
+import { addFiles, mountFiles, startWorker, workerFetch, workerMemory } from "../../../tsappkit/src/wasmhost";
 import { FilesService } from "./gen/files/v1/files_pb";
 
 interface Step {
@@ -23,6 +23,7 @@ function record(name: string, ok: boolean, detail: string) {
 }
 
 const MOUNTED = "hello from a mounted file";
+const ADDED = "added later";
 
 async function run() {
   const t0 = performance.now();
@@ -38,6 +39,21 @@ async function run() {
   );
   const res = await client.readFile({ path: "docs/hello.txt" });
   record("read", res.content === MOUNTED, `ReadFile returned ${JSON.stringify(res.content)}`);
+
+  // Adding a file must keep the one already mounted, which a replacing mount would drop.
+  await addFiles(worker, "docs", { "second.txt": new TextEncoder().encode(ADDED) });
+  const [first, second] = await Promise.all([
+    client.readFile({ path: "docs/hello.txt" }),
+    client.readFile({ path: "docs/second.txt" }),
+  ]);
+  record(
+    "add",
+    first.content === MOUNTED && second.content === ADDED,
+    `after addFiles, hello.txt=${JSON.stringify(first.content)} second.txt=${JSON.stringify(second.content)}`,
+  );
+
+  const bytes = await workerMemory(worker);
+  record("memory", bytes > 0, `the engine holds ${(bytes / 1024 / 1024).toFixed(1)} MB of wasm memory`);
 
   // The worker spins for 2 s while the page counts animation frames. A host on the page's own
   // thread would get a handful; a worker leaves the page at its normal frame rate.

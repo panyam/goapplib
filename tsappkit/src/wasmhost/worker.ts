@@ -17,6 +17,7 @@ interface Exports {
     body: Uint8Array | null,
   ): Promise<{ status: number; headers: Record<string, string>; body: Uint8Array }>;
   mount(name: string, files: Files): Promise<void>;
+  add(name: string, files: Files): Promise<void>;
   unmount(name: string): Promise<void>;
 }
 
@@ -35,6 +36,9 @@ const wasmUrl = params.get("wasm") ?? "app.wasm";
 const execUrl = params.get("exec") ?? "wasm_exec.js";
 const ns = params.get("ns") ?? "wasmhost";
 
+// The wasm's linear memory, exported by Go as `mem`. It only grows, so its size is the peak so far.
+let memory: WebAssembly.Memory | undefined;
+
 const post = (m: HostStatus | HostReply, transfer: Transferable[] = []) => self.postMessage(m, transfer);
 
 async function boot(): Promise<Exports> {
@@ -50,6 +54,7 @@ async function boot(): Promise<Exports> {
   const { instance } = res.headers.get("content-type")?.startsWith("application/wasm")
     ? await WebAssembly.instantiateStreaming(res, go.importObject)
     : await WebAssembly.instantiate(await res.arrayBuffer(), go.importObject);
+  memory = instance.exports.mem as WebAssembly.Memory | undefined;
   void go.run(instance).then(() => post({ exited: "the Go program exited" }));
   await ready;
   return self[ns] as Exports;
@@ -71,9 +76,17 @@ self.onmessage = async (ev) => {
     } else if (req.kind === "mount") {
       await host.mount(req.name, req.files);
       post({ id: req.id, ok: true });
-    } else {
+    } else if (req.kind === "add") {
+      await host.add(req.name, req.files);
+      post({ id: req.id, ok: true });
+    } else if (req.kind === "stats") {
+      post({ id: req.id, ok: true, memoryBytes: memory?.buffer.byteLength ?? 0 });
+    } else if (req.kind === "unmount") {
       await host.unmount(req.name);
       post({ id: req.id, ok: true });
+    } else {
+      // A page newer than this worker can send a kind it doesn't know; say so rather than guess.
+      throw new Error(`unknown request kind ${JSON.stringify((req as { kind: unknown }).kind)}`);
     }
   } catch (err) {
     post({ id: req.id, ok: false, error: err instanceof Error ? err.message : String(err) });

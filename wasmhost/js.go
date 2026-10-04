@@ -48,6 +48,7 @@ func (h *Host) ServeRebuild(build func(root fs.FS) (http.Handler, error)) {
 //
 //	http(method, url, headers, body)  resolves {status, headers, body: Uint8Array}
 //	mount(name, {path: Uint8Array})   resolves when the files are mounted (and, in rebuild mode, built)
+//	add(name, {path: Uint8Array})     the same, but keeps the files the mount already holds (Host.Add)
 //	unmount(name)                     resolves when the mount is gone
 //
 // Arguments are copied into Go before the call returns, so the caller may transfer or reuse its
@@ -62,6 +63,7 @@ func (h *Host) Export() (release func()) {
 	fns := map[string]js.Func{
 		"http":    js.FuncOf(h.jsHTTP),
 		"mount":   js.FuncOf(h.jsMount),
+		"add":     js.FuncOf(h.jsAdd),
 		"unmount": js.FuncOf(h.jsUnmount),
 	}
 	for name, f := range fns {
@@ -115,8 +117,17 @@ func (h *Host) jsHTTP(_ js.Value, args []js.Value) any {
 }
 
 func (h *Host) jsMount(_ js.Value, args []js.Value) any {
+	return h.jsFiles("mount", args, h.Mount)
+}
+
+func (h *Host) jsAdd(_ js.Value, args []js.Value) any {
+	return h.jsFiles("add", args, h.Add)
+}
+
+// jsFiles copies (name, {path: Uint8Array}) into Go before returning, then runs apply on a goroutine.
+func (h *Host) jsFiles(op string, args []js.Value, apply func(string, map[string][]byte) error) any {
 	if len(args) != 2 || args[0].Type() != js.TypeString || args[1].Type() != js.TypeObject {
-		return rejected(fmt.Sprintf("%s.mount(name, {path: Uint8Array})", h.ns))
+		return rejected(fmt.Sprintf("%s.%s(name, {path: Uint8Array})", h.ns, op))
 	}
 	name, obj := args[0].String(), args[1]
 	keys := js.Global().Get("Object").Call("keys", obj)
@@ -125,12 +136,12 @@ func (h *Host) jsMount(_ js.Value, args []js.Value) any {
 		p := keys.Index(i).String()
 		b, err := bytesFromJS(obj.Get(p))
 		if err != nil {
-			return rejected(fmt.Sprintf("%s.mount %q: %v", h.ns, p, err))
+			return rejected(fmt.Sprintf("%s.%s %q: %v", h.ns, op, p, err))
 		}
 		files[p] = b
 	}
 	return promise(func() (js.Value, error) {
-		return js.Undefined(), h.Mount(name, files)
+		return js.Undefined(), apply(name, files)
 	})
 }
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mountFiles, startWorker, unmountFiles, workerFetch } from "./client";
+import { addFiles, mountFiles, startWorker, unmountFiles, workerFetch, workerMemory } from "./client";
 import type { HostReply, HostRequest, HostStatus } from "./protocol";
 
 // FakeWorker passes each message through structuredClone with its transfer list, as postMessage
@@ -135,6 +135,41 @@ describe("mountFiles", () => {
     const w = worker();
     await unmountFiles(w, "docs");
     expect(w.received[0]).toMatchObject({ kind: "unmount", name: "docs" });
+  });
+});
+
+describe("addFiles", () => {
+  it("sends an add, transferring each buffer once", async () => {
+    const w = worker();
+    const shared = bytes("abcd");
+    const files = { "a.txt": shared.subarray(0, 2), "b.txt": shared.subarray(2) };
+    await addFiles(w, "docs", files);
+    const req = w.received[0];
+    expect(req).toMatchObject({ kind: "add", name: "docs" });
+    if (req.kind !== "add") return;
+    expect(Object.fromEntries(Object.entries(req.files).map(([k, v]) => [k, str(v)]))).toEqual({ "a.txt": "ab", "b.txt": "cd" });
+    expect(shared.buffer.byteLength).toBe(0);
+  });
+
+  it("rejects with the worker's error", async () => {
+    const w = worker();
+    w.answer = (req) => ({ reply: { id: req.id, ok: false, error: "add dir: file already exists" } });
+    await expect(addFiles(w, "docs", { dir: bytes("x") })).rejects.toThrow("already exists");
+  });
+});
+
+describe("workerMemory", () => {
+  it("asks for stats and resolves with the engine's memory in bytes", async () => {
+    const w = worker();
+    w.answer = (req) => ({ reply: { id: req.id, ok: true, memoryBytes: 451 * 1024 * 1024 } });
+    expect(await workerMemory(w)).toBe(451 * 1024 * 1024);
+    expect(w.received[0]).toMatchObject({ kind: "stats" });
+  });
+
+  it("rejects with the worker's error", async () => {
+    const w = worker();
+    w.answer = (req) => ({ reply: { id: req.id, ok: false, error: "the engine did not load" } });
+    await expect(workerMemory(w)).rejects.toThrow("did not load");
   });
 });
 

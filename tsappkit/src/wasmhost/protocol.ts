@@ -14,10 +14,20 @@ export type HostRequest =
       body: Uint8Array | null;
     }
   | { id: number; kind: "mount"; name: string; files: Files }
+  | { id: number; kind: "add"; name: string; files: Files }
+  | { id: number; kind: "stats" }
   | { id: number; kind: "unmount"; name: string };
 
 export type HostReply =
-  | { id: number; ok: true; status?: number; headers?: Record<string, string>; body?: Uint8Array }
+  | {
+      id: number;
+      ok: true;
+      status?: number;
+      headers?: Record<string, string>;
+      body?: Uint8Array;
+      /** For stats: the wasm linear memory's size, which only grows. */
+      memoryBytes?: number;
+    }
   | { id: number; ok: false; error: string };
 
 /** Sent once when the wasm has loaded (or failed to), and again if the Go program exits. */
