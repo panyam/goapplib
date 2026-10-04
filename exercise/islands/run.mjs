@@ -5,7 +5,7 @@
 // fail the run, and their passing does, so the PR that makes one pass has to take it off the list.
 // `make exercise-islands` builds dist/ (the bundle, its metafile and the server) first.
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
@@ -18,6 +18,12 @@ const pending = {
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const meta = JSON.parse(readFileSync(here("./dist/meta.json"), "utf8"));
+
+// Proof for a person: what the page looked like at each step. Viewport shots only, since a
+// full-page shot resizes the viewport and would put every slot in view.
+const shots = here("./dist/screenshots/");
+mkdirSync(shots, { recursive: true });
+const shoot = (page, name) => page.screenshot({ path: shots + name });
 
 const server = spawn(here("./dist/server"), ["-dist", here("./dist"), "-partial", here("../../templates/page/Islands.html")], {
   stdio: ["ignore", "pipe", "inherit"],
@@ -35,6 +41,7 @@ const check = (name, ok, detail) => results.push({ name, ok, detail });
 
 const browser = await chromium.launch();
 try {
+  await serverRendered(browser);
   await wide(browser);
   await narrowViewport(browser);
 } finally {
@@ -59,13 +66,25 @@ for (const r of results) {
   }
   console.log(`${status} ${r.name}: ${r.detail}`);
 }
+console.log(`screenshots: ${shots}`);
 console.log(failed ? "exercise-islands: FAIL" : "exercise-islands: PASS (with pending checks)");
 process.exitCode = failed ? 1 : 0;
+
+// The page with JavaScript off: what Go rendered, a fallback in every slot. A picture only, since
+// the Go test (server_test.go) already checks the fallbacks are there.
+async function serverRendered(browser) {
+  const ctx = await browser.newContext({ viewport: { width: 1200, height: 800 }, javaScriptEnabled: false });
+  const page = await ctx.newPage();
+  await page.goto(url);
+  await shoot(page, "0-server-rendered-no-js.png");
+  await ctx.close();
+}
 
 // The page at desktop width: what loads and mounts at first, then after scrolling to the bottom.
 async function wide(browser) {
   const { page, scripts, errors } = await open(browser, { width: 1200, height: 800 });
   const at = await snapshot(page);
+  await shoot(page, "1-wide-at-load.png");
   console.log(`  1200 px, at load: requested ${scripts.join(", ")}; loaded [${at.loaded}]; mounted [${at.mounted}]`);
 
   check(
@@ -76,9 +95,11 @@ async function wide(browser) {
 
   const before = { fallback: at.bottomFallback, loaded: at.loaded.includes("below"), mounted: at.mounted.includes("below") };
   await page.locator('[data-slot="bottom"]').scrollIntoViewIfNeeded();
+  await shoot(page, "2-wide-bottom-as-it-scrolls-in.png");
   const mountedAfter = await page
     .waitForFunction(() => window.exercise?.mounted.includes("below"), null, { timeout: 3000 })
     .then(() => true, () => false);
+  await shoot(page, "3-wide-bottom-after-scrolling.png");
   check(
     "visible-on-scroll",
     before.fallback && !before.loaded && !before.mounted && mountedAfter,
@@ -105,6 +126,7 @@ async function wide(browser) {
 async function narrowViewport(browser) {
   const { page, errors } = await open(browser, { width: 400, height: 800 });
   const at = await snapshot(page);
+  await shoot(page, "4-narrow-at-load.png");
   check(
     "media-query",
     !wide.narrowAtWide && at.mounted.includes("narrow"),

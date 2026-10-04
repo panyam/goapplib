@@ -6,7 +6,10 @@
     <title>islands exercise</title>
     <style>
       body { font-family: sans-serif; margin: 0 16px; }
-      [data-slot] { border: 1px dashed #888; padding: 12px; margin: 16px 0; }
+      [data-slot] { border: 2px dashed #999; background: #f2f2f2; color: #555; padding: 12px; margin: 16px 0; }
+      [data-slot]::before { content: "slot " attr(data-slot) " · fallback"; display: block; font-size: 12px; color: #777; }
+      [data-slot][data-mounted] { border: 2px solid #2e7d32; background: #e3f5e4; color: #1b5e20; }
+      [data-slot][data-mounted]::before { content: "slot " attr(data-slot) " · mounted " attr(data-mounted) " at " attr(data-mounted-ms) " ms"; color: #2e7d32; }
       .spacer { height: 3000px; }
     </style>
   </head>

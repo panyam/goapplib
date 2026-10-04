@@ -94,3 +94,11 @@ jobs:
 
       - name: Run the exercise
         run: make exercise-islands
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exercise-islands-screenshots
+          path: exercise/islands/dist/screenshots/
+          if-no-files-found: warn
