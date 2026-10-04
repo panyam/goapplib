@@ -38,9 +38,18 @@ goapplib/
 │       ├── gorm/users_service.go    # GORM/PostgreSQL backend
 │       └── gae/users_service.go     # Google Datastore backend
 │
+├── page/               # page.Spec: a page's layout and the islands it mounts (#30)
+├── wasmhost/           # Run an app's HTTP/Connect handlers as wasm in a Web Worker (#32)
+├── exercise/wasmhost/  # `make exercise-wasmhost`: the worker host end to end in headless Chromium
+├── scripts/            # npm-publish.sh: publishes the TS packages from a release tag (#46)
+│
+├── tsappkit/           # @panyam/tsappkit: BasePage and component lifecycle, IslandPage, wasmhost client
+├── tsappkit-solid/     # @panyam/tsappkit-solid: SolidIsland, mounting a Solid tree as an island
+│
 └── templates/          # Base templates (copy/symlink to your app)
     ├── BasePage.html
     ├── Header.html
+    ├── page/Islands.html   # PageSpecScript: writes a page.Spec as #page-spec JSON
     └── components/
         ├── BorderLayout.html
         ├── Drawer.html
@@ -137,7 +146,15 @@ resp, err := userService.CreateUser(ctx, &v1.CreateUserRequest{
 })
 ```
 
-### 10. AuthService Integration (Deprecated)
+### 10. Island Pages
+
+A server-rendered page names its client-side islands in a `page.Spec`, written into the page as `#page-spec` JSON. tsappkit's `IslandPage` reads it and mounts each island into its `data-slot` from a registry of factories, so apps don't hand-write a `main.ts` per page. Apps extend the spec by embedding `page.Spec` in Go and reading their own fields with `readExtension` in TS. `page/testdata/spec.json` is checked by both the Go and TS tests so the format can't drift. See USAGE_GUIDE.md, "Island Pages".
+
+### 11. Wasm Worker Host
+
+`wasmhost.Serve` runs an app's HTTP/Connect handlers as wasm inside a Web Worker, over files the page pushes in (`mountFiles`). The page's generated Connect clients talk to it through `workerFetch` (`@panyam/tsappkit/wasmhost`), so they don't know whether a server or the worker answered. The design reasoning is in docs/PRESENTER_CONTRACT_THESIS.md.
+
+### 12. AuthService Integration (Deprecated)
 **Deprecated**: AuthService is now a thin pass-through to oneauth. For new code, use oneauth directly.
 
 The AuthService wrapper is maintained for backwards compatibility but delegates entirely to oneauth:
