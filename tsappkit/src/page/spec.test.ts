@@ -43,6 +43,22 @@ describe("readSpec", () => {
     });
   });
 
+  it("keeps an island's load when it's a string", () => {
+    const spec = readSpec(
+      JSON.stringify({
+        layout: "a",
+        islands: [
+          { name: "below", slot: "bottom", load: "visible" },
+          { name: "hero", slot: "top", load: 3 },
+        ],
+      }),
+    );
+    expect(spec?.islands).toEqual([
+      { name: "below", slot: "bottom", load: "visible", config: {} },
+      { name: "hero", slot: "top", config: {} },
+    ]);
+  });
+
   it("leaves an app's own fields out unless it reads them", () => {
     expect(readSpec('{"layout":"a","islands":[],"things":[1]}')).toEqual({ layout: "a", islands: [] });
   });

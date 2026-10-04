@@ -10,9 +10,8 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const pending = {
-  "load-eager-only": "#35 and #36",
-  "visible-on-scroll": "#35 and #36",
-  "media-query": "#36",
+  "load-eager-only": "#35",
+  "visible-loads-on-scroll": "#35",
   modulepreload: "#35",
 };
 
@@ -49,7 +48,15 @@ try {
   server.kill();
 }
 
-const order = ["load-eager-only", "visible-on-scroll", "media-query", "modulepreload", "console"];
+const order = [
+  "mount-eager-only",
+  "load-eager-only",
+  "visible-mounts-on-scroll",
+  "visible-loads-on-scroll",
+  "media-query",
+  "modulepreload",
+  "console",
+];
 results.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 let failed = false;
 for (const r of results) {
@@ -87,11 +94,8 @@ async function wide(browser) {
   await shoot(page, "1-wide-at-load.png");
   console.log(`  1200 px, at load: requested ${scripts.join(", ")}; loaded [${at.loaded}]; mounted [${at.mounted}]`);
 
-  check(
-    "load-eager-only",
-    same(at.loaded, ["hero"]) && same(at.mounted, ["hero"]),
-    `at load, island modules evaluated [${at.loaded}] and islands mounted [${at.mounted}]; want [hero] for both`,
-  );
+  check("mount-eager-only", same(at.mounted, ["hero"]), `at load, islands mounted [${at.mounted}]; want [hero]`);
+  check("load-eager-only", same(at.loaded, ["hero"]), `at load, island modules evaluated [${at.loaded}]; want [hero]`);
 
   const before = { fallback: at.bottomFallback, loaded: at.loaded.includes("below"), mounted: at.mounted.includes("below") };
   await page.locator('[data-slot="bottom"]').scrollIntoViewIfNeeded();
@@ -99,11 +103,17 @@ async function wide(browser) {
   const mountedAfter = await page
     .waitForFunction(() => window.exercise?.mounted.includes("below"), null, { timeout: 3000 })
     .then(() => true, () => false);
+  const loadedAfter = await page.evaluate(() => window.exercise.loaded.includes("below"));
   await shoot(page, "3-wide-bottom-after-scrolling.png");
   check(
-    "visible-on-scroll",
-    before.fallback && !before.loaded && !before.mounted && mountedAfter,
-    `before scrolling: fallback shown ${before.fallback}, below loaded ${before.loaded}, mounted ${before.mounted}; after scrolling: mounted ${mountedAfter}`,
+    "visible-mounts-on-scroll",
+    before.fallback && !before.mounted && mountedAfter,
+    `before scrolling: fallback shown ${before.fallback}, below mounted ${before.mounted}; after scrolling: mounted ${mountedAfter}`,
+  );
+  check(
+    "visible-loads-on-scroll",
+    !before.loaded && loadedAfter,
+    `below's module evaluated before scrolling ${before.loaded}, after ${loadedAfter}; want false then true`,
   );
 
   const narrowAtWide = at.mounted.includes("narrow");
