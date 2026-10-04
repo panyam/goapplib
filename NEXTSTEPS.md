@@ -5,9 +5,9 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- Mission #33 `mission_worker_host`: 4/4 goapplib tickets closed (#32, #46, #54, #55), released as v0.5.0 with tsappkit 0.3.0 and tsappkit-solid 0.0.4. Exercise `make exercise-wasmhost` passed at d408616 (2026-10-04, logged on #33). The mission closes when agni#863 swaps agni onto wasmhost and its demo works; agni has the rename list and the v0.5.0 notes on that issue.
-- Nothing ready in the goapplib queue. Off-mission and ready: #39 (slot fallbacks, P2), #48 (wasmhost guide page, P2). Waiting: #49 (zip drops), #56 (atomic `Host.Add` for fixed handlers).
-- This run: no branch threads open (feature/wasmhost-32 and feature/wasmhost-add-stats-54-55 merged); moved the wasmhost, Node-test, worker-pairing and conflicting-PR gotchas into CLAUDE.md.
+- No active mission. #33 `mission_worker_host` closed 2026-10-04: agni#884 moved agni onto wasmhost (goapplib v0.5.0, tsappkit 0.3.0), agni's `wasm.spec.ts` passes, and dropping a design carries on in agni#851. Next: `retriage` to choose a mission.
+- Ready without a mission: #48 (wasmhost guide page, P2), #39 (slot fallbacks, P2). Waiting: #49, #56. Open dependabot PRs: #59, #25.
+- This run: closed #33.
 
 ## Across threads
 
