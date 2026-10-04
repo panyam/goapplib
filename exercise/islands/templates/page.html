@@ -1,0 +1,26 @@
+{{ define "page" }}<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>islands exercise</title>
+    <style>
+      body { font-family: sans-serif; margin: 0 16px; }
+      [data-slot] { border: 2px dashed #999; background: #f2f2f2; color: #555; padding: 12px; margin: 16px 0; }
+      [data-slot]::before { content: "slot " attr(data-slot) " · fallback"; display: block; font-size: 12px; color: #777; }
+      [data-slot][data-mounted] { border: 2px solid #2e7d32; background: #e3f5e4; color: #1b5e20; }
+      [data-slot][data-mounted]::before { content: "slot " attr(data-slot) " · mounted " attr(data-mounted) " at " attr(data-mounted-ms) " ms"; color: #2e7d32; }
+      .spacer { height: 3000px; }
+    </style>
+  </head>
+  <body>
+    <h1>islands exercise</h1>
+    <p>Three islands: one at the top, one far below, one only on narrow screens.</p>
+    <div data-slot="top"><p data-fallback>loading hero…</p></div>
+    <div data-slot="side"><p data-fallback>loading narrow…</p></div>
+    <div class="spacer"></div>
+    <div data-slot="bottom"><p data-fallback>loading below…</p></div>
+    {{ template "PageSpecScript" .Spec }}
+    <script type="module" src="/static/main.js"></script>
+  </body>
+</html>{{ end }}

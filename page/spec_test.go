@@ -82,6 +82,32 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestValidateLoad(t *testing.T) {
+	for _, load := range []string{"", "eager", "idle", "visible", "media:(max-width: 600px)"} {
+		s := Spec{Layout: "main", Islands: []Island{{Name: "player", Slot: "main", Load: load}}}
+		if err := s.Validate(); err != nil {
+			t.Errorf("Load %q: %v", load, err)
+		}
+	}
+	for _, load := range []string{"lazy", "Eager", "media:", "media:  ", "visible "} {
+		s := Spec{Layout: "main", Islands: []Island{{Name: "player", Slot: "main", Load: load}}}
+		if err := s.Validate(); err == nil {
+			t.Errorf("Load %q: Validate() = nil, want an error", load)
+		}
+	}
+}
+
+func TestLoadIsLeftOutWhenUnset(t *testing.T) {
+	eager := string(Spec{Layout: "main", Islands: []Island{{Name: "p", Slot: "main"}}}.JSON())
+	if strings.Contains(eager, `"load"`) {
+		t.Errorf("an island with no Load wrote a load key: %s", eager)
+	}
+	visible := string(Spec{Layout: "main", Islands: []Island{{Name: "p", Slot: "main", Load: "visible"}}}.JSON())
+	if !strings.Contains(visible, `"load":"visible"`) {
+		t.Errorf("Load was not written: %s", visible)
+	}
+}
+
 func TestSlots(t *testing.T) {
 	s := Spec{Layout: "main", Islands: []Island{{Name: "player", Slot: "main"}, {Name: "chat", Slot: "side"}}}
 	if got := strings.Join(s.Slots(), ","); got != "main,side" {

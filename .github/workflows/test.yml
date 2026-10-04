@@ -31,6 +31,7 @@ jobs:
             tsappkit/pnpm-lock.yaml
             tsappkit-solid/pnpm-lock.yaml
             exercise/wasmhost/pnpm-lock.yaml
+            exercise/islands/pnpm-lock.yaml
 
       - name: Run tests
         run: make test
@@ -65,3 +66,39 @@ jobs:
 
       - name: Run the exercise
         run: make exercise-wasmhost
+
+  # Mission #60's exercise: a page whose islands load and mount by strategy, in headless Chromium.
+  # Checks waiting on a ticket are listed as pending in run.mjs, so this stays green until they land.
+  exercise-islands:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: exercise/islands/pnpm-lock.yaml
+
+      - name: Install Chromium
+        working-directory: exercise/islands
+        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+
+      - name: Run the exercise
+        run: make exercise-islands
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exercise-islands-screenshots
+          path: exercise/islands/dist/screenshots/
+          if-no-files-found: warn
