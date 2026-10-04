@@ -858,6 +858,8 @@ if err := spec.Validate(); err != nil { ... }
 
 An app that needs more in its spec embeds `page.Spec` in its own type (see the `page` package doc).
 
+An island's `Load` says when the browser should mount it: `eager` (the default), `idle`, `visible` when its slot scrolls into view, or `media:<query>` while a media query matches. `Validate` rejects anything else. tsappkit doesn't honour it yet (goapplib #36), so for now every island mounts at load; `make exercise-islands` shows where that stands.
+
 ### The browser side
 
 Subclass `IslandPage` from `@panyam/tsappkit`. `registry()` names the islands this bundle can mount; `makeContext()` builds what they share, once, before the first island mounts:

@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"html/template"
 	"regexp"
+	"strings"
 )
 
 // Spec is a page's layout and the islands it mounts, in mount order.
@@ -51,6 +52,12 @@ type Island struct {
 	Slot         string         `json:"slot"`
 	Presentation string         `json:"presentation,omitempty"`
 	Config       map[string]any `json:"config"`
+	// Load says when the browser mounts the island: "eager" (the default,
+	// also written as ""), "idle" once the page has settled, "visible" when
+	// its slot scrolls into view, or "media:<query>" while the media query
+	// matches. tsappkit's island page honours it from goapplib issue 36;
+	// until then every island mounts at load.
+	Load string `json:"load,omitempty"`
 }
 
 // Slot names are used in a CSS attribute selector, so keep them plain.
@@ -58,7 +65,8 @@ var slotName = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
 // Validate reports a spec the browser couldn't mount as meant: no layout, an
 // island without a name or with a slot name that isn't lowercase letters,
-// digits and dashes, or two islands in one slot. An app that extends the
+// digits and dashes, a load that isn't one of Island.Load's forms, or two
+// islands in one slot. An app that extends the
 // spec calls it from its own Validate and adds its own checks.
 func (s Spec) Validate() error {
 	if s.Layout == "" {
@@ -72,12 +80,24 @@ func (s Spec) Validate() error {
 		if !slotName.MatchString(is.Slot) {
 			return fmt.Errorf("island %q has slot %q; want lowercase letters, digits and dashes", is.Name, is.Slot)
 		}
+		if !validLoad(is.Load) {
+			return fmt.Errorf("island %q has load %q; want eager, idle, visible or media:<query>", is.Name, is.Load)
+		}
 		if other, ok := seen[is.Slot]; ok {
 			return fmt.Errorf("islands %q and %q share slot %q", other, is.Name, is.Slot)
 		}
 		seen[is.Slot] = is.Name
 	}
 	return nil
+}
+
+func validLoad(load string) bool {
+	switch load {
+	case "", "eager", "idle", "visible":
+		return true
+	}
+	q, ok := strings.CutPrefix(load, "media:")
+	return ok && strings.TrimSpace(q) != ""
 }
 
 // Slots lists the slots the spec fills, in mount order.

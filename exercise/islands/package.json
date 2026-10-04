@@ -1,0 +1,10 @@
+{
+  "name": "goapplib-exercise-islands",
+  "private": true,
+  "description": "Mission exercise for goapplib issue 60: a page whose islands load and mount by strategy, driven from headless Chromium.",
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "playwright-core": "1.63.0"
+  }
+}
