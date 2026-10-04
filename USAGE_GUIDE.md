@@ -858,7 +858,7 @@ if err := spec.Validate(); err != nil { ... }
 
 An app that needs more in its spec embeds `page.Spec` in its own type (see the `page` package doc).
 
-An island's `Load` says when the browser mounts it: `eager` (the default), `idle` once the page has settled, `visible` the first time its slot enters the viewport, or `media:<query>` when a media query matches (at once if it already does). `Validate` rejects anything else. Each island mounts once; nothing unmounts it when the query stops matching. Until then its slot shows whatever Go rendered there, so put a fallback in it. Don't defer an island that another island or the page needs at startup, since nothing waits for it. `IslandPage` (tsappkit 0.4.0 on) does the waiting, and a late island still goes through the component lifecycle; `mountIslands` takes a `defer` option for pages without `BasePage`.
+An island's `Load` says when the browser mounts it: `eager` (the default), `idle` once the page has settled, `visible` the first time its slot enters the viewport, or `media:<query>` when a media query matches (at once if it already does). `Validate` rejects anything else. Each island mounts once; nothing unmounts it when the query stops matching. Until then its slot shows whatever Go rendered there, so put a fallback in it. Don't defer an island that another island or the page needs at startup, since nothing waits for it. `IslandPage` (tsappkit 0.6.0 on) does the waiting, and a late island still goes through the component lifecycle; `mountIslands` takes a `defer` option for pages without `BasePage`.
 
 ### The browser side
 

@@ -55,7 +55,7 @@ type Island struct {
 	// Load says when the browser mounts the island: "eager" (the default,
 	// also written as ""), "idle" once the page has settled, "visible" when
 	// its slot scrolls into view, or "media:<query>" while the media query
-	// matches. Each mounts once. tsappkit's IslandPage (0.4.0 on) waits for
+	// matches. Each mounts once. tsappkit's IslandPage (0.6.0 on) waits for
 	// it; a deferred island mustn't be something another island or the page
 	// needs at startup, since nothing waits for it.
 	Load string `json:"load,omitempty"`

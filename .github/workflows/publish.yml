@@ -32,4 +32,8 @@ jobs:
       # Trusted publishing needs npm 11.5.1 or later; Node 22 ships with 10.
       - run: npm install -g npm@latest
 
+      # A tag whose version isn't the one CAPABILITIES.md and both packages carry publishes nothing.
+      - if: startsWith(github.ref, 'refs/tags/v')
+        run: scripts/check-versions.sh "$GITHUB_REF_NAME"
+
       - run: scripts/npm-publish.sh
