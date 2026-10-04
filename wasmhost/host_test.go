@@ -194,3 +194,106 @@ func TestConcurrentMountsAndRequests(t *testing.T) {
 	}()
 	wg.Wait()
 }
+
+func TestAddKeepsWhatTheMountHasAndOverwritesARepeatedPath(t *testing.T) {
+	h := New("x")
+	h.Handle(catHandler(h.Root()))
+	h.Mount("d", map[string][]byte{"a.txt": []byte("a1"), "b.txt": []byte("b")})
+	if err := h.Add("d", map[string][]byte{"a.txt": []byte("a2"), "sub/c.txt": []byte("c")}); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]string{"/d/a.txt": "a2", "/d/b.txt": "b", "/d/sub/c.txt": "c"} {
+		if got := get(t, h, path).Body; string(got) != want {
+			t.Errorf("%s = %q, want %q", path, got, want)
+		}
+	}
+}
+
+func TestAddCreatesAMissingMount(t *testing.T) {
+	h := New("x")
+	h.Handle(catHandler(h.Root()))
+	if err := h.Add("new", map[string][]byte{"f": []byte("x")}); err != nil {
+		t.Fatal(err)
+	}
+	if got := get(t, h, "/new/f").Body; string(got) != "x" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestAFailedAddLeavesTheMountUnchanged(t *testing.T) {
+	h := New("x")
+	h.Handle(catHandler(h.Root()))
+	h.Mount("d", map[string][]byte{"file": []byte("f"), "dir/x": []byte("x")})
+	bad := []map[string][]byte{
+		{"ok.txt": []byte("1"), "dir": []byte("over a directory")},
+		{"ok.txt": []byte("1"), "file/under": []byte("under a file")},
+		{"ok.txt": []byte("1"), "p": nil, "p/q": nil},
+		{"ok.txt": []byte("1"), "../escape": nil},
+	}
+	for _, files := range bad {
+		if err := h.Add("d", files); err == nil {
+			t.Errorf("Add(%v) succeeded", files)
+		}
+	}
+	if res := get(t, h, "/d/ok.txt"); res.Status != http.StatusNotFound {
+		t.Errorf("a failed Add left ok.txt behind: %d %q", res.Status, res.Body)
+	}
+	if got := get(t, h, "/d/file").Body; string(got) != "f" {
+		t.Errorf("file = %q", got)
+	}
+	if err := h.Add("bad/name", map[string][]byte{"f": nil}); err == nil {
+		t.Error("Add accepted a mount name with a slash")
+	}
+}
+
+func TestAddRebuildsOncePerBatch(t *testing.T) {
+	h := New("x")
+	builds := 0
+	h.Rebuild(func(root fs.FS) (http.Handler, error) {
+		builds++
+		return catHandler(root), nil
+	})
+	h.Mount("d", map[string][]byte{"a": []byte("a")})
+	before := builds
+	if err := h.Add("d", map[string][]byte{"b": []byte("b"), "c": []byte("c"), "e": []byte("e")}); err != nil {
+		t.Fatal(err)
+	}
+	if builds-before != 1 {
+		t.Errorf("Add of three files rebuilt %d times", builds-before)
+	}
+	if got := get(t, h, "/d/a").Body; string(got) != "a" {
+		t.Errorf("rebuilt handler lost d/a: %q", got)
+	}
+}
+
+// Run with -race: adds, remounts and requests interleave.
+func TestConcurrentAddsAndRequests(t *testing.T) {
+	h := New("x")
+	h.Handle(catHandler(h.Root()))
+	h.Mount("d", map[string][]byte{"fixed": []byte("x")})
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 200; i++ {
+			h.Add("d", map[string][]byte{fmt.Sprintf("f%d", i%10): []byte("y")})
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 200; i++ {
+			h.Add("other", map[string][]byte{"g": []byte("z")})
+			h.Unmount("other")
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 200; i++ {
+			if res := get(t, h, "/d/fixed"); string(res.Body) != "x" {
+				t.Errorf("d/fixed = %q", res.Body)
+				return
+			}
+		}
+	}()
+	wg.Wait()
+}

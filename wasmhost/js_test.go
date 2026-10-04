@@ -179,3 +179,35 @@ func TestRebuildModeOverTheExports(t *testing.T) {
 		t.Errorf("rebuilt handler answered %q", got)
 	}
 }
+
+func TestAddExportMergesIntoAMount(t *testing.T) {
+	h := New("wasmhostTestAdd")
+	h.Handle(catHandler(h.Root()))
+	ns := exportFresh(t, h)
+	first := js.Global().Get("Object").New()
+	first.Set("a.txt", uint8("first"))
+	if s := await(t, ns.Call("mount", "docs", first)); s.err != "" {
+		t.Fatalf("mount: %s", s.err)
+	}
+	second := js.Global().Get("Object").New()
+	second.Set("b.txt", uint8("second"))
+	if s := await(t, ns.Call("add", "docs", second)); s.err != "" {
+		t.Fatalf("add: %s", s.err)
+	}
+	for path, want := range map[string]string{"/docs/a.txt": "first", "/docs/b.txt": "second"} {
+		s := await(t, ns.Call("http", "GET", path, js.Null(), js.Null()))
+		if got := text(s.value.Get("body")); got != want {
+			t.Errorf("%s = %q, want %q", path, got, want)
+		}
+	}
+	bad := js.Global().Get("Object").New()
+	bad.Set("f", "not bytes")
+	for name, call := range map[string]func() js.Value{
+		"add with a string for bytes": func() js.Value { return ns.Call("add", "docs", bad) },
+		"add with no files":           func() js.Value { return ns.Call("add", "docs") },
+	} {
+		if s := await(t, call()); s.err == "" {
+			t.Errorf("%s: resolved", name)
+		}
+	}
+}
