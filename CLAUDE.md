@@ -4,15 +4,16 @@ A Go web-app framework (server-rendered pages, mixins, htmx, templates through t
 
 ## Commands
 
-- `make setup` sets up the git hooks. `make test` runs all the tests.
+- `make setup` sets up the git hooks. `make test` runs all the tests, including `make wasm-test` (the wasmhost tests as wasm under Node, which needs `node` on PATH).
+- `make exercise-wasmhost` is mission #33's exercise: it builds `exercise/wasmhost` to wasm and drives it in headless Chromium (playwright-core; locally it uses `~/.cache/ms-playwright`). `make exercise-wasmhost-gen` regenerates its proto code with buf and local plugins.
 - When a capability lands, tag a release (`v0.x.y`). Consumers (thambura, agni, lilbattle) bump to the tag.
-- A `v*` tag also publishes the TS packages (`.github/workflows/publish.yml`, through `scripts/npm-publish.sh`): each package whose `package.json` version isn't on npm yet is built, tested, published and waited on until `npm view` shows it. So bump `tsappkit`'s or `tsappkit-solid`'s version in any PR that changes it. CI's `DRY_RUN=1 scripts/npm-publish.sh` fails when a package's contents differ from the published version with the same number. Auth is npm trusted publishing, so there's no token; a failed run can be retried from the Actions tab (`workflow_dispatch`).
+- A `v*` tag also publishes the TS packages (`.github/workflows/publish.yml`, through `scripts/npm-publish.sh`): each package whose `package.json` version isn't on npm yet is built, tested, published and waited on until `npm view` shows it. So bump `tsappkit`'s or `tsappkit-solid`'s version in any PR that changes it. CI's `DRY_RUN=1 scripts/npm-publish.sh` fails when a package's contents differ from the published version with the same number. Auth is npm trusted publishing, so there's no token; a failed run can be retried from the Actions tab (`workflow_dispatch`). Until both packages list `panyam`/`goapplib`/`publish.yml` as a trusted publisher on npmjs.com, the job fails with `E404 Not Found - PUT` (it did on v0.5.0) and the packages need `npm publish --access public --otp=<code>` by hand.
 
 ## Issues and missions
 
 Work is queued by the missions it serves. The conventions are in `~/.claude/skills/retriage/CONVENTIONS.md`.
 
-- Active mission: #33 `mission_worker_host` (the Web Worker wasm host). #32 and #46 landed; #54 and #55 remain. #34 `mission_island_pages` closed on 2026-10-04 with thambura on tsappkit's `IslandPage`.
+- Active mission: #33 `mission_worker_host` (the Web Worker wasm host). All four goapplib tickets landed (#32, #46, #54, #55, released in v0.5.0); what's left is agni#863 adopting it. #34 `mission_island_pages` closed on 2026-10-04 with thambura on tsappkit's `IslandPage`.
 - A new issue gets a priority (`P0`–`P3`) when it's filed, plus either a `mission_<slug>` label and a blocked-by link from its mission, or `waiting` with its trigger named in the body. Never both P and `waiting`.
 - Lifts from apps (thambura, agni) are `waiting` until a second app needs them. The issue body names that app.
 - To see what's next, run `~/.claude/skills/retriage/queue.sh`.
@@ -20,7 +21,11 @@ Work is queued by the missions it serves. The conventions are in `~/.claude/skil
 ## Gotchas
 
 - **TS packages and pnpm 12.** Each package (`tsappkit`, `tsappkit-solid`) needs `allowBuilds: {esbuild: true}` in its own `pnpm-workspace.yaml`, or `pnpm install --frozen-lockfile` fails on esbuild's build script. A consumer installing a release that's only hours old gets a `minimumReleaseAgeExclude` entry added to its workspace file; that's expected.
-- **0.x peer ranges.** `^0.0.5` means 0.0.5 only, and `^0.1.0` means 0.1.x only. When tsappkit's minor moves, widen tsappkit-solid's peer range (`^0.0.5 || ^0.1.0 || ^0.2.0`) and bump solid too, or consumers get unmet-peer warnings.
-- **npm lag.** A new version can take a few minutes to show in `npm view`. The publish workflow waits for it; after a manual publish, check before bumping a consumer.
+- **0.x peer ranges.** `^0.0.5` means 0.0.5 only, and `^0.1.0` means 0.1.x only, which is why tsappkit-solid's peer on tsappkit is `>=0.0.5 <1.0.0` (since 0.0.4). Keep it a plain range, or every tsappkit minor needs a solid release.
+- **npm lag.** A new version can take a few minutes to show in `npm view` and the package's `latest`, because the registry's package document is CDN-cached. The per-version URL (`https://registry.npmjs.org/@panyam/tsappkit/0.3.0`) answers at once, so check that after a manual publish.
 - **Spec golden file.** `page/testdata/spec.json` is Go's exact `Spec.JSON()` output, `\u003c` escapes included. Regenerate it from Go's output rather than retyping it, since editors and some tools turn `\u003c` back into `<`.
 - **tsappkit tests run in jsdom.** `BasePage` calls `window.matchMedia`, which jsdom lacks, so a test that constructs a page stubs it (see `tsappkit/src/page/IslandPage.test.ts`).
+- **wasmhost exports never block.** Every `<ns>.*` export copies its arguments and returns a Promise, doing the work on a goroutine (`promise()` in `wasmhost/js.go`). Work run inside the `js.FuncOf` callback hangs as soon as a handler waits on JS, and it hangs rather than failing, which is why `wasm-test` has `-timeout 60s`.
+- **Wasm tests under Node.** Await each JS Promise as soon as it's created. Node ends the process on a rejection with no handler yet, so building several rejected promises and awaiting them later crashes the test binary.
+- **Worker and client ship together.** A page from one tsappkit version must load that version's `wasmhost/worker.js`. The v0.2.0 worker treats an unknown request kind as `unmount`, so a newer page's `addFiles` against a cached old worker unmounts the mount.
+- **A PR with merge conflicts runs no `pull_request` workflows**, while CodeQL still reports green. If `test` and `exercise-wasmhost` are missing from a PR's checks, check `mergeable` first.

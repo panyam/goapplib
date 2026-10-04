@@ -152,7 +152,7 @@ A server-rendered page names its client-side islands in a `page.Spec`, written i
 
 ### 11. Wasm Worker Host
 
-`wasmhost.Serve` runs an app's HTTP/Connect handlers as wasm inside a Web Worker, over files the page pushes in (`mountFiles`). The page's generated Connect clients talk to it through `workerFetch` (`@panyam/tsappkit/wasmhost`), so they don't know whether a server or the worker answered. The design reasoning is in docs/PRESENTER_CONTRACT_THESIS.md.
+`wasmhost.Serve` runs an app's HTTP/Connect handlers as wasm inside a Web Worker, over files the page pushes in before it asks anything (`mountFiles` replaces a mount, `addFiles` merges into one). The page's generated Connect clients talk to it through `workerFetch` (`@panyam/tsappkit/wasmhost`), so they don't know whether a server or the worker answered. `ServeRebuild` rebuilds the handler on every mount change for apps whose handler snapshots its files, `Host.Do` serves a request in-process for native tests, and `workerMemory` reports the wasm's peak memory. The mounts are goutils' `mountfs` over `memfs`. The design reasoning is in docs/PRESENTER_CONTRACT_THESIS.md.
 
 ### 12. AuthService Integration (Deprecated)
 **Deprecated**: AuthService is now a thin pass-through to oneauth. For new code, use oneauth directly.
