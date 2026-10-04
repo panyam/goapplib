@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"path"
 	"sync"
 
 	"github.com/panyam/goutils/memfs"
@@ -45,6 +46,10 @@ var ErrNoHandler = errors.New("wasmhost: no handler")
 type Host struct {
 	ns   string
 	root mountfs.FS
+
+	// mountMu serializes Mount, Add and Unmount, so an Add's check and its writes see one mount.
+	mountMu sync.Mutex
+	mounts  map[string]*memfs.FS
 
 	mu      sync.RWMutex
 	handler http.Handler
@@ -85,12 +90,44 @@ func (h *Host) Rebuild(build func(root fs.FS) (http.Handler, error)) error {
 // Mount replaces the mount name with files, keyed by slash-separated path. It takes ownership of the
 // byte slices. In rebuild mode it returns the build's error, and the mount stays in place either way.
 func (h *Host) Mount(name string, files map[string][]byte) error {
-	m, err := memfs.New(files)
-	if err != nil {
+	h.mountMu.Lock()
+	defer h.mountMu.Unlock()
+	if err := h.replace(name, files); err != nil {
 		return err
 	}
-	if err := h.root.Mount(name, m); err != nil {
+	return h.rebuild()
+}
+
+// Add puts files into the mount name, keeping the files it already holds; a file at a path the mount
+// already has replaces it. A missing mount is created, as Mount would. It takes ownership of the byte
+// slices, and in rebuild mode it rebuilds once for the whole batch.
+//
+// Add checks the whole batch before writing anything, so an error (an invalid path, a path that is
+// already a directory, a file under a file) leaves the mount as it was. With a fixed handler (Handle),
+// a request running at the same moment may see some of the batch and not the rest; in rebuild mode
+// the new handler is built after the last file is in.
+func (h *Host) Add(name string, files map[string][]byte) error {
+	h.mountMu.Lock()
+	defer h.mountMu.Unlock()
+	m, ok := h.mounts[name]
+	if !ok {
+		if err := h.replace(name, files); err != nil {
+			return err
+		}
+		return h.rebuild()
+	}
+	if _, err := memfs.New(files); err != nil {
 		return err
+	}
+	for p := range files {
+		if err := conflict(m, p); err != nil {
+			return err
+		}
+	}
+	for p, b := range files {
+		if err := m.Put(p, b); err != nil {
+			return err
+		}
 	}
 	return h.rebuild()
 }
@@ -98,8 +135,41 @@ func (h *Host) Mount(name string, files map[string][]byte) error {
 // Unmount removes the mount name, which is not an error if it is absent. In rebuild mode it returns
 // the build's error.
 func (h *Host) Unmount(name string) error {
+	h.mountMu.Lock()
+	defer h.mountMu.Unlock()
 	h.root.Unmount(name)
+	delete(h.mounts, name)
 	return h.rebuild()
+}
+
+func (h *Host) replace(name string, files map[string][]byte) error {
+	m, err := memfs.New(files)
+	if err != nil {
+		return err
+	}
+	if err := h.root.Mount(name, m); err != nil {
+		return err
+	}
+	if h.mounts == nil {
+		h.mounts = map[string]*memfs.FS{}
+	}
+	h.mounts[name] = m
+	return nil
+}
+
+// conflict reports whether the file p can't go into m: p is a directory there, or one of p's parents
+// is a file. memfs.Put would refuse the same cases, but only after earlier files in the batch had
+// gone in.
+func conflict(m *memfs.FS, p string) error {
+	if st, err := m.Stat(p); err == nil && st.IsDir() {
+		return &fs.PathError{Op: "add", Path: p, Err: fs.ErrExist}
+	}
+	for dir := path.Dir(p); dir != "."; dir = path.Dir(dir) {
+		if st, err := m.Stat(dir); err == nil && !st.IsDir() {
+			return &fs.PathError{Op: "add", Path: p, Err: fs.ErrExist}
+		}
+	}
+	return nil
 }
 
 func (h *Host) rebuild() error {

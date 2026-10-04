@@ -126,15 +126,41 @@ export function workerFetch(worker: Worker): (input: RequestInfo | URL, init?: R
  * each Uint8Array is empty here afterwards; copy first anything the page still needs. Resolves once
  * the worker has mounted them (and, for a rebuild-mode host, rebuilt its handler).
  */
-export async function mountFiles(worker: Worker, name: string, files: Files): Promise<void> {
+export function mountFiles(worker: Worker, name: string, files: Files): Promise<void> {
+  return sendFiles(worker, "mount", name, files);
+}
+
+/**
+ * Adds `files` to the mount `name`, keeping the files it already holds; a file at a path the mount
+ * already has is replaced, and a missing mount is created. This suits a page that brings files in a
+ * piece at a time, since it only sends what's new. The worker checks the whole batch first, so a
+ * rejection (a path that is already a directory, say) leaves the mount as it was. Buffers are
+ * transferred as with mountFiles.
+ */
+export function addFiles(worker: Worker, name: string, files: Files): Promise<void> {
+  return sendFiles(worker, "add", name, files);
+}
+
+async function sendFiles(worker: Worker, kind: "mount" | "add", name: string, files: Files): Promise<void> {
   const transfer = new Set<ArrayBuffer>();
   for (const b of Object.values(files)) {
     // A tag check rather than instanceof, which fails for a buffer from another realm (an iframe),
     // and a SharedArrayBuffer can't be transferred.
     if (Object.prototype.toString.call(b.buffer) === "[object ArrayBuffer]") transfer.add(b.buffer as ArrayBuffer);
   }
-  const reply = await channel(worker).call({ kind: "mount", name, files }, [...transfer]);
+  const reply = await channel(worker).call({ kind, name, files }, [...transfer]);
   if (!reply.ok) throw new Error(reply.error);
+}
+
+/**
+ * The bytes of linear memory the worker's wasm holds. Wasm memory grows and never shrinks, so this
+ * is the peak the engine has needed so far, which is what an app weighs before giving a browser a
+ * bigger job.
+ */
+export async function workerMemory(worker: Worker): Promise<number> {
+  const reply = await channel(worker).call({ kind: "stats" }, []);
+  if (!reply.ok) throw new Error(reply.error);
+  return reply.memoryBytes ?? 0;
 }
 
 /** Removes the mount `name`. Removing a name that isn't mounted succeeds. */

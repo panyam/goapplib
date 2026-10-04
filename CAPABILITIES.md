@@ -17,7 +17,7 @@
 - admin-pages: Admin pages and user management
 - page-spec: A page's layout and the islands it mounts (`page.Spec`), validated and written as a JSON script by `templates/page/Islands.html` for tsappkit's island page to mount from a registry; apps extend it by embedding (#30)
 - island-page: `@panyam/tsappkit` 0.1.0 `IslandPage<Ctx, Ext>` reads the page spec from `#page-spec` and mounts each island into its `data-slot` from a registry (`name -> factory`), with `readSpec` (apps read their own spec fields through an extension) and `mountIslands`; a bad entry is logged and skipped (#27)
-- wasm-worker-host: `wasmhost` runs an app's HTTP/Connect handlers as wasm in a Web Worker over files the page pushes in (`Serve`, `ServeRebuild` for handlers rebuilt on each mount, `Host.Do` in-process); `@panyam/tsappkit` 0.2.0 `@panyam/tsappkit/wasmhost` gives the page `startWorker`, `workerFetch` (a Connect transport's fetch), `mountFiles` and `filesFromDrop`. `make exercise-wasmhost` drives it in headless Chromium (#32)
+- wasm-worker-host: `wasmhost` runs an app's HTTP/Connect handlers as wasm in a Web Worker over files the page pushes in (`Serve`, `ServeRebuild` for handlers rebuilt on each mount, `Host.Do` in-process); `@panyam/tsappkit` 0.2.0 `@panyam/tsappkit/wasmhost` gives the page `startWorker`, `workerFetch` (a Connect transport's fetch), `mountFiles`, `addFiles` (merge into a mount, `Host.Add`), `workerMemory` (the wasm's peak linear memory) and `filesFromDrop`. `make exercise-wasmhost` drives it in headless Chromium (#32)
 
 ## Module
 github.com/panyam/goapplib

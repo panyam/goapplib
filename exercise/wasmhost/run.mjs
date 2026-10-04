@@ -55,7 +55,7 @@ async function drive(url) {
     ];
     for (const [name, ok, detail] of checks) console.log(`${ok ? "PASS" : "FAIL"} ${name}: ${detail}`);
 
-    const want = ["start", "mount", "read", "responsive"];
+    const want = ["start", "mount", "read", "add", "memory", "responsive"];
     const passed = want.every((n) => steps.some((s) => s.name === n && s.ok)) && checks.every(([, ok]) => ok);
     if (!passed && consoleLines.length) console.log(`console:\n  ${consoleLines.join("\n  ")}`);
     console.log(passed ? "exercise-wasmhost: PASS" : "exercise-wasmhost: FAIL");
