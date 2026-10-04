@@ -5,7 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -13,8 +15,19 @@ import (
 	"github.com/panyam/goapplib/page"
 )
 
-func TestPageWritesAValidSpecAndAFallbackInEachSlot(t *testing.T) {
-	h, err := newHandler(t.TempDir(), filepath.Join("..", "..", "templates", "page", "Islands.html"))
+// get renders the page over a dist holding page/testdata/esbuild-meta.json, a real metafile whose
+// islands are hero, below and narrow.
+func get(t *testing.T) string {
+	t.Helper()
+	dist := t.TempDir()
+	meta, err := os.ReadFile(filepath.Join("..", "..", "page", "testdata", "esbuild-meta.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dist, "meta.json"), meta, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h, err := newHandler(dist, filepath.Join("..", "..", "templates", "page", "Islands.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +37,22 @@ func TestPageWritesAValidSpecAndAFallbackInEachSlot(t *testing.T) {
 		t.Fatalf("GET /: %d", rec.Code)
 	}
 	body, _ := io.ReadAll(rec.Body)
-	html := string(body)
+	return string(body)
+}
+
+func TestPagePreloadsTheEagerIslandsChunksOnly(t *testing.T) {
+	var got []string
+	for _, m := range regexp.MustCompile(`<link rel="modulepreload" href="([^"]+)">`).FindAllStringSubmatch(get(t), -1) {
+		got = append(got, m[1])
+	}
+	want := []string{"/static/chunks/hero-HVBOBZWN.js", "/static/chunks/chunk-I2CYLLOU.js", "/static/chunks/chunk-M4DPGN35.js"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("modulepreload links %v, want %v", got, want)
+	}
+}
+
+func TestPageWritesAValidSpecAndAFallbackInEachSlot(t *testing.T) {
+	html := get(t)
 
 	m := regexp.MustCompile(`(?s)<script type="application/json" id="page-spec">(.*?)</script>`).FindStringSubmatch(html)
 	if m == nil {

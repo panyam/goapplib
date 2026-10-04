@@ -3,7 +3,7 @@ import { state } from "../record";
 
 state().loaded.push("hero");
 
-export function hero(el: HTMLElement): LCMComponent {
+export default function hero(el: HTMLElement): LCMComponent {
   el.replaceChildren(Object.assign(document.createElement("p"), { textContent: "hero mounted" }));
   el.dataset.mountedMs = String(Math.round(performance.now()));
   el.dataset.mounted = "hero";

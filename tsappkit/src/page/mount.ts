@@ -7,8 +7,35 @@ import type { IslandSpec, PageSpec } from "./spec";
  */
 export type IslandFactory<Ctx, El, C, B> = (el: El, island: IslandSpec, ctx: Ctx, bus: B) => C;
 
-/** The islands an entry can mount, by name. An entry bundles only what its registry names. */
-export type Registry<Ctx, El, C, B> = Record<string, IslandFactory<Ctx, El, C, B>>;
+const LAZY: unique symbol = Symbol("lazy island");
+
+/** A registry entry whose factory is loaded when the island mounts. Made by lazy. */
+export interface LazyIsland<Ctx, El, C, B> {
+  readonly [LAZY]: () => Promise<IslandFactory<Ctx, El, C, B> | { default: IslandFactory<Ctx, El, C, B> }>;
+}
+
+/**
+ * A registry entry that loads its island's module only when the island
+ * mounts: `hero: lazy(() => import("./islands/hero"))`. With esbuild's
+ * --splitting each such module is its own chunk, so a page downloads only the
+ * islands its spec names, each when its `load` says. `load` resolves to the
+ * factory or to a module whose default export is the factory.
+ *
+ * A lazy island always mounts late, even an eager one, since its chunk
+ * arrives after the page has started; goapplib's page.Assets writes
+ * modulepreload links for the eager ones so that wait is short.
+ */
+export function lazy<Ctx, El, C, B>(
+  load: () => Promise<IslandFactory<Ctx, El, C, B> | { default: IslandFactory<Ctx, El, C, B> }>,
+): LazyIsland<Ctx, El, C, B> {
+  return { [LAZY]: load };
+}
+
+/**
+ * The islands an entry can mount, by name: a factory, bundled with the entry,
+ * or a lazy entry, loaded as its own chunk when the island mounts.
+ */
+export type Registry<Ctx, El, C, B> = Record<string, IslandFactory<Ctx, El, C, B> | LazyIsland<Ctx, El, C, B>>;
 
 /** How mountIslands handles islands that shouldn't mount at once. */
 export interface MountOptions<El, C> {
@@ -19,7 +46,7 @@ export interface MountOptions<El, C> {
    * instead, so it still shows up.
    */
   defer?: (island: IslandSpec, el: El, mount: () => void) => void;
-  /** Gets what the factory built for each island mounted later through `defer`. */
+  /** Gets what the factory built for each island mounted later: through `defer`, or from a lazy entry. */
   onLateMount?: (component: C, island: IslandSpec) => void;
 }
 
@@ -28,13 +55,16 @@ export interface MountOptions<El, C> {
  * slot, and returns what the factories built at once, in spec order. With
  * `options.defer`, an island whose `load` isn't eager is handed to it instead
  * and reported through `options.onLateMount` when it mounts; without it,
- * every island mounts now whatever its `load` says.
+ * every island mounts now whatever its `load` says. A lazy entry is loaded
+ * when its island would mount and is reported through `onLateMount` too, so
+ * it's never in the returned list.
  *
  * `context` builds the page's shared services; it's called once, before the
  * first island mounts (eager or late), and not at all on a page with nothing
  * to mount, so a page without islands doesn't start what they'd share. An
  * island the registry doesn't know, a slot that isn't on the page, or a
- * factory that throws (now or later) is reported through `log` and skipped,
+ * factory that throws (now or later), or a lazy entry that fails to load, is
+ * reported through `log` and skipped,
  * so one bad entry doesn't take the rest of the page down with it.
  *
  * Plain types throughout (no DOM), so it runs under node in tests and on a
@@ -52,8 +82,8 @@ export function mountIslands<Ctx, El, C, B>(
   const out: C[] = [];
   let ctx: Ctx | undefined;
   for (const island of spec.islands) {
-    const factory = Object.prototype.hasOwnProperty.call(registry, island.name) ? registry[island.name] : undefined;
-    if (!factory) {
+    const entry = Object.prototype.hasOwnProperty.call(registry, island.name) ? registry[island.name] : undefined;
+    if (!entry) {
       log(`page spec: no island called "${island.name}" in this page's registry`);
       continue;
     }
@@ -62,28 +92,52 @@ export function mountIslands<Ctx, El, C, B>(
       log(`page spec: island "${island.name}" wants slot "${island.slot}", which isn't on the page`);
       continue;
     }
-    const build = (): C | undefined => {
+    const build = (factory: IslandFactory<Ctx, El, C, B>): C | undefined => {
       try {
         ctx ??= context();
         return factory(el, island, ctx, bus);
       } catch (err) {
-        log(`page spec: island "${island.name}" failed to mount: ${err instanceof Error ? err.message : String(err)}`);
+        log(`page spec: island "${island.name}" failed to mount: ${message(err)}`);
         return undefined;
       }
+    };
+    const mountLate = () => {
+      const late = (factory: IslandFactory<Ctx, El, C, B>) => {
+        const c = build(factory);
+        if (c !== undefined) options.onLateMount?.(c, island);
+      };
+      if (typeof entry === "function") {
+        late(entry);
+        return;
+      }
+      // The executor turns a loader that throws into a rejection, logged like any other.
+      new Promise<Awaited<ReturnType<(typeof entry)[typeof LAZY]>>>((resolve) => resolve(entry[LAZY]())).then(
+        (m) => {
+          const factory = typeof m === "function" ? m : m?.default;
+          if (typeof factory === "function") late(factory);
+          else log(`page spec: island "${island.name}" loaded, but its module has no factory (a default export or the function itself)`);
+        },
+        (err) => log(`page spec: island "${island.name}" failed to load: ${message(err)}`),
+      );
     };
     const strategy = parseLoad(island.load);
     if (strategy === null) {
       log(`page spec: island "${island.name}" has load "${island.load}", which isn't eager, idle, visible or media:<query>; mounting it now`);
     }
     if (options.defer && strategy !== null && strategy.kind !== "eager") {
-      options.defer(island, el, () => {
-        const c = build();
-        if (c !== undefined) options.onLateMount?.(c, island);
-      });
+      options.defer(island, el, mountLate);
       continue;
     }
-    const c = build();
+    if (typeof entry !== "function") {
+      mountLate();
+      continue;
+    }
+    const c = build(entry);
     if (c !== undefined) out.push(c);
   }
   return out;
+}
+
+function message(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
