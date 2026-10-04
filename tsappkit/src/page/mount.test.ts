@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mountIslands, type Registry } from "./mount";
+import { lazy, mountIslands, type Registry } from "./mount";
 import type { PageSpec } from "./spec";
 
 type El = { slot: string };
@@ -133,5 +133,76 @@ describe("mountIslands", () => {
     const spec: PageSpec = { layout: "a", islands: [{ name: "x", slot: "s", load: "visible", config: {} }] };
     expect(mountIslands(spec, { x: () => "x-c" }, (slot) => ({ slot }), () => ctx, bus, () => {})).toEqual(["x-c"]);
   });
-});
 
+  describe("lazy entries", () => {
+    const flush = () => new Promise((r) => setTimeout(r, 0));
+
+    it("loads an eager lazy island at once and reports it as a late mount", async () => {
+      const late: string[] = [];
+      let loads = 0;
+      const spec: PageSpec = { layout: "a", islands: [{ name: "hero", slot: "top", config: {} }] };
+      const registry: Registry<typeof ctx, El, string, typeof bus> = {
+        hero: lazy(async () => (loads++, (el: El) => `hero in ${el.slot}`)),
+      };
+      const out = mountIslands(spec, registry, (slot) => ({ slot }), () => ctx, bus, () => {}, {
+        defer: () => {
+          throw new Error("an eager island isn't deferred");
+        },
+        onLateMount: (c, island) => late.push(`${island.name}:${c}`),
+      });
+      expect(out).toEqual([]);
+      expect(loads).toBe(1);
+      await flush();
+      expect(late).toEqual(["hero:hero in top"]);
+    });
+
+    it("doesn't load a deferred lazy island until defer says to mount it", async () => {
+      const late: string[] = [];
+      let loads = 0;
+      let mount = () => {};
+      const spec: PageSpec = { layout: "a", islands: [{ name: "below", slot: "bottom", load: "visible", config: {} }] };
+      mountIslands(spec, { below: lazy(async () => (loads++, { default: () => "below-c" })) }, (slot) => ({ slot }), () => ctx, bus, () => {}, {
+        defer: (_i, _el, m) => (mount = m),
+        onLateMount: (c) => late.push(c),
+      });
+      await flush();
+      expect(loads).toBe(0);
+      mount();
+      expect(loads).toBe(1);
+      await flush();
+      expect(late).toEqual(["below-c"]);
+    });
+
+    it("logs a lazy island that fails to load or has no factory, and mounts the rest", async () => {
+      const logs: string[] = [];
+      const late: string[] = [];
+      const spec: PageSpec = {
+        layout: "a",
+        islands: [
+          { name: "broken", slot: "a", config: {} },
+          { name: "empty", slot: "b", config: {} },
+          { name: "throws", slot: "d", config: {} },
+          { name: "fine", slot: "c", config: {} },
+        ],
+      };
+      const registry = {
+        broken: lazy<typeof ctx, El, string, typeof bus>(() => Promise.reject(new Error("chunk 404"))),
+        throws: lazy<typeof ctx, El, string, typeof bus>(() => {
+          throw new Error("no import()");
+        }),
+        empty: lazy<typeof ctx, El, string, typeof bus>(async () => ({}) as never),
+        fine: () => "fine-c",
+      };
+      const out = mountIslands(spec, registry, (slot) => ({ slot }), () => ctx, bus, (m) => logs.push(m), {
+        onLateMount: (c) => late.push(c),
+      });
+      expect(out).toEqual(["fine-c"]);
+      await flush();
+      expect(late).toEqual([]);
+      expect(logs).toHaveLength(3);
+      expect(logs.join("\n")).toMatch(/"broken" failed to load: chunk 404/);
+      expect(logs.join("\n")).toMatch(/"empty".*no factory/);
+      expect(logs.join("\n")).toMatch(/"throws" failed to load: no import\(\)/);
+    });
+  });
+});

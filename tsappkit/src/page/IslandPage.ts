@@ -18,7 +18,8 @@ import { readSpec, SPEC_ELEMENT_ID, type PageSpec } from "./spec";
  * `makeContext` gets.
  *
  * Each island mounts when its `load` says (`eager`, `idle`, `visible`,
- * `media:<query>`; see scheduleMount). One that mounts later goes through
+ * `media:<query>`; see scheduleMount), and a `lazy` registry entry loads its
+ * chunk then. One that mounts later, a lazy eager one included, goes through
  * its own LifecycleController, so it still gets performLocalInit,
  * setupDependencies and activate. A deferred island mustn't be something
  * another island or the page needs at startup: nothing waits for it.

@@ -4,5 +4,11 @@ A page spec (the page package) as the JSON script tsappkit's island page reads
 to mount its islands. Render it with the spec as dot:
 {{ template "PageSpecScript" .Spec }}. Any spec type with a JSON method works,
 so an app's own spec that embeds page.Spec does too.
+
+IslandPreloads writes a modulepreload link for each URL in dot, for the <head>:
+{{ template "IslandPreloads" (.Assets.For .Spec) }}, with Assets a page.Assets
+loaded at startup. A nil Assets writes nothing.
 -->
 {{ define "PageSpecScript" }}<script type="application/json" id="page-spec">{{ .JSON }}</script>{{ end }}
+{{ define "IslandPreloads" }}{{ range . }}<link rel="modulepreload" href="{{ . }}">
+{{ end }}{{ end }}

@@ -15,6 +15,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"path/filepath"
 
 	"github.com/panyam/goapplib/page"
 )
@@ -29,9 +30,15 @@ var spec = page.Spec{Layout: "exercise", Islands: []page.Island{
 }}
 
 // newHandler serves the page at / and the built bundle from dist at /static/. partial is goapplib's
-// templates/page/Islands.html, which defines PageSpecScript.
+// templates/page/Islands.html, which defines PageSpecScript and IslandPreloads. The page preloads
+// its eager islands' chunks, read from esbuild's metafile in dist (paths in it start "dist/", as
+// esbuild runs from exercise/islands).
 func newHandler(dist, partial string) (http.Handler, error) {
 	if err := spec.Validate(); err != nil {
+		return nil, err
+	}
+	assets, err := page.LoadEsbuildMetafile(filepath.Join(dist, "meta.json"), page.EsbuildOptions{OutDir: "dist", URLPrefix: "/static/"})
+	if err != nil {
 		return nil, err
 	}
 	t, err := template.New("").ParseFiles(partial)
@@ -45,7 +52,7 @@ func newHandler(dist, partial string) (http.Handler, error) {
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(dist))))
 	mux.HandleFunc("/{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := t.ExecuteTemplate(w, "page", map[string]any{"Spec": spec}); err != nil {
+		if err := t.ExecuteTemplate(w, "page", map[string]any{"Spec": spec, "Preloads": assets.For(spec)}); err != nil {
 			log.Printf("render: %v", err)
 		}
 	})

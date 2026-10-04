@@ -9,11 +9,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
-const pending = {
-  "load-eager-only": "#35",
-  "visible-loads-on-scroll": "#35",
-  modulepreload: "#35",
-};
+const pending = {};
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const meta = JSON.parse(readFileSync(here("./dist/meta.json"), "utf8"));
@@ -74,7 +70,7 @@ for (const r of results) {
   console.log(`${status} ${r.name}: ${r.detail}`);
 }
 console.log(`screenshots: ${shots}`);
-console.log(failed ? "exercise-islands: FAIL" : "exercise-islands: PASS (with pending checks)");
+console.log(failed ? "exercise-islands: FAIL" : `exercise-islands: PASS${Object.keys(pending).length ? " (with pending checks)" : ""}`);
 process.exitCode = failed ? 1 : 0;
 
 // The page with JavaScript off: what Go rendered, a fallback in every slot. A picture only, since

@@ -1,0 +1,125 @@
+package page
+
+import (
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+// testdata/esbuild-meta.json is real esbuild output: web/main.ts dynamically imports
+// islands/{hero,below,narrow}.ts, hero and narrow share chunk-I2CYLLOU (which imports
+// chunk-M4DPGN35), and all three share chunk-M4DPGN35.
+func loadFixture(t *testing.T, opts EsbuildOptions) *Assets {
+	t.Helper()
+	a, err := LoadEsbuildMetafile(filepath.Join("testdata", "esbuild-meta.json"), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+func TestEsbuildMetafileNamesEachDynamicChunkByItsSourceFile(t *testing.T) {
+	a := loadFixture(t, EsbuildOptions{OutDir: "dist", URLPrefix: "/static/"})
+	want := map[string]IslandAsset{
+		"hero":   {File: "/static/chunks/hero-HVBOBZWN.js", Imports: []string{"/static/chunks/chunk-I2CYLLOU.js", "/static/chunks/chunk-M4DPGN35.js"}},
+		"below":  {File: "/static/chunks/below-6H45KFPN.js", Imports: []string{"/static/chunks/chunk-M4DPGN35.js"}},
+		"narrow": {File: "/static/chunks/narrow-6K72O4OZ.js", Imports: []string{"/static/chunks/chunk-I2CYLLOU.js", "/static/chunks/chunk-M4DPGN35.js"}},
+	}
+	if !reflect.DeepEqual(a.Islands, want) {
+		t.Fatalf("islands:\n got %#v\nwant %#v", a.Islands, want)
+	}
+}
+
+func TestForPreloadsOnlyTheEagerIslandsAndWhatTheyImport(t *testing.T) {
+	a := loadFixture(t, EsbuildOptions{OutDir: "dist", URLPrefix: "/static/"})
+	spec := Spec{Layout: "x", Islands: []Island{
+		{Name: "below", Slot: "bottom", Load: "visible"},
+		{Name: "hero", Slot: "top"},
+		{Name: "narrow", Slot: "side", Load: "media:(max-width: 600px)"},
+		{Name: "inline", Slot: "foot", Load: "eager"}, // not a chunk of its own
+	}}
+	want := []string{"/static/chunks/hero-HVBOBZWN.js", "/static/chunks/chunk-I2CYLLOU.js", "/static/chunks/chunk-M4DPGN35.js"}
+	if got := a.For(spec); !reflect.DeepEqual(got, want) {
+		t.Fatalf("For: got %v, want %v", got, want)
+	}
+
+	spec.Islands[0].Load = "eager"
+	want = []string{"/static/chunks/below-6H45KFPN.js", "/static/chunks/chunk-M4DPGN35.js", "/static/chunks/hero-HVBOBZWN.js", "/static/chunks/chunk-I2CYLLOU.js"}
+	if got := a.For(spec); !reflect.DeepEqual(got, want) {
+		t.Fatalf("For with below eager: got %v, want %v (spec order, each chunk once)", got, want)
+	}
+}
+
+func TestForOnNilAssetsIsEmpty(t *testing.T) {
+	var a *Assets
+	if got := a.For(Spec{Layout: "x", Islands: []Island{{Name: "hero", Slot: "top"}}}); len(got) != 0 {
+		t.Fatalf("nil Assets: got %v", got)
+	}
+}
+
+func TestEsbuildMetafileFollowsImportsThroughOtherChunks(t *testing.T) {
+	dir := t.TempDir()
+	meta := `{"outputs": {
+		"out/main.js": {"imports": [{"path": "out/c/tools-1.js", "kind": "dynamic-import"}]},
+		"out/c/tools-1.js": {"entryPoint": "src/islands/Tools.tsx", "imports": [{"path": "out/c/chunk-a.js", "kind": "import-statement"}, {"path": "out/c/more-2.js", "kind": "dynamic-import"}]},
+		"out/c/chunk-a.js": {"imports": [{"path": "out/c/chunk-b.js", "kind": "import-statement"}]},
+		"out/c/chunk-b.js": {"imports": [{"path": "out/c/chunk-a.js", "kind": "import-statement"}]},
+		"out/c/more-2.js": {"entryPoint": "src/more.ts", "imports": []}
+	}}`
+	file := filepath.Join(dir, "meta.json")
+	if err := os.WriteFile(file, []byte(meta), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a, err := LoadEsbuildMetafile(file, EsbuildOptions{OutDir: "out/", URLPrefix: "/s/", Name: func(src string) string {
+		if strings.Contains(src, "/islands/") {
+			return strings.ToLower(strings.TrimSuffix(filepath.Base(src), ".tsx"))
+		}
+		return ""
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]IslandAsset{"tools": {File: "/s/c/tools-1.js", Imports: []string{"/s/c/chunk-a.js", "/s/c/chunk-b.js"}}}
+	if !reflect.DeepEqual(a.Islands, want) {
+		t.Fatalf("got %#v, want %#v", a.Islands, want)
+	}
+}
+
+func TestEsbuildMetafileErrors(t *testing.T) {
+	dir := t.TempDir()
+	for name, meta := range map[string]string{
+		"not json": `{"outputs": `,
+		"two chunks, one name": `{"outputs": {
+			"d/main.js": {"imports": [{"path": "d/a.js", "kind": "dynamic-import"}, {"path": "d/b.js", "kind": "dynamic-import"}]},
+			"d/a.js": {"entryPoint": "x/hero.ts"},
+			"d/b.js": {"entryPoint": "y/hero.ts"}
+		}}`,
+	} {
+		file := filepath.Join(dir, strings.ReplaceAll(name, " ", "_"))
+		if err := os.WriteFile(file, []byte(meta), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := LoadEsbuildMetafile(file, EsbuildOptions{}); err == nil {
+			t.Errorf("%s: no error", name)
+		}
+	}
+	if _, err := LoadEsbuildMetafile(filepath.Join(dir, "missing.json"), EsbuildOptions{}); err == nil {
+		t.Error("missing file: no error")
+	}
+}
+
+func TestLoadAssetsReadsTheCommonShape(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "assets.json")
+	if err := os.WriteFile(file, []byte(`{"islands": {"hero": {"file": "/a/hero.js", "imports": ["/a/x.js"]}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a, err := LoadAssets(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := a.For(Spec{Layout: "x", Islands: []Island{{Name: "hero", Slot: "top"}}}); !reflect.DeepEqual(got, []string{"/a/hero.js", "/a/x.js"}) {
+		t.Fatalf("For: %v", got)
+	}
+}

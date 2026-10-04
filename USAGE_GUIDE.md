@@ -892,6 +892,35 @@ Each factory returns an `LCMComponent`, so islands go through the usual lifecycl
 
 `readSpec` and `mountIslands` are exported too, for a page that mounts islands without `BasePage`.
 
+### Lazy islands and preload links
+
+A registry entry wrapped in `lazy` loads its island's module only when the island mounts, so with esbuild's `--splitting` each island is its own chunk and a page downloads only the islands its spec names, each when its `Load` says:
+
+```ts
+import { IslandPage, lazy } from "@panyam/tsappkit";
+
+protected registry() {
+  return {
+    player: lazy(() => import("./islands/player")), // default export is the factory
+    chat: lazy(() => import("./islands/chat")),
+  };
+}
+```
+
+A lazy island mounts late even when it's eager, since its chunk arrives after the page has started, so the same rule applies: nothing that something else needs at startup. A chunk that fails to load is logged and skipped.
+
+So the eager islands' chunks don't wait for the entry to run before they're requested, Go writes `modulepreload` links for them. Build with a metafile (`esbuild ... --bundle --splitting --format=esm --metafile=dist/meta.json`), load it at startup, and write the links in `<head>`:
+
+```go
+assets, err := page.LoadEsbuildMetafile("dist/meta.json", page.EsbuildOptions{OutDir: "dist", URLPrefix: "/static/"})
+```
+
+```html
+{{ template "IslandPreloads" (.Assets.For .Spec) }}
+```
+
+`For` lists the chunks of the spec's eager islands and everything they import, and leaves out `idle`, `visible` and `media` islands. An island is matched to its chunk by its source file's base name (`islands/player.ts` is `player`); `EsbuildOptions.Name` changes that. Another bundler's build can write the same shape `page.Assets` has (`{"islands": {"player": {"file": ..., "imports": [...]}}}`) for `page.LoadAssets` to read.
+
 ---
 
 ## HTMX Integration
