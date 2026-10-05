@@ -41,6 +41,7 @@ goapplib/
 ├── page/               # page.Spec (a page's islands, #30), page.Assets (chunks to preload, #35), CheckIslands (#42)
 ├── wasmhost/           # Run an app's HTTP/Connect handlers as wasm in a Web Worker (#32)
 ├── exercise/wasmhost/  # `make exercise-wasmhost`: the worker host end to end in headless Chromium
+├── docsite/            # The docs site (s3gen, GitHub Pages) with live demos; `make exercise-docsite` (#91)
 ├── exercise/islands/   # `make exercise-islands`: lazy islands by load strategy in headless Chromium (#60)
 ├── scripts/            # npm-publish.sh (publishes the TS packages from a tag, #46), check-versions.sh (#66)
 │

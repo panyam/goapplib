@@ -1,0 +1,36 @@
+{{# include "nav/OverviewNav.html" #}}
+{{# include "nav/GuideNav.html" #}}
+{{# include "nav/ReferenceNav.html" #}}
+
+{{ define "Sidebar" }}
+<aside class="sidebar">
+    <button class="sidebar-toggle" id="sidebar-toggle" aria-expanded="false" aria-controls="sidebar-content">
+        <span>In this section</span>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
+    <div class="sidebar-content" id="sidebar-content">
+        {{ $currentPath := .Res.FullPath }}
+
+        <nav class="section-nav">
+            {{ if (Contains $currentPath "/overview/") }}
+                {{ template "OverviewNav" . }}
+            {{ else if (Contains $currentPath "/guide/") }}
+                {{ template "GuideNav" . }}
+            {{ else if (Contains $currentPath "/reference/") }}
+                {{ template "ReferenceNav" . }}
+            {{ else }}
+                <div class="section-nav-content">
+                    <h3>Start here</h3>
+                    <ul>
+                        <li><a href="{{.Site.PathPrefix}}/overview/">Overview</a></li>
+                        <li><a href="{{.Site.PathPrefix}}/guide/">Guide</a></li>
+                        <li><a href="{{.Site.PathPrefix}}/reference/">Reference</a></li>
+                    </ul>
+                </div>
+            {{ end }}
+        </nav>
+    </div>
+</aside>
+{{ end }}

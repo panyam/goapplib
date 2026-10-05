@@ -1,0 +1,75 @@
+name: docs
+
+# Builds and checks the documentation site in docsite/ and publishes it to GitHub Pages
+# (https://panyam.github.io/goapplib/). The repo's Pages source is "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+  # The build and the exercise run on every PR, since the demos bundle tsappkit from the repo and a
+  # change there can break one. Only main deploys.
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The footer names the commit and the nearest tag (git describe), which needs the tags.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: docsite/go.mod
+          cache-dependency-path: docsite/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: docsite/pnpm-lock.yaml
+
+      - name: Install Chromium
+        working-directory: docsite
+        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+
+      # Mission #91's exercise: build, test, and run every page and demo. One definition, in the Makefile.
+      - name: Build and check the site
+        run: make exercise-docsite
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docsite-screenshots
+          path: docsite/dist-screenshots/
+          if-no-files-found: warn
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docsite/dist
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
