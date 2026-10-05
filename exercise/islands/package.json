@@ -5,6 +5,8 @@
   "type": "module",
   "devDependencies": {
     "esbuild": "^0.25.0",
-    "playwright-core": "1.63.0"
+    "esbuild-plugin-solid": "^0.6.0",
+    "playwright-core": "1.63.0",
+    "solid-js": "^1.9.15"
   }
 }

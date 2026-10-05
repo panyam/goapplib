@@ -45,5 +45,5 @@ exercise-islands: ## Mission #60 exercise: a page whose islands load and mount b
 	cd $(ISLANDS) && pnpm install --frozen-lockfile
 	mkdir -p $(ISLANDS)/dist
 	go build -buildvcs=false -o $(ISLANDS)/dist/server ./$(ISLANDS)
-	cd $(ISLANDS) && pnpm exec esbuild web/main.ts --bundle --splitting --format=esm --outdir=dist --entry-names=[name] --chunk-names=chunks/[name]-[hash] --metafile=dist/meta.json --log-level=warning
+	cd $(ISLANDS) && node build.mjs
 	cd $(ISLANDS) && node run.mjs
