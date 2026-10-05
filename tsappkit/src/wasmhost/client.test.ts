@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { addFiles, mountFiles, oneShotFetch, startWorker, unmountFiles, workerFetch, workerMemory } from "./client";
-import type { HostReply, HostRequest, HostStatus } from "./protocol";
+import type { HostChunk, HostReply, HostRequest, HostStatus } from "./protocol";
 
 // FakeWorker passes each message through structuredClone with its transfer list, as postMessage
 // does, so a transferred buffer really is detached and a duplicate transfer really throws.
@@ -32,7 +32,7 @@ class FakeWorker extends EventTarget {
     if (out) queueMicrotask(() => this.send(out.reply, out.transfer));
   }
 
-  send(m: HostReply | HostStatus, transfer: Transferable[] = []) {
+  send(m: HostReply | HostStatus | HostChunk, transfer: Transferable[] = []) {
     this.dispatchEvent(new MessageEvent("message", { data: structuredClone(m, { transfer }) }));
   }
 }
@@ -252,5 +252,96 @@ describe("oneShotFetch", () => {
     );
     await expect(oneShotFetch(opts)("http://x/open")).rejects.toThrow("fetch a.wasm: 404");
     expect(FakeWorker.all[0].terminated).toBe(true);
+  });
+});
+
+describe("streamed responses and cancel", () => {
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  const chunk = (id: number, body: string, head?: { status: number; headers: Record<string, string> }): HostChunk => ({
+    id,
+    chunk: true,
+    ...head,
+    body: bytes(body),
+  });
+
+  it("resolves at the first flush and streams each flush before the handler returns", async () => {
+    const w = worker();
+    w.answer = () => null;
+    const pending = workerFetch(w)("http://x/longjob", { method: "POST", body: "{}" });
+    await tick();
+    const id = w.received[0].id;
+    w.send(chunk(id, "p1\n", { status: 200, headers: { "content-type": "application/x-ndjson" } }));
+    const res = await pending;
+    expect(res.headers.get("content-type")).toBe("application/x-ndjson");
+    const reader = res.body!.getReader();
+    expect(str((await reader.read()).value)).toBe("p1\n");
+    w.send(chunk(id, "p2\n"));
+    expect(str((await reader.read()).value)).toBe("p2\n");
+    w.send({ id, ok: true, status: 200, headers: {}, body: bytes("done\n") });
+    expect(str((await reader.read()).value)).toBe("done\n");
+    expect((await reader.read()).done).toBe(true);
+  });
+
+  it("an abort before any reply rejects with AbortError and asks the worker to cancel that request", async () => {
+    const w = worker();
+    w.answer = () => null;
+    const ac = new AbortController();
+    const pending = workerFetch(w)("http://x/slow", { signal: ac.signal });
+    await tick();
+    ac.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    const cancel = w.received.find((r) => r.kind === "cancel");
+    expect(cancel).toMatchObject({ kind: "cancel", target: w.received[0].id });
+  });
+
+  it("an abort mid-stream errors the body and asks the worker to cancel", async () => {
+    const w = worker();
+    w.answer = () => null;
+    const ac = new AbortController();
+    const pending = workerFetch(w)("http://x/longjob", { signal: ac.signal });
+    await tick();
+    const id = w.received[0].id;
+    w.send(chunk(id, "p1\n", { status: 200, headers: {} }));
+    const reader = (await pending).body!.getReader();
+    expect(str((await reader.read()).value)).toBe("p1\n");
+    ac.abort();
+    await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
+    expect(w.received.some((r) => r.kind === "cancel" && r.target === id)).toBe(true);
+  });
+
+  it("oneShotFetch keeps a streaming worker until its body ends, and ends it when the body is cancelled", async () => {
+    FakeWorker.all = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends FakeWorker {
+        constructor(url: string | URL) {
+          super(url);
+          this.answer = () => null;
+          queueMicrotask(() => this.send({ ready: true }));
+        }
+      },
+    );
+    const opts = { worker: "w.js", wasm: "a.wasm", exec: "e.js", ns: "state" };
+
+    const first = oneShotFetch(opts)("http://x/longjob");
+    await tick();
+    let w = FakeWorker.all[0];
+    let id = w.received[0].id;
+    w.send(chunk(id, "p1\n", { status: 200, headers: {} }));
+    const reader = (await first).body!.getReader();
+    expect(str((await reader.read()).value)).toBe("p1\n");
+    expect(w.terminated).toBe(false);
+    w.send({ id, ok: true, status: 200, headers: {}, body: bytes("end") });
+    expect(str((await reader.read()).value)).toBe("end");
+    expect((await reader.read()).done).toBe(true);
+    expect(w.terminated).toBe(true);
+
+    const second = oneShotFetch(opts)("http://x/longjob");
+    await tick();
+    w = FakeWorker.all[1];
+    id = w.received[0].id;
+    w.send(chunk(id, "p1\n", { status: 200, headers: {} }));
+    await (await second).body!.cancel();
+    expect(w.terminated).toBe(true);
   });
 });

@@ -98,10 +98,17 @@ async function run() {
   // A long job aborted 300 ms in: how long until the fetch settles, and does the lane answer again?
   const ac = new AbortController();
   const ta = performance.now();
-  const settled = postJob({ ms: JOB_MS }, { signal: ac.signal }).then(
-    (r) => r.text().then(() => "resolved"),
-    (e: unknown) => (e instanceof DOMException && e.name === "AbortError" ? "aborted" : `rejected: ${String(e)}`),
-  );
+  // Since issue 78 the job's response arrives at its first progress line, before the abort, so the
+  // abort usually lands while its body is streaming: reading the body is what fails then.
+  const settled = postJob({ ms: JOB_MS }, { signal: ac.signal })
+    .then((r) => r.text())
+    .then(
+      () => "resolved",
+      (e: unknown) => {
+        data.abortError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+        return ac.signal.aborted ? "aborted" : `rejected: ${String(e)}`;
+      },
+    );
   await sleep(300);
   const tAbort = performance.now();
   ac.abort();

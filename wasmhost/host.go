@@ -58,6 +58,10 @@ type Host struct {
 	handler http.Handler
 	build   func(fs.FS) (http.Handler, error)
 	err     error
+
+	// cancels holds each in-flight request's context cancel func by the id the page gave it, so
+	// the cancel export can end that request's context (js.go).
+	cancels sync.Map
 }
 
 // New returns an empty host whose JavaScript exports, once Export or Serve installs them, live on
@@ -207,7 +211,24 @@ type Response struct {
 // Do serves req in-process and returns the buffered response. An HTTP error status is a Response,
 // not an error. The error is for no handler (ErrNoHandler), a failed rebuild, an unparseable
 // request, or a handler panic, which is recovered so one bad request can't kill the worker.
-func (h *Host) Do(ctx context.Context, req Request) (res Response, err error) {
+func (h *Host) Do(ctx context.Context, req Request) (Response, error) {
+	return h.DoStream(ctx, req, nil)
+}
+
+// Chunk is part of a response, sent when the handler calls Flush (http.Flusher). The first chunk
+// of a response carries its status and header; later ones carry only body.
+type Chunk struct {
+	Status int
+	Header http.Header
+	Body   []byte
+}
+
+// DoStream is Do for a handler that streams: each time it calls Flush, the bytes it has written
+// since the last Flush go to onChunk, synchronously and in order, while the handler is still
+// running. The returned Response holds only what was written after the last Flush; if anything
+// was flushed, its Status and Header repeat the first chunk's. A nil onChunk buffers the whole
+// response, as Do does. onChunk is called on the handler's goroutine and must not block on it.
+func (h *Host) DoStream(ctx context.Context, req Request, onChunk func(Chunk)) (res Response, err error) {
 	h.mu.RLock()
 	handler, buildErr := h.handler, h.err
 	h.mu.RUnlock()
@@ -228,7 +249,7 @@ func (h *Host) Do(ctx context.Context, req Request) (res Response, err error) {
 			r.Header.Add(k, v)
 		}
 	}
-	w := &recorder{header: http.Header{}}
+	w := &recorder{header: http.Header{}, onChunk: onChunk}
 	defer func() {
 		if p := recover(); p != nil {
 			res, err = Response{}, fmt.Errorf("wasmhost: handler panicked on %s %s: %v", req.Method, req.URL, p)
@@ -241,12 +262,15 @@ func (h *Host) Do(ctx context.Context, req Request) (res Response, err error) {
 	return Response{Status: w.status, Header: w.header, Body: w.body.Bytes()}, nil
 }
 
-// recorder buffers a response. httptest.ResponseRecorder would do, but httptest registers a flag,
-// and this runs in production builds.
+// recorder buffers a response, handing what's buffered to onChunk at each Flush when there is
+// one. httptest.ResponseRecorder would do for the buffering, but httptest registers a flag, and
+// this runs in production builds.
 type recorder struct {
-	header http.Header
-	status int
-	body   bytes.Buffer
+	header  http.Header
+	status  int
+	body    bytes.Buffer
+	onChunk func(Chunk)
+	flushed bool
 }
 
 func (w *recorder) Header() http.Header { return w.header }
@@ -262,5 +286,18 @@ func (w *recorder) Write(b []byte) (int, error) {
 	return w.body.Write(b)
 }
 
-// Flush lets streaming handlers flush; the body is buffered whole regardless.
-func (w *recorder) Flush() {}
+// Flush sends what the handler has written since the last Flush to onChunk. Without an onChunk
+// it does nothing, and the body is buffered whole.
+func (w *recorder) Flush() {
+	if w.onChunk == nil {
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	c := Chunk{Body: append([]byte(nil), w.body.Bytes()...)}
+	if !w.flushed {
+		c.Status, c.Header = w.status, w.header.Clone()
+		w.flushed = true
+	}
+	w.body.Reset()
+	w.onChunk(c)
+}

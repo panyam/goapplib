@@ -46,7 +46,15 @@ func (h *Host) ServeRebuild(build func(root fs.FS) (http.Handler, error)) {
 //
 // The exports, all returning Promises:
 //
-//	http(method, url, headers, body)  resolves {status, headers, body: Uint8Array}
+//	http(method, url, headers, body, onChunk?, id?)
+//	                                  resolves {status, headers, body: Uint8Array}. With onChunk, each
+//	                                  Flush in the handler calls onChunk({status?, headers?, body})
+//	                                  at once (Host.DoStream), and the final body is what came after
+//	                                  the last flush. With a numeric id, cancel(id) can end the
+//	                                  request's context.
+//	cancel(id)                        cancels the context of request id, if it's still running; a
+//	                                  handler sees it the next time it checks ctx, which a loop that
+//	                                  never yields to JS never gets to do (end its worker instead)
 //	mount(name, {path: Uint8Array})   resolves when the files are mounted (and, in rebuild mode, built)
 //	add(name, {path: Uint8Array})     the same, but keeps the files the mount already holds (Host.Add)
 //	unmount(name)                     resolves when the mount is gone
@@ -65,6 +73,7 @@ func (h *Host) Export() (release func()) {
 		"mount":   js.FuncOf(h.jsMount),
 		"add":     js.FuncOf(h.jsAdd),
 		"unmount": js.FuncOf(h.jsUnmount),
+		"cancel":  js.FuncOf(h.jsCancel),
 	}
 	for name, f := range fns {
 		obj.Set(name, f)
@@ -99,21 +108,59 @@ func (h *Host) jsHTTP(_ js.Value, args []js.Value) any {
 		}
 		req.Body = body
 	}
+	var onChunk func(Chunk)
+	if len(args) > 4 && args[4].Type() == js.TypeFunction {
+		cb := args[4]
+		onChunk = func(c Chunk) {
+			out := js.Global().Get("Object").New()
+			if c.Status != 0 {
+				out.Set("status", c.Status)
+				out.Set("headers", headersToJS(c.Header))
+			}
+			out.Set("body", bytesToJS(c.Body))
+			cb.Invoke(out)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	var id any
+	if len(args) > 5 && args[5].Type() == js.TypeNumber {
+		id = args[5].Int()
+		h.cancels.Store(id, cancel)
+	}
 	return promise(func() (js.Value, error) {
-		res, err := h.Do(context.Background(), req)
+		defer func() {
+			if id != nil {
+				h.cancels.Delete(id)
+			}
+			cancel()
+		}()
+		res, err := h.DoStream(ctx, req, onChunk)
 		if err != nil {
 			return js.Value{}, err
 		}
-		headers := js.Global().Get("Object").New()
-		for k, vs := range res.Header {
-			headers.Set(k, strings.Join(vs, ", "))
-		}
 		out := js.Global().Get("Object").New()
 		out.Set("status", res.Status)
-		out.Set("headers", headers)
+		out.Set("headers", headersToJS(res.Header))
 		out.Set("body", bytesToJS(res.Body))
 		return out, nil
 	})
+}
+
+func (h *Host) jsCancel(_ js.Value, args []js.Value) any {
+	if len(args) > 0 && args[0].Type() == js.TypeNumber {
+		if c, ok := h.cancels.Load(args[0].Int()); ok {
+			c.(context.CancelFunc)()
+		}
+	}
+	return js.Global().Get("Promise").Call("resolve")
+}
+
+func headersToJS(hdr http.Header) js.Value {
+	out := js.Global().Get("Object").New()
+	for k, vs := range hdr {
+		out.Set(k, strings.Join(vs, ", "))
+	}
+	return out
 }
 
 func (h *Host) jsMount(_ js.Value, args []js.Value) any {

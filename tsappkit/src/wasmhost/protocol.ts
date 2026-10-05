@@ -16,7 +16,21 @@ export type HostRequest =
   | { id: number; kind: "mount"; name: string; files: Files }
   | { id: number; kind: "add"; name: string; files: Files }
   | { id: number; kind: "stats" }
-  | { id: number; kind: "unmount"; name: string };
+  | { id: number; kind: "unmount"; name: string }
+  /** Cancels the Go context of http request `target`, if it's still running. */
+  | { id: number; kind: "cancel"; target: number };
+
+/**
+ * Part of an http response, sent when the Go handler flushes (wasmhost's Host.DoStream), before the
+ * request's final HostReply. The first chunk of a response carries its status and headers.
+ */
+export type HostChunk = {
+  id: number;
+  chunk: true;
+  status?: number;
+  headers?: Record<string, string>;
+  body: Uint8Array;
+};
 
 export type HostReply =
   | {

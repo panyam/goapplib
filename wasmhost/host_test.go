@@ -297,3 +297,41 @@ func TestConcurrentAddsAndRequests(t *testing.T) {
 	}()
 	wg.Wait()
 }
+
+func TestDoStreamSendsEachFlushAsItHappens(t *testing.T) {
+	h := New("stream")
+	var during []string
+	var chunks []Chunk
+	h.Handle(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		w.WriteHeader(http.StatusAccepted)
+		for i := 0; i < 3; i++ {
+			fmt.Fprintf(w, "line %d\n", i)
+			w.(http.Flusher).Flush()
+			during = append(during, fmt.Sprint(len(chunks)))
+		}
+		w.Write([]byte("tail"))
+	}))
+	res, err := h.DoStream(context.Background(), Request{Method: "GET", URL: "/"}, func(c Chunk) { chunks = append(chunks, c) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(during, ",") != "1,2,3" {
+		t.Fatalf("chunks seen by the handler after each flush: %v; want each flush delivered before it returns", during)
+	}
+	if chunks[0].Status != http.StatusAccepted || chunks[0].Header.Get("Content-Type") != "application/x-ndjson" || chunks[1].Status != 0 {
+		t.Fatalf("first chunk %+v, second %+v; want status and header on the first only", chunks[0], chunks[1])
+	}
+	var got []string
+	for _, c := range chunks {
+		got = append(got, string(c.Body))
+	}
+	if strings.Join(got, "|") != "line 0\n|line 1\n|line 2\n" || string(res.Body) != "tail" || res.Status != http.StatusAccepted {
+		t.Fatalf("chunks %q, then %d %q", got, res.Status, res.Body)
+	}
+
+	whole, err := h.Do(context.Background(), Request{Method: "GET", URL: "/"})
+	if err != nil || string(whole.Body) != "line 0\nline 1\nline 2\ntail" {
+		t.Fatalf("Do without onChunk: %q, %v; want the whole body", whole.Body, err)
+	}
+}

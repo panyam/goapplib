@@ -6,7 +6,7 @@
 // It is a classic worker, built as an IIFE, because Go's wasm_exec.js is a plain script defining
 // globalThis.Go, which importScripts can load and a module worker cannot. The asset URLs and the
 // namespace come in the worker's query string (?wasm=&exec=&ns=), which startWorker writes.
-import type { Files, HostReply, HostRequest, HostStatus } from "./protocol";
+import type { Files, HostChunk, HostReply, HostRequest, HostStatus } from "./protocol";
 import { workerCache } from "./cache";
 
 interface Exports {
@@ -16,7 +16,11 @@ interface Exports {
     url: string,
     headers: Record<string, string>,
     body: Uint8Array | null,
+    onChunk?: (c: { status?: number; headers?: Record<string, string>; body: Uint8Array }) => void,
+    id?: number,
   ): Promise<{ status: number; headers: Record<string, string>; body: Uint8Array }>;
+  /** Missing in a wasm built against goapplib before 0.6.7; cancelling is then a no-op. */
+  cancel?(id: number): Promise<void>;
   mount(name: string, files: Files): Promise<void>;
   add(name: string, files: Files): Promise<void>;
   unmount(name: string): Promise<void>;
@@ -40,7 +44,7 @@ const ns = params.get("ns") ?? "wasmhost";
 // The wasm's linear memory, exported by Go as `mem`. It only grows, so its size is the peak so far.
 let memory: WebAssembly.Memory | undefined;
 
-const post = (m: HostStatus | HostReply, transfer: Transferable[] = []) => self.postMessage(m, transfer);
+const post = (m: HostStatus | HostReply | HostChunk, transfer: Transferable[] = []) => self.postMessage(m, transfer);
 
 // Go's wasmhost.BrowserCache finds the cache here (cache.ts).
 const cache = workerCache(ns, (self as unknown as { navigator?: { storage?: { getDirectory?: () => Promise<unknown> } } }).navigator?.storage);
@@ -76,7 +80,14 @@ self.onmessage = async (ev) => {
   try {
     const host = await booted;
     if (req.kind === "http") {
-      const res = await host.http(req.method, req.url, req.headers, req.body);
+      const res = await host.http(
+        req.method,
+        req.url,
+        req.headers,
+        req.body,
+        (c) => post({ id: req.id, chunk: true, ...c }, [c.body.buffer]),
+        req.id,
+      );
       post({ id: req.id, ok: true, status: res.status, headers: res.headers, body: res.body }, [res.body.buffer]);
     } else if (req.kind === "mount") {
       await host.mount(req.name, req.files);
@@ -86,6 +97,9 @@ self.onmessage = async (ev) => {
       post({ id: req.id, ok: true });
     } else if (req.kind === "stats") {
       post({ id: req.id, ok: true, memoryBytes: memory?.buffer.byteLength ?? 0 });
+    } else if (req.kind === "cancel") {
+      await host.cancel?.(req.target);
+      post({ id: req.id, ok: true });
     } else if (req.kind === "unmount") {
       await host.unmount(req.name);
       post({ id: req.id, ok: true });
