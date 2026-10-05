@@ -211,3 +211,63 @@ func TestAddExportMergesIntoAMount(t *testing.T) {
 		}
 	}
 }
+
+// A handler that flushes while it runs reaches the page chunk by chunk, before http resolves: the
+// chunk callback is a synchronous call into JS, so it works even from a loop that never yields.
+func TestHTTPStreamsFlushesToOnChunk(t *testing.T) {
+	h := New("wasmhostTestStream")
+	h.Handle(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		for i := 0; i < 3; i++ {
+			w.Write([]byte{'a' + byte(i)})
+			w.(http.Flusher).Flush()
+		}
+		w.Write([]byte("!"))
+	}))
+	ns := exportFresh(t, h)
+	var chunks []string
+	var firstStatus int
+	onChunk := js.FuncOf(func(_ js.Value, a []js.Value) any {
+		if len(chunks) == 0 {
+			firstStatus = a[0].Get("status").Int()
+		}
+		chunks = append(chunks, text(a[0].Get("body")))
+		return nil
+	})
+	defer onChunk.Release()
+	s := await(t, ns.Call("http", "GET", "/", js.Null(), js.Null(), onChunk, 7))
+	if s.err != "" {
+		t.Fatal(s.err)
+	}
+	if strings.Join(chunks, "") != "abc" || firstStatus != 200 || text(s.value.Get("body")) != "!" {
+		t.Fatalf("chunks %q (first status %d), then %q", chunks, firstStatus, text(s.value.Get("body")))
+	}
+}
+
+// cancel(id) ends the context of a request that's waiting, the way a handler waiting on JS (a
+// cache read, a timer) is.
+func TestCancelEndsTheRequestsContext(t *testing.T) {
+	h := New("wasmhostTestCancel")
+	h.Handle(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+			w.Write([]byte("cancelled"))
+		case <-time.After(3 * time.Second):
+			w.Write([]byte("ran to the end"))
+		}
+	}))
+	ns := exportFresh(t, h)
+	p := ns.Call("http", "GET", "/", js.Null(), js.Null(), js.Undefined(), 42)
+	ns.Call("cancel", 41)
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		ns.Call("cancel", 42)
+	}()
+	start := time.Now()
+	s := await(t, p)
+	if got := text(s.value.Get("body")); got != "cancelled" || time.Since(start) > time.Second {
+		t.Fatalf("got %q after %v; want cancelled at once", got, time.Since(start))
+	}
+	if s := await(t, ns.Call("cancel", 42)); s.err != "" {
+		t.Fatalf("cancelling a finished request: %s", s.err)
+	}
+}

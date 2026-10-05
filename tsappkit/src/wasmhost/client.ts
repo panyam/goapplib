@@ -2,7 +2,7 @@
 // a Web Worker; workerFetch is a fetch to hand a Connect transport, so the app's generated clients
 // talk to the worker exactly as they would to a server; mountFiles pushes files in before the
 // requests that read them.
-import type { Files, HostReply, HostRequest, HostStatus } from "./protocol";
+import type { Files, HostChunk, HostReply, HostRequest, HostStatus } from "./protocol";
 
 export type { Files } from "./protocol";
 
@@ -22,14 +22,19 @@ type Unsent = HostRequest extends infer R ? (R extends HostRequest ? Omit<R, "id
 
 class Channel {
   private next = 1;
-  private pending = new Map<number, { resolve: (r: HostReply) => void; reject: (e: Error) => void }>();
+  private pending = new Map<
+    number,
+    { resolve: (r: HostReply) => void; reject: (e: Error) => void; onChunk?: (c: HostChunk) => void }
+  >();
   private dead: Error | null = null;
 
   constructor(private worker: Worker) {
-    worker.addEventListener("message", (ev: MessageEvent<HostReply | HostStatus>) => {
+    worker.addEventListener("message", (ev: MessageEvent<HostReply | HostStatus | HostChunk>) => {
       const m = ev.data;
       if ("exited" in m) {
         this.fail(new Error(`wasm host: ${m.exited}`));
+      } else if ("chunk" in m) {
+        this.pending.get(m.id)?.onChunk?.(m);
       } else if ("id" in m) {
         this.pending.get(m.id)?.resolve(m);
         this.pending.delete(m.id);
@@ -38,13 +43,19 @@ class Channel {
     worker.addEventListener("error", (ev: ErrorEvent) => this.fail(new Error(`wasm host worker: ${ev.message}`)));
   }
 
-  call(req: Unsent, transfer: Transferable[]): Promise<HostReply> {
-    if (this.dead) return Promise.reject(this.dead);
-    return new Promise((resolve, reject) => {
-      const id = this.next++;
-      this.pending.set(id, { resolve, reject });
+  /** Sends req and returns its id with the final reply; chunks before it go to onChunk. */
+  start(req: Unsent, transfer: Transferable[], onChunk?: (c: HostChunk) => void): { id: number; done: Promise<HostReply> } {
+    const id = this.next++;
+    if (this.dead) return { id, done: Promise.reject(this.dead) };
+    const done = new Promise<HostReply>((resolve, reject) => {
+      this.pending.set(id, { resolve, reject, onChunk });
       this.worker.postMessage({ ...req, id }, transfer);
     });
+    return { id, done };
+  }
+
+  call(req: Unsent, transfer: Transferable[]): Promise<HostReply> {
+    return this.start(req, transfer).done;
   }
 
   fail(err: Error) {
@@ -120,25 +131,80 @@ const NULL_BODY = new Set([101, 103, 204, 205, 304]);
  * Only the path and query reach the worker, so baseUrl can be anything absolute, such as
  * location.origin. It rejects if the worker reports an error (no handler, a failed build, a handler
  * panic) and resolves with any HTTP status the handler chose.
+ *
+ * A handler that flushes (http.Flusher) streams: the Response resolves at its first flush, and its
+ * body delivers each flush as it happens, even from a Go loop that never yields, then the rest
+ * when the handler returns. Aborting the request (init.signal) rejects it, or errors a body that's
+ * already streaming, and cancels the handler's context; a handler sees that the next time it checks
+ * ctx, which a loop that never yields to JS doesn't get to do (a lane ends such a worker instead).
+ * Once the body is streaming, Chrome's text() and json() report the abort as "TypeError: Failed to
+ * fetch" rather than an AbortError, so tell an abort from a failure by signal.aborted.
  */
 export function workerFetch(worker: Worker): (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> {
   const c = channel(worker);
   return async (input, init) => {
     const req = new Request(input, init);
+    const signal = req.signal;
+    if (signal.aborted) throw abortReason(signal);
     const buf = new Uint8Array(await req.arrayBuffer());
     const body = buf.byteLength ? buf : null;
     const headers: Record<string, string> = {};
     req.headers.forEach((v, k) => (headers[k] = v));
     const u = new URL(req.url);
-    const reply = await c.call(
-      { kind: "http", method: req.method, url: u.pathname + u.search, headers, body },
-      body ? [body.buffer] : [],
-    );
-    if (!reply.ok) throw new Error(reply.error);
-    const status = reply.status ?? 200;
-    const resBody = NULL_BODY.has(status) ? null : ((reply.body ?? null) as BodyInit | null);
-    return new Response(resBody, { status, headers: reply.headers });
+
+    return new Promise<Response>((resolve, reject) => {
+      let stream: ReadableStreamDefaultController<Uint8Array> | undefined;
+      let settled = false;
+      const fail = (err: unknown) => {
+        if (settled) return;
+        settled = true;
+        if (stream) stream.error(err);
+        else reject(err);
+      };
+      const { id, done } = c.start(
+        { kind: "http", method: req.method, url: u.pathname + u.search, headers, body },
+        body ? [body.buffer] : [],
+        (chunk) => {
+          if (settled) return;
+          if (!stream) {
+            const status = chunk.status ?? 200;
+            const rs = new ReadableStream<Uint8Array>({ start: (ctl) => void (stream = ctl) });
+            resolve(new Response(NULL_BODY.has(status) ? null : rs, { status, headers: chunk.headers }));
+          }
+          if (chunk.body.byteLength) stream!.enqueue(chunk.body);
+        },
+      );
+      const onAbort = () => {
+        void c.call({ kind: "cancel", target: id }, []).catch(() => {});
+        fail(abortReason(signal));
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      done.then(
+        (reply) => {
+          signal.removeEventListener("abort", onAbort);
+          if (!reply.ok) return fail(new Error(reply.error));
+          if (settled) return;
+          settled = true;
+          if (stream) {
+            if (reply.body?.byteLength) stream.enqueue(reply.body);
+            stream.close();
+            return;
+          }
+          const status = reply.status ?? 200;
+          const resBody = NULL_BODY.has(status) ? null : ((reply.body ?? null) as BodyInit | null);
+          resolve(new Response(resBody, { status, headers: reply.headers }));
+        },
+        (err) => {
+          signal.removeEventListener("abort", onAbort);
+          fail(err);
+        },
+      );
+    });
   };
+}
+
+function abortReason(signal: AbortSignal): unknown {
+  return signal.reason ?? new DOMException("This request was aborted.", "AbortError");
 }
 
 /**
@@ -151,18 +217,56 @@ export function workerFetch(worker: Worker): (input: RequestInfo | URL, init?: R
  * sees the same cache.
  *
  * Each call pays for a worker start and a wasm instantiate, a few hundred ms, so it's for jobs
- * that take seconds, not for ordinary requests. The response is complete when it resolves, since a
- * worker's reply is never streamed, so ending the worker doesn't cut its body short.
+ * that take seconds, not for ordinary requests. The worker ends when the response's body has been
+ * read to the end, fails, or is cancelled, so a streamed body isn't cut short; read or cancel the
+ * body, or the worker stays up.
  */
 export function oneShotFetch(opts: StartWorkerOptions): (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> {
   return async (input, init) => {
     const worker = await startWorker(opts);
+    let res: Response;
     try {
-      return await workerFetch(worker)(input, init);
-    } finally {
+      res = await workerFetch(worker)(input, init);
+    } catch (err) {
       worker.terminate();
+      throw err;
     }
+    return untilBodyEnds(res, () => worker.terminate());
   };
+}
+
+/**
+ * res with `end` called once its body has been read to the end, has failed, or has been
+ * cancelled (or at once, for a response without a body). For oneShotFetch and lanes, which must
+ * not let go of a worker while its streamed body is still arriving. Not exported from the package.
+ */
+export function untilBodyEnds(res: Response, end: () => void): Response {
+  if (!res.body) {
+    end();
+    return res;
+  }
+  const reader = res.body.getReader();
+  const body = new ReadableStream<Uint8Array>({
+    async pull(ctl) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          ctl.close();
+          end();
+        } else {
+          ctl.enqueue(value);
+        }
+      } catch (err) {
+        end();
+        ctl.error(err);
+      }
+    },
+    cancel(reason) {
+      end();
+      return reader.cancel(reason);
+    },
+  });
+  return new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers });
 }
 
 /**

@@ -11,7 +11,6 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const pending = {
-  progress: "#78",
 };
 
 const dist = fileURLToPath(new URL("./dist/", import.meta.url));
@@ -116,7 +115,7 @@ async function drive(url) {
     check(
       "abort-stops-long-job",
       first.abortOutcome === "aborted" && first.abortSettleMs < 300 && typeof first.laneAfterAbort?.ingestCount === "number",
-      `fetch ${first.abortOutcome} ${first.abortSettleMs} ms after the abort; the jobs lane answered again in ${first.laneAfterAbortMs} ms (${first.laneAfterAbort ? "yes" : "no"}); want aborted within 300 ms, and a lane that answers afterwards`,
+      `fetch ${first.abortOutcome} ${first.abortSettleMs} ms after the abort (${first.abortError}); the jobs lane answered again in ${first.laneAfterAbortMs} ms (${first.laneAfterAbort ? "yes" : "no"}); want aborted within 300 ms, and a lane that answers afterwards`,
     );
 
     const arrivals = first.progressArrivals ?? [];

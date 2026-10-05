@@ -105,3 +105,31 @@ describe("startLane", () => {
     expect(LaneWorker.all[0].terminated).toBe(true);
   });
 });
+
+describe("startLane with a streamed response", () => {
+  it("ends the worker when a request is aborted after its body has started streaming", async () => {
+    // The worker answers /stream with one chunk and then stays busy, as a long job that reports
+    // progress does.
+    class StreamWorker extends LaneWorker {
+      postMessage(req: HostRequest) {
+        if (this.terminated || req.kind !== "http") return;
+        if (req.url !== "/stream") return super.postMessage(req);
+        const body = new TextEncoder().encode("p1\n");
+        queueMicrotask(() =>
+          this.dispatchEvent(new MessageEvent("message", { data: { id: req.id, chunk: true, status: 200, headers: {}, body } })),
+        );
+      }
+    }
+    vi.stubGlobal("Worker", StreamWorker);
+    const lane = startLane(opts);
+    await lane.worker();
+    const ac = new AbortController();
+    const res = await lane.fetch("http://x/stream", { signal: ac.signal });
+    const reader = res.body!.getReader();
+    expect(new TextDecoder().decode((await reader.read()).value)).toBe("p1\n");
+    ac.abort();
+    await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
+    expect(LaneWorker.all[0].terminated).toBe(true);
+    expect(await text(lane.fetch("http://x/state"))).toBe("worker 2: /state");
+  });
+});

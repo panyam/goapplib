@@ -4,7 +4,7 @@
 // request nor an abort can reach it. A lane holds one worker it can replace: aborting a request
 // on it terminates the worker, which is the only way to stop a job that never yields, and starts
 // a fresh one, warmed from the shared Cache by the app's warm function.
-import { endWorker, startWorker, workerFetch, type StartWorkerOptions } from "./client";
+import { endWorker, startWorker, untilBodyEnds, workerFetch, type StartWorkerOptions } from "./client";
 
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -22,9 +22,10 @@ export interface LaneOptions {
 export interface Lane {
   /**
    * A fetch for a Connect transport, like workerFetch, answered by the lane's current worker.
-   * Aborting a request (init.signal) rejects it with the signal's reason at once, terminates the
-   * worker, and starts and warms a new one; other requests still waiting on the old worker are
-   * rejected too. A request made meanwhile waits for the new worker.
+   * Aborting a request (init.signal) rejects it with the signal's reason at once (or errors its
+   * body, if it's already streaming), terminates the worker, and starts and warms a new one; other
+   * requests still waiting on the old worker are rejected too. A request made meanwhile waits for
+   * the new worker.
    */
   fetch: Fetch;
   /** The lane's current worker, once it's started and warmed. */
@@ -92,10 +93,9 @@ export function startLane(opts: StartWorkerOptions, lane: LaneOptions = {}): Lan
         };
         signal.addEventListener("abort", onAbort, { once: true });
         run.then(
-          (res) => {
-            signal.removeEventListener("abort", onAbort);
-            resolve(res);
-          },
+          // A streamed body is still coming from the busy worker, so an abort until it ends must
+          // still end the worker.
+          (res) => resolve(untilBodyEnds(res, () => signal.removeEventListener("abort", onAbort))),
           (err) => {
             signal.removeEventListener("abort", onAbort);
             reject(err);
