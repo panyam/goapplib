@@ -1,5 +1,5 @@
 // Drives the islands exercise (mission #60) in headless Chromium. The page's spec names three
-// islands: hero (eager), below (visible, 3000 px down) and narrow (media:(max-width: 600px)).
+// islands: hero (eager), below (visible, 3000 px down, a SolidIsland) and narrow (media:(max-width: 600px)).
 //
 // Checks still waiting on a ticket are listed in `pending`: their failure is reported but doesn't
 // fail the run, and their passing does, so the PR that makes one pass has to take it off the list.
@@ -32,6 +32,17 @@ const url = await new Promise((ok, fail) => {
 });
 
 const results = [];
+// build.mjs points tsappkit-solid's imports at this build's tsappkit and solid-js (issue 67).
+{
+  const inputs = Object.keys(meta.inputs);
+  const solids = [...new Set(inputs.filter((i) => i.includes("/solid-js/")).map((i) => i.split("/solid-js/")[0]))];
+  const npmTsappkit = inputs.filter((i) => i.includes("@panyam/tsappkit/"));
+  results.push({
+    name: "one-copy",
+    ok: solids.length === 1 && npmTsappkit.length === 0,
+    detail: `solid-js copies bundled: ${solids.length} [${solids}]; files from an npm @panyam/tsappkit: ${npmTsappkit.length}`,
+  });
+}
 // Slots whose island has mounted but whose Go-rendered fallback is still there (issue 39's
 // one-owner-per-region rule: the island replaces the placeholder).
 const fallbacks = [];
@@ -55,6 +66,8 @@ const order = [
   "visible-loads-on-scroll",
   "media-query",
   "fallback-replaced-on-mount",
+  "solid-island-reactive",
+  "one-copy",
   "modulepreload",
   "island-overlay",
   "console",
@@ -107,6 +120,16 @@ async function wide(browser) {
     .waitForFunction(() => window.exercise?.mounted.includes("below"), null, { timeout: 3000 })
     .then(() => true, () => false);
   const loadedAfter = await page.evaluate(() => window.exercise.loaded.includes("below"));
+  // below is a SolidIsland (issue 67): its button counts clicks through a Solid signal.
+  const button = page.locator('[data-slot="bottom"] [data-testid="below-clicks"]');
+  const buttonBefore = await button.textContent({ timeout: 1000 }).catch(() => null);
+  if (buttonBefore !== null) await button.click();
+  const buttonAfter = buttonBefore === null ? null : await button.textContent();
+  check(
+    "solid-island-reactive",
+    buttonBefore?.trim() === "clicked 0 times" && buttonAfter?.trim() === "clicked 1 times",
+    `below's Solid button read ${JSON.stringify(buttonBefore)}, then ${JSON.stringify(buttonAfter)} after a click; want "clicked 0 times" then "clicked 1 times"`,
+  );
   fallbacks.push(...(await fallbacksLeft(page)).map((s) => `${s} after scrolling`));
   await shoot(page, "3-wide-bottom-after-scrolling.png");
   check(
