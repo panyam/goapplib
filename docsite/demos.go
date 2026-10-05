@@ -27,9 +27,10 @@ const defaultDemoHeight = 240
 
 // demoHTML is the `demo` template function: {{ demo "hello" }}, or {{ demo "hello" 320 }} for a
 // taller frame, embeds the live demo whose source is demos/hello/ (an index.html and a main.ts that
-// build.mjs bundles into static/demos/hello/). Each demo runs in its own iframe, so its scripts,
-// workers and wasm can't reach the page or another demo. A demo marks itself done with ready() or
-// failed() from demos/_lib/frame.ts, which set data-demo on its <html>; run.mjs waits for that.
+// build.mjs bundles into static/demos/hello/). Each demo runs in its own iframe, with its own
+// document, globals and styles, so demos don't step on the page or each other. A demo marks itself
+// done with ready() or failed() from demos/_lib/frame.ts, which set data-demo on its <html>; run.mjs
+// waits for that.
 func demoHTML(name string, height ...int) template.HTML {
 	for _, f := range []string{"index.html", "main.ts"} {
 		if _, err := os.Stat("demos/" + name + "/" + f); err != nil {

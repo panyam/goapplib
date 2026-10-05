@@ -1948,7 +1948,7 @@ body.search-open {
 }
 
 /* Live demos rendered by the `demo` template function (docsite/demos.go): each runs in its own
-   iframe, so a demo's scripts, workers and wasm never touch the page around it. */
+   iframe, with its own document, globals and styles. */
 .demo { margin: 1.5rem 0; border: 1px solid var(--border-color, rgba(127,127,127,.3)); border-radius: 8px; overflow: hidden; }
 .demo iframe { display: block; width: 100%; border: 0; background: var(--bg-color); }
 .demo figcaption { padding: .4rem 1rem; font-size: .85em; opacity: .75; border-top: 1px solid var(--border-color, rgba(127,127,127,.2)); }

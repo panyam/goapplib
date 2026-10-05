@@ -52,8 +52,9 @@ A demo is a small browser app in `demos/<name>/`: an `index.html` that loads `ma
 `{{ demo "<name>" 320 }}` for a frame 320 px tall, on a line of its own. The build fails if the page
 names a demo with no source.
 
-Each demo runs in its own iframe, so its scripts, workers and wasm can't reach the page or another
-demo. It imports `demos/_lib/frame.ts`, which gives the frame the site's theme, and calls `ready()`
+Each demo runs in its own iframe, so it has its own document, globals and styles, and opens on its
+own as a plain page. The frame is same-origin and shares the page's main thread, so it separates a
+demo rather than sandboxing it; heavy work belongs in a worker, as it would in an app. It imports `demos/_lib/frame.ts`, which gives the frame the site's theme, and calls `ready()`
 once it works or `failed(why)` if it doesn't. `run.mjs` waits up to 30 seconds for one of them on
 every demo, and fails the run on an error or on silence. A demo can import goapplib's TS straight
 from the repo (`../../../tsappkit/src/...`), the way the exercises do, so it shows the code on
