@@ -1,0 +1,8 @@
+# The built site (make build).
+dist/
+# The demos' bundles (build.mjs).
+static/demos/
+node_modules/
+dist-screenshots/
+# go build output.
+/docsite

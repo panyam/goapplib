@@ -1,0 +1,8 @@
+{
+  "siteName": "goapplib",
+  "siteDescription": "Server-rendered Go web apps, with islands of client code and Go handlers that can run in the browser.",
+  "author": "Sri Panyam",
+  "repository": "https://github.com/panyam/goapplib",
+  "issues": "https://github.com/panyam/goapplib/issues",
+  "license": "MIT"
+}

@@ -5,7 +5,7 @@
 #   make test     - Run all tests
 #   make help     - Show available targets
 
-.PHONY: setup test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state help
+.PHONY: setup test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite help
 
 GOROOT_WASM := $(shell go env GOROOT)/lib/wasm
 EXERCISE := exercise/wasmhost
@@ -48,6 +48,9 @@ exercise-islands: ## Mission #60 exercise: a page whose islands load and mount b
 	go build -buildvcs=false -o $(ISLANDS)/dist/server ./$(ISLANDS)
 	cd $(ISLANDS) && node build.mjs
 	cd $(ISLANDS) && node run.mjs
+
+exercise-docsite: ## Mission #91 exercise: build the docsite, check its links, and run every page and live demo in headless Chromium
+	$(MAKE) -C docsite exercise
 
 exercise-worker-state: ## Mission #74 exercise: a stateful service in a Web Worker, its memory, a reload, long jobs and an abort, in headless Chromium
 	cd $(WORKERSTATE) && pnpm install --frozen-lockfile
