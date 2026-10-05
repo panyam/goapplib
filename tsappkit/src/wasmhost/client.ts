@@ -67,7 +67,8 @@ function channel(worker: Worker): Channel {
 
 /**
  * Starts the worker and resolves with it once the Go program has installed its exports, or rejects
- * with why it couldn't load. Relative URLs resolve against the page, not the worker script.
+ * with why it couldn't load (and terminates it, since it can't answer anything). Relative URLs
+ * resolve against the page, not the worker script.
  */
 export function startWorker(opts: StartWorkerOptions): Promise<Worker> {
   const abs = (u: string | URL) => new URL(u, location.href).href;
@@ -82,13 +83,22 @@ export function startWorker(opts: StartWorkerOptions): Promise<Worker> {
       const m = ev.data;
       if (!("ready" in m)) return;
       worker.removeEventListener("message", onMessage);
-      if (m.ready) resolve(worker);
-      else reject(new Error(`wasm host failed to load: ${m.error}`));
+      if (m.ready) {
+        resolve(worker);
+        return;
+      }
+      worker.terminate();
+      reject(new Error(`wasm host failed to load: ${m.error}`));
     };
     worker.addEventListener("message", onMessage);
-    worker.addEventListener("error", (ev: ErrorEvent) => reject(new Error(`wasm host worker: ${ev.message}`)), {
-      once: true,
-    });
+    worker.addEventListener(
+      "error",
+      (ev: ErrorEvent) => {
+        worker.terminate();
+        reject(new Error(`wasm host worker: ${ev.message}`));
+      },
+      { once: true },
+    );
   });
 }
 
@@ -118,6 +128,30 @@ export function workerFetch(worker: Worker): (input: RequestInfo | URL, init?: R
     const status = reply.status ?? 200;
     const resBody = NULL_BODY.has(status) ? null : ((reply.body ?? null) as BodyInit | null);
     return new Response(resBody, { status, headers: reply.headers });
+  };
+}
+
+/**
+ * A fetch like workerFetch's, except that each call starts a fresh worker from `opts`, sends it that
+ * one request, and terminates it once the response is in, whether the request succeeded or not.
+ * Ending the worker is the only way to give its wasm memory back to the browser, since wasm memory
+ * never shrinks, so route a request with a big transient peak (an ingest that parses a large input
+ * on the way to a small result) through this, and have it leave its result in the shared Cache
+ * (Go's wasmhost.BrowserCache) for the long-lived worker to load. Every worker for the same `ns`
+ * sees the same cache.
+ *
+ * Each call pays for a worker start and a wasm instantiate, a few hundred ms, so it's for jobs
+ * that take seconds, not for ordinary requests. The response is complete when it resolves, since a
+ * worker's reply is never streamed, so ending the worker doesn't cut its body short.
+ */
+export function oneShotFetch(opts: StartWorkerOptions): (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> {
+  return async (input, init) => {
+    const worker = await startWorker(opts);
+    try {
+      return await workerFetch(worker)(input, init);
+    } finally {
+      worker.terminate();
+    }
   };
 }
 

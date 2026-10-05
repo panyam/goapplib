@@ -1,7 +1,7 @@
 # GoAppLib
 
 ## Version
-0.6.4
+0.6.5
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)
@@ -22,6 +22,7 @@
 - island-page: `@panyam/tsappkit` 0.1.0 `IslandPage<Ctx, Ext>` reads the page spec from `#page-spec` and mounts each island into its `data-slot` from a registry (`name -> factory`), with `readSpec` (apps read their own spec fields through an extension) and `mountIslands`; a bad entry is logged and skipped (#27)
 - wasm-worker-host: `wasmhost` runs an app's HTTP/Connect handlers as wasm in a Web Worker over files the page pushes in (`Serve`, `ServeRebuild` for handlers rebuilt on each mount, `Host.Do` in-process); `@panyam/tsappkit` 0.2.0 (`addFiles`, `workerMemory` from 0.3.0) `@panyam/tsappkit/wasmhost` gives the page `startWorker`, `workerFetch` (a Connect transport's fetch), `mountFiles`, `addFiles` (merge into a mount, `Host.Add`), `workerMemory` (the wasm's peak linear memory) and `filesFromDrop`. `make exercise-wasmhost` drives it in headless Chromium (#32)
 - worker-state-cache: `wasmhost.Cache` (`Get`/`Put` by key, `ErrMiss`, `ErrNoCache`) with `CacheKey(parts...)` for a hash of a service's inputs, for state a wasm service can always rebuild (not a datastore); `BrowserCache()` over the Origin Private File System (installed by tsappkit 0.6.4's worker as `globalThis.wasmhostCache`, `wasmhost/<ns>/`), `DirCache(dir)` and `MemCache` natively. `make exercise-worker-state` (mission #74) checks a 32 MB state comes back after a reload (#76)
+- one-shot-worker: `@panyam/tsappkit/wasmhost` 0.6.5's `oneShotFetch(opts)`, a fetch that runs each request in a fresh worker and terminates it once the response is in, so a job's peak wasm memory goes back to the browser; the job leaves its result in `wasmhost.Cache` for the long-lived worker (#77). `startWorker` now terminates a worker that fails to load
 
 ## Module
 github.com/panyam/goapplib

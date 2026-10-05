@@ -1,10 +1,11 @@
 // The worker-state exercise page (goapplib issue 75, mission 74). It measures and records; run.mjs
 // decides what passes. Both loads open the state with POST /open, which restores it from the
-// worker's cache (wasmhost.BrowserCache, issue 76) or ingests it. The first load finds nothing and
-// ingests, then runs three long jobs (one with a quick query beside it, one read as a stream, one
+// worker's cache (wasmhost.BrowserCache, issue 76) or ingests it. The first load sends its /open
+// through oneShotFetch first (issue 77), so a throwaway worker does the ingest and the serving
+// worker restores; then it runs three long jobs (one with a quick query beside it, one read as a stream, one
 // aborted). After a reload, /open should restore, which run.mjs tells from a rebuild by the ingest
 // count.
-import { startWorker, workerFetch, workerMemory } from "../../../tsappkit/src/wasmhost";
+import { oneShotFetch, startWorker, workerFetch, workerMemory } from "../../../tsappkit/src/wasmhost";
 
 const INGEST = { peakMB: 256, resultMB: 32 };
 const JOB_MS = 2000;
@@ -20,7 +21,8 @@ function log(line: string) {
 
 async function run() {
   const t0 = performance.now();
-  const worker = await startWorker({ worker: "worker.js", wasm: "state.wasm", exec: "wasm_exec.js", ns: "state" });
+  const opts = { worker: "worker.js", wasm: "state.wasm", exec: "wasm_exec.js", ns: "state" };
+  const worker = await startWorker(opts);
   const f = workerFetch(worker);
   const post = (path: string, body?: unknown, init: RequestInit = {}) =>
     f(location.origin + path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body), ...init });
@@ -38,13 +40,22 @@ async function run() {
   }
   data.phase = "first";
 
+  // The ingest runs in a throwaway worker (issue 77), which misses the cache, builds the result
+  // through its 256 MB peak, puts it in the cache and is terminated. The serving worker then opens
+  // the same inputs, finds them in the cache, and only ever holds the 32 MB result.
   data.memBefore = await workerMemory(worker);
   const ti = performance.now();
+  const oneShot = oneShotFetch(opts);
+  data.job = await (await oneShot(location.origin + "/open", { method: "POST", body: JSON.stringify(INGEST) })).json();
+  data.jobMs = Math.round(performance.now() - ti);
+  const tr = performance.now();
   data.ingest = await (await post("/open", INGEST)).json();
+  data.restoreMs = Math.round(performance.now() - tr);
   data.ingestMs = Math.round(performance.now() - ti);
   data.memAfter = await workerMemory(worker);
   sessionStorage.setItem(FLAG, "1");
-  log(`ingest ${JSON.stringify(INGEST)} in ${data.ingestMs} ms: ${JSON.stringify(data.ingest)}`);
+  log(`ingest ${JSON.stringify(INGEST)} in a throwaway worker in ${data.jobMs} ms: ${JSON.stringify(data.job)}`);
+  log(`serving worker opened it from the cache in ${data.restoreMs} ms: ${JSON.stringify(data.ingest)}`);
   log(`worker memory ${mb(data.memBefore as number)} before, ${mb(data.memAfter as number)} after`);
 
   // A quick query 100 ms into a long job.

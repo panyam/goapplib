@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addFiles, mountFiles, startWorker, unmountFiles, workerFetch, workerMemory } from "./client";
+import { addFiles, mountFiles, oneShotFetch, startWorker, unmountFiles, workerFetch, workerMemory } from "./client";
 import type { HostReply, HostRequest, HostStatus } from "./protocol";
 
 // FakeWorker passes each message through structuredClone with its transfer list, as postMessage
 // does, so a transferred buffer really is detached and a duplicate transfer really throws.
 class FakeWorker extends EventTarget {
   static last: FakeWorker;
+  static all: FakeWorker[] = [];
   url: string;
+  terminated = false;
   received: HostRequest[] = [];
   answer: (req: HostRequest) => { reply: HostReply; transfer?: Transferable[] } | null = (req) => ({
     reply: { id: req.id, ok: true },
@@ -16,6 +18,11 @@ class FakeWorker extends EventTarget {
     super();
     this.url = String(url);
     FakeWorker.last = this;
+    FakeWorker.all.push(this);
+  }
+
+  terminate() {
+    this.terminated = true;
   }
 
   postMessage(msg: HostRequest, transfer: Transferable[] = []) {
@@ -187,10 +194,63 @@ describe("startWorker", () => {
     expect(await started).toBe(w);
   });
 
-  it("rejects with the load error", async () => {
+  it("rejects with the load error, and terminates the worker", async () => {
     vi.stubGlobal("Worker", FakeWorker);
     const started = startWorker({ worker: "w.js", wasm: "a.wasm", exec: "e.js", ns: "x" });
     FakeWorker.last.send({ ready: false, error: "fetch a.wasm: 404" });
     await expect(started).rejects.toThrow("fetch a.wasm: 404");
+    expect(FakeWorker.last.terminated).toBe(true);
+  });
+});
+
+describe("oneShotFetch", () => {
+  const opts = { worker: "w.js", wasm: "a.wasm", exec: "e.js", ns: "state" };
+  // Each fake worker reports ready as soon as it's made, then answers http with `reply`.
+  function readyWorkers(reply: (req: HostRequest) => HostReply) {
+    FakeWorker.all = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends FakeWorker {
+        constructor(url: string | URL) {
+          super(url);
+          this.answer = (req) => ({ reply: reply(req) });
+          queueMicrotask(() => this.send({ ready: true }));
+        }
+      },
+    );
+  }
+
+  it("starts a worker per request and terminates it once the response is in", async () => {
+    readyWorkers((req) => ({ id: req.id, ok: true, status: 200, body: bytes(`answered ${FakeWorker.all.length}`) }));
+    const f = oneShotFetch(opts);
+    const a = await f("http://x/open", { method: "POST", body: "{}" });
+    const b = await f("http://x/open", { method: "POST", body: "{}" });
+    expect(await a.text()).toBe("answered 1");
+    expect(await b.text()).toBe("answered 2");
+    expect(FakeWorker.all).toHaveLength(2);
+    expect(FakeWorker.all.every((w) => w.terminated)).toBe(true);
+    expect(new URL(FakeWorker.all[0].url).searchParams.get("ns")).toBe("state");
+  });
+
+  it("terminates the worker when the request fails", async () => {
+    readyWorkers((req) => ({ id: req.id, ok: false, error: "handler panicked" }));
+    await expect(oneShotFetch(opts)("http://x/open")).rejects.toThrow("handler panicked");
+    expect(FakeWorker.all).toHaveLength(1);
+    expect(FakeWorker.all[0].terminated).toBe(true);
+  });
+
+  it("rejects, with the worker terminated, when the wasm doesn't load", async () => {
+    FakeWorker.all = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends FakeWorker {
+        constructor(url: string | URL) {
+          super(url);
+          queueMicrotask(() => this.send({ ready: false, error: "fetch a.wasm: 404" }));
+        }
+      },
+    );
+    await expect(oneShotFetch(opts)("http://x/open")).rejects.toThrow("fetch a.wasm: 404");
+    expect(FakeWorker.all[0].terminated).toBe(true);
   });
 });
