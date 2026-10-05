@@ -11,7 +11,6 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const pending = {
-  "memory-after-ingest": "#77",
   "quick-query-during-long-job": "#80",
   "abort-stops-long-job": "#78",
   progress: "#78",
@@ -54,9 +53,16 @@ async function drive(url) {
     const errors = [];
     page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
     page.on("pageerror", (e) => errors.push(e.message));
-    page.on("worker", (w) => w.on("console", (m) => m.type() === "error" && errors.push(`worker: ${m.text()}`)));
+    const workers = [];
+    page.on("worker", (w) => {
+      const seen = { closed: false };
+      workers.push(seen);
+      w.on("close", () => (seen.closed = true));
+      w.on("console", (m) => m.type() === "error" && errors.push(`worker: ${m.text()}`));
+    });
 
     const first = await load(page, () => page.goto(url));
+    const firstWorkers = workers.map((w) => ({ ...w }));
     await page.screenshot({ path: shots + "1-first-load.png" });
     const again = await load(page, () => page.reload());
     await page.screenshot({ path: shots + "2-after-reload.png" });
@@ -64,8 +70,9 @@ async function drive(url) {
     const mb = (b) => `${(b / 1024 / 1024).toFixed(1)} MB`;
     const result = first.ingest?.resultBytes ?? 0;
     console.log(
-      `  ingest ${first.ingestMs} ms; worker memory ${mb(first.memBefore)} before, ${mb(first.memAfter)} after (result ${mb(result)})`,
+      `  ingest in a throwaway worker ${first.jobMs} ms, restored by the serving worker in ${first.restoreMs} ms; serving worker memory ${mb(first.memBefore)} before, ${mb(first.memAfter)} after (result ${mb(result)})`,
     );
+
 
     check(
       "ingest",
@@ -74,6 +81,18 @@ async function drive(url) {
     );
 
     console.log(`  after reload, /open took ${again.openMs} ms (restored: ${again.state?.restored})`);
+
+    check(
+      "ingest-in-throwaway-worker",
+      first.job?.ingestCount === 1 &&
+        first.job?.restored === false &&
+        first.ingest?.restored === true &&
+        first.ingest?.ingestCount === 0 &&
+        first.ingest?.checksum === first.job?.checksum &&
+        firstWorkers.length === 2 &&
+        firstWorkers.filter((w) => w.closed).length === 1,
+      `throwaway worker: ingestCount ${first.job?.ingestCount}, restored ${first.job?.restored}; serving worker: restored ${first.ingest?.restored}, ingestCount ${first.ingest?.ingestCount}; ${firstWorkers.length} workers started on the first load, ${firstWorkers.filter((w) => w.closed).length} ended`,
+    );
 
     const growth = first.memAfter - first.memBefore;
     check(

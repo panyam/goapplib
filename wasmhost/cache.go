@@ -18,6 +18,10 @@ import (
 // BrowserCache, over the Origin Private File System, which outlives a reload; natively it's
 // DirCache or MemCache.
 //
+// Every worker the page starts for the same namespace sees the same BrowserCache, so a throwaway
+// worker (tsappkit's oneShotFetch) can build a result through a large peak and Put it, and the
+// long-lived worker Gets it without ever holding the peak.
+//
 // It's a cache, not a datastore: anything in it must be rebuildable from its inputs, because a
 // miss, ErrNoCache, a browser clearing the origin's storage, or any other error just means the
 // service builds it again. Data a user would lose belongs in the app's server-side storage.

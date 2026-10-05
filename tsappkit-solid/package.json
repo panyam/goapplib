@@ -1,6 +1,6 @@
 {
   "name": "@panyam/tsappkit-solid",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "Solid adapter for @panyam/tsappkit: mount Solid islands inside the tsappkit component lifecycle. The framework-specific reactivity lives here so tsappkit core stays framework-neutral.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
