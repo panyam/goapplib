@@ -38,9 +38,19 @@ goapplib/
 │       ├── gorm/users_service.go    # GORM/PostgreSQL backend
 │       └── gae/users_service.go     # Google Datastore backend
 │
+├── page/               # page.Spec (a page's islands, #30), page.Assets (chunks to preload, #35), CheckIslands (#42)
+├── wasmhost/           # Run an app's HTTP/Connect handlers as wasm in a Web Worker (#32)
+├── exercise/wasmhost/  # `make exercise-wasmhost`: the worker host end to end in headless Chromium
+├── exercise/islands/   # `make exercise-islands`: lazy islands by load strategy in headless Chromium (#60)
+├── scripts/            # npm-publish.sh (publishes the TS packages from a tag, #46), check-versions.sh (#66)
+│
+├── tsappkit/           # @panyam/tsappkit: BasePage and component lifecycle, IslandPage, wasmhost client
+├── tsappkit-solid/     # @panyam/tsappkit-solid: SolidIsland, mounting a Solid tree as an island
+│
 └── templates/          # Base templates (copy/symlink to your app)
     ├── BasePage.html
     ├── Header.html
+    ├── page/Islands.html   # PageSpecScript (a page.Spec as #page-spec JSON), IslandPreloads
     └── components/
         ├── BorderLayout.html
         ├── Drawer.html
@@ -137,7 +147,15 @@ resp, err := userService.CreateUser(ctx, &v1.CreateUserRequest{
 })
 ```
 
-### 10. AuthService Integration (Deprecated)
+### 10. Island Pages
+
+A server-rendered page names its client-side islands in a `page.Spec`, written into the page as `#page-spec` JSON. tsappkit's `IslandPage` reads it and mounts each island into its `data-slot` from a registry of factories, so apps don't hand-write a `main.ts` per page. Apps extend the spec by embedding `page.Spec` in Go and reading their own fields with `readExtension` in TS. Each island's `Load` (`eager`, `idle`, `visible`, `media:<query>`) says when it mounts; `IslandPage` (tsappkit 0.6.0) waits for it and the slot shows Go's fallback until then, which the island replaces (one owner per region). A `lazy(() => import(...))` registry entry makes an island its own chunk, and `page.Assets` (read from esbuild's metafile) gives the page `modulepreload` links for its entry's chunks and its eager islands' (`For(entry, spec)`). `page.CheckIslands` catches spec islands the registry doesn't have, and `?islands` on a page labels each slot with its island's state. `page/testdata/spec.json` is checked by both the Go and TS tests so the format can't drift. See USAGE_GUIDE.md, "Island Pages".
+
+### 11. Wasm Worker Host
+
+`wasmhost.Serve` runs an app's HTTP/Connect handlers as wasm inside a Web Worker, over files the page pushes in before it asks anything (`mountFiles` replaces a mount, `addFiles` merges into one). The page's generated Connect clients talk to it through `workerFetch` (`@panyam/tsappkit/wasmhost`), so they don't know whether a server or the worker answered. `ServeRebuild` rebuilds the handler on every mount change for apps whose handler snapshots its files, `Host.Do` serves a request in-process for native tests, and `workerMemory` reports the wasm's peak memory. The mounts are goutils' `mountfs` over `memfs`. The design reasoning is in docs/PRESENTER_CONTRACT_THESIS.md. State a service builds for itself and could always rebuild (a parsed design, a model) goes in a `wasmhost.Cache`, keyed by a hash of its inputs (`wasmhost.CacheKey`): `BrowserCache` keeps it in the page origin's private file system, so it outlives a reload, and `DirCache` and `MemCache` do the same natively. It's a cache rather than a datastore, so a miss or a lost cache only means a rebuild. A job with a big transient peak (an ingest that parses a large input on the way to a small result) goes through `oneShotFetch`, which runs it in a fresh worker and ends that worker afterwards, since ending a worker is the only way to give wasm memory back; the job leaves its result in the cache, which every worker of the namespace shares, and the long-lived worker loads that. A Go job that never yields keeps its worker's one thread busy, so nothing else reaches that worker; lanes (`startLane`) give each kind of request its own replaceable worker, so quick queries don't wait behind long jobs, and aborting a request on a lane terminates its worker and starts a fresh one, warmed from the cache. A handler that flushes (`http.Flusher`) streams to the page as it runs, even from a loop that never yields, since sending is a synchronous call into JS; an abort also cancels the handler's context, for handlers that wait on JS or yield. A lane with `maxMemoryBytes` replaces its worker, warmed again, once it's idle past that much wasm memory, for workers that creep up through many requests rather than one big job. Cache calls wait on the browser, so they're made from a handler, never a `js.FuncOf` callback.
+
+### 12. AuthService Integration (Deprecated)
 **Deprecated**: AuthService is now a thin pass-through to oneauth. For new code, use oneauth directly.
 
 The AuthService wrapper is maintained for backwards compatibility but delegates entirely to oneauth:

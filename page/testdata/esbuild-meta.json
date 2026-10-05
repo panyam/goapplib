@@ -1,0 +1,198 @@
+{
+  "inputs": {
+    "web/a.ts": {
+      "bytes": 26,
+      "imports": [],
+      "format": "esm"
+    },
+    "web/b.ts": {
+      "bytes": 55,
+      "imports": [
+        {
+          "path": "web/a.ts",
+          "kind": "import-statement",
+          "original": "./a"
+        }
+      ],
+      "format": "esm"
+    },
+    "web/islands/hero.ts": {
+      "bytes": 80,
+      "imports": [
+        {
+          "path": "web/a.ts",
+          "kind": "import-statement",
+          "original": "../a"
+        },
+        {
+          "path": "web/b.ts",
+          "kind": "import-statement",
+          "original": "../b"
+        }
+      ],
+      "format": "esm"
+    },
+    "web/islands/below.ts": {
+      "bytes": 50,
+      "imports": [
+        {
+          "path": "web/a.ts",
+          "kind": "import-statement",
+          "original": "../a"
+        }
+      ],
+      "format": "esm"
+    },
+    "web/islands/narrow.ts": {
+      "bytes": 50,
+      "imports": [
+        {
+          "path": "web/b.ts",
+          "kind": "import-statement",
+          "original": "../b"
+        }
+      ],
+      "format": "esm"
+    },
+    "web/main.ts": {
+      "bytes": 139,
+      "imports": [
+        {
+          "path": "web/islands/hero.ts",
+          "kind": "dynamic-import",
+          "original": "./islands/hero"
+        },
+        {
+          "path": "web/islands/below.ts",
+          "kind": "dynamic-import",
+          "original": "./islands/below"
+        },
+        {
+          "path": "web/islands/narrow.ts",
+          "kind": "dynamic-import",
+          "original": "./islands/narrow"
+        }
+      ],
+      "format": "esm"
+    }
+  },
+  "outputs": {
+    "dist/main.js": {
+      "imports": [
+        {
+          "path": "dist/chunks/hero-HVBOBZWN.js",
+          "kind": "dynamic-import"
+        },
+        {
+          "path": "dist/chunks/below-6H45KFPN.js",
+          "kind": "dynamic-import"
+        },
+        {
+          "path": "dist/chunks/narrow-6K72O4OZ.js",
+          "kind": "dynamic-import"
+        }
+      ],
+      "exports": [
+        "r"
+      ],
+      "entryPoint": "web/main.ts",
+      "inputs": {
+        "web/main.ts": {
+          "bytesInOutput": 165
+        }
+      },
+      "bytes": 196
+    },
+    "dist/chunks/hero-HVBOBZWN.js": {
+      "imports": [
+        {
+          "path": "dist/chunks/chunk-I2CYLLOU.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "dist/chunks/chunk-M4DPGN35.js",
+          "kind": "import-statement"
+        }
+      ],
+      "exports": [
+        "default"
+      ],
+      "entryPoint": "web/islands/hero.ts",
+      "inputs": {
+        "web/islands/hero.ts": {
+          "bytesInOutput": 36
+        }
+      },
+      "bytes": 184
+    },
+    "dist/chunks/below-6H45KFPN.js": {
+      "imports": [
+        {
+          "path": "dist/chunks/chunk-M4DPGN35.js",
+          "kind": "import-statement"
+        }
+      ],
+      "exports": [
+        "default"
+      ],
+      "entryPoint": "web/islands/below.ts",
+      "inputs": {
+        "web/islands/below.ts": {
+          "bytesInOutput": 31
+        }
+      },
+      "bytes": 138
+    },
+    "dist/chunks/narrow-6K72O4OZ.js": {
+      "imports": [
+        {
+          "path": "dist/chunks/chunk-I2CYLLOU.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "dist/chunks/chunk-M4DPGN35.js",
+          "kind": "import-statement"
+        }
+      ],
+      "exports": [
+        "default"
+      ],
+      "entryPoint": "web/islands/narrow.ts",
+      "inputs": {
+        "web/islands/narrow.ts": {
+          "bytesInOutput": 32
+        }
+      },
+      "bytes": 171
+    },
+    "dist/chunks/chunk-I2CYLLOU.js": {
+      "imports": [
+        {
+          "path": "dist/chunks/chunk-M4DPGN35.js",
+          "kind": "import-statement"
+        }
+      ],
+      "exports": [
+        "b"
+      ],
+      "inputs": {
+        "web/b.ts": {
+          "bytesInOutput": 23
+        }
+      },
+      "bytes": 96
+    },
+    "dist/chunks/chunk-M4DPGN35.js": {
+      "imports": [],
+      "exports": [
+        "a"
+      ],
+      "inputs": {
+        "web/a.ts": {
+          "bytesInOutput": 17
+        }
+      },
+      "bytes": 46
+    }
+  }
+}

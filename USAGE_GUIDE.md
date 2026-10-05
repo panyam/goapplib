@@ -17,11 +17,12 @@ A lightweight, stdlib-native Go library for building server-rendered web applica
 7. [Page Groups](#page-groups)
 8. [Templates](#templates)
 9. [BorderLayout](#borderlayout)
-10. [HTMX Integration](#htmx-integration)
-11. [Responsive Patterns](#responsive-patterns)
-12. [Template Installation](#template-installation)
-13. [UsersService](#usersservice)
-14. [API Reference](#api-reference)
+10. [Island Pages](#island-pages)
+11. [HTMX Integration](#htmx-integration)
+12. [Responsive Patterns](#responsive-patterns)
+13. [Template Installation](#template-installation)
+14. [UsersService](#usersservice)
+15. [API Reference](#api-reference)
 
 ---
 
@@ -830,6 +831,129 @@ A 5-region layout component using pure CSS flexbox. Regions: North (top), South 
 
 {{ template "BorderLayout" (dict "ContentId" "editor-canvas" "FlexMode" "fill") }}
 ```
+
+---
+
+## Island Pages
+
+An island page is server-rendered, with a few client-side islands mounted into it. The server says which islands a page gets in a page spec; one tsappkit page class reads the spec and mounts each island from a registry. There's no hand-written `main.ts` finding elements by id.
+
+### The Go side
+
+Build a `page.Spec`, check it, and write it with the `PageSpecScript` partial (`templates/page/Islands.html`). The layout template places the slots as elements with `data-slot`:
+
+```go
+spec := page.Spec{Layout: "drawer", Islands: []page.Island{
+    {Name: "player", Slot: "main", Presentation: "page", Config: map[string]any{"url": "/a.json"}},
+    {Name: "chat", Slot: "side"},
+}}
+if err := spec.Validate(); err != nil { ... }
+```
+
+```html
+<main data-slot="main"></main>
+<aside data-slot="side"></aside>
+{{ template "PageSpecScript" .Spec }}
+```
+
+An app that needs more in its spec embeds `page.Spec` in its own type (see the `page` package doc).
+
+An island's `Load` says when the browser mounts it: `eager` (the default), `idle` once the page has settled, `visible` the first time its slot enters the viewport, or `media:<query>` when a media query matches (at once if it already does). `Validate` rejects anything else. Each island mounts once; nothing unmounts it when the query stops matching. Until then its slot shows whatever Go rendered there, so put a fallback in it. Don't defer an island that another island or the page needs at startup, since nothing waits for it. `IslandPage` (tsappkit 0.6.0 on) does the waiting, and a late island still goes through the component lifecycle; `mountIslands` takes a `defer` option for pages without `BasePage`.
+
+### The browser side
+
+Subclass `IslandPage` from `@panyam/tsappkit`. `registry()` names the islands this bundle can mount; `makeContext()` builds what they share, once, before the first island mounts:
+
+```ts
+import { IslandPage, type PageSpec } from "@panyam/tsappkit";
+
+type Ctx = { api: ApiClient };
+type Ext = { things: Thing[] };   // the fields the app's Go spec adds, if any
+
+class HomePage extends IslandPage<Ctx, Ext> {
+  protected registry() {
+    return {
+      player: (el, island, ctx, bus) => new PlayerIsland(el, island.config, ctx, bus),
+      chat: (el, island, ctx, bus) => new ChatIsland(el, ctx, bus),
+    };
+  }
+  protected readExtension(raw: Record<string, unknown>): Ext {
+    return { things: Array.isArray(raw.things) ? raw.things.map(toThing) : [] };
+  }
+  protected makeContext(spec: PageSpec & Ext): Ctx {
+    return { api: new ApiClient(spec.things) };
+  }
+}
+
+IslandPage.loadAfterPageLoaded("homePage", HomePage, "HomePage");
+```
+
+Each factory returns an `LCMComponent`, so islands go through the usual lifecycle. An island the registry doesn't know, a slot that isn't on the page, or a factory that throws is logged with `console.warn` and skipped; the rest of the page still mounts. Give each esbuild entry its own registry so it only bundles the islands it can mount.
+
+`readSpec` and `mountIslands` are exported too, for a page that mounts islands without `BasePage`.
+
+### Slot fallbacks: one owner per region
+
+Every region of the page has one owner. Either a Go template draws it, or an island does, and never both. The lesson came from lilbattle, where templates rendered the real content and then custom JS found those elements and "hydrated" them, so every change meant editing both and the two drifted apart.
+
+What Go renders inside an island's `data-slot` is a placeholder for the time before the island mounts, which since lazy islands and load strategies can be quite a while. Make it fixed-size skeleton boxes so the layout doesn't jump when the island arrives, plus a `<noscript>` line if the island is all there is. It shouldn't be a second rendering of the island's content:
+
+```html
+<section data-slot="tools">
+  <div class="skeleton h-64"></div>
+  <noscript>The tool panel needs JavaScript.</noscript>
+</section>
+```
+
+The island replaces the placeholder when it mounts. `SolidIsland` (`@panyam/tsappkit-solid`) clears its element on the first `activate`, in the same task that renders its tree, so the slot is never empty in between. Solid's own `render` appends, so a Solid tree mounted some other way needs to clear the element first. A hand-written island does the same with `el.replaceChildren(...)`. `make exercise-islands` checks that every mounted slot's fallback is gone.
+
+### Checking and debugging islands
+
+A spec that names an island the registry doesn't have only shows up as a console warning on whichever page uses it. `page.CheckIslands` finds those in a test, across all of an app's specs at once. Give it the names the registry can mount: `Assets.Names()` lists the lazy entries from the metafile, and islands bundled with the entry are added by hand:
+
+```go
+func TestSpecsNameKnownIslands(t *testing.T) {
+	assets, err := page.LoadEsbuildMetafile("dist/meta.json", page.EsbuildOptions{OutDir: "dist", URLPrefix: "/static/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	known := append(assets.Names(), "toolbar") // toolbar is a plain factory, bundled with the entry
+	if err := page.CheckIslands(known, homeSpec, gameSpec); err != nil {
+		t.Fatal(err) // page specs name islands the registry doesn't have: "chat" (in home, game)
+	}
+}
+```
+
+In the browser, add `?islands` to a page's URL and `IslandPage` outlines each slot and labels it with its island, slot, load strategy and state: `hero · top · eager · mounted 212 ms`, `below · bottom · visible · waiting`, or a red `ghost · foot · eager · not in the registry`. Labels change as islands mount, and the times are from navigation start. Override `showIslandOverlay()` to tie it to your own debug setting. While it's on, labelled slots are `position: relative`, which can move an island's absolutely positioned content a bit. `mountIslands` reports the same things through its `onMount` and `onSkip` options, for pages without `BasePage`.
+
+### Lazy islands and preload links
+
+A registry entry wrapped in `lazy` loads its island's module only when the island mounts, so with esbuild's `--splitting` each island is its own chunk and a page downloads only the islands its spec names, each when its `Load` says:
+
+```ts
+import { IslandPage, lazy } from "@panyam/tsappkit";
+
+protected registry() {
+  return {
+    player: lazy(() => import("./islands/player")), // default export is the factory
+    chat: lazy(() => import("./islands/chat")),
+  };
+}
+```
+
+A lazy island mounts late even when it's eager, since its chunk arrives after the page has started, so the same rule applies: nothing that something else needs at startup. A chunk that fails to load is logged and skipped.
+
+So that neither the eager islands' chunks nor the chunks the entry script imports wait for the entry to arrive before they're requested, Go writes `modulepreload` links for them. The entry's own chunks matter as soon as an island shares code with the page: esbuild moves that code (tsappkit's core, say) out of the entry into a chunk the entry imports, and the browser only finds it once the entry has been parsed. Build with a metafile (`esbuild ... --bundle --splitting --format=esm --metafile=dist/meta.json`), load it at startup, and write the links in `<head>`:
+
+```go
+assets, err := page.LoadEsbuildMetafile("dist/meta.json", page.EsbuildOptions{OutDir: "dist", URLPrefix: "/static/"})
+```
+
+```html
+{{ template "IslandPreloads" (.Assets.For "main" .Spec) }}
+```
+
+`For` takes the name of the page's entry script (`web/main.ts` is `main`) and lists the chunks it imports, then the chunks of the spec's eager islands and everything they import. It leaves out the entry file itself, which the page's `<script>` loads, and `idle`, `visible` and `media` islands. Entries and islands are named by their source file's base name (`islands/player.ts` is `player`); `EsbuildOptions.Name` changes that. Another bundler's build can write the same shape `page.Assets` has (`{"entries": {"main": {"file": ..., "imports": [...]}}, "islands": {"player": {...}}}`) for `page.LoadAssets` to read.
 
 ---
 

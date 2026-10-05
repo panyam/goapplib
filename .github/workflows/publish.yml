@@ -1,0 +1,39 @@
+name: Publish to npm
+
+# Publishes @panyam/tsappkit and @panyam/tsappkit-solid when a release tag
+# carries a version npm doesn't have yet (scripts/npm-publish.sh). Auth is npm
+# trusted publishing: each package names this repo and this file as its
+# publisher on npmjs.com, so there is no token to store or rotate.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 ships with 10.
+      - run: npm install -g npm@latest
+
+      # A tag whose version isn't the one CAPABILITIES.md and both packages carry publishes nothing.
+      - if: startsWith(github.ref, 'refs/tags/v')
+        run: scripts/check-versions.sh "$GITHUB_REF_NAME"
+
+      - run: scripts/npm-publish.sh

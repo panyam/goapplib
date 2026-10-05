@@ -1,0 +1,10 @@
+{
+  "name": "goapplib-exercise-workerstate",
+  "private": true,
+  "description": "Mission exercise for goapplib issue 74: a stateful service in a Web Worker keeps its state across a reload and gives memory back, driven from headless Chromium.",
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "playwright-core": "1.63.0"
+  }
+}
