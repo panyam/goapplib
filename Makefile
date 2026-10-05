@@ -5,11 +5,12 @@
 #   make test     - Run all tests
 #   make help     - Show available targets
 
-.PHONY: setup test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands help
+.PHONY: setup test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state help
 
 GOROOT_WASM := $(shell go env GOROOT)/lib/wasm
 EXERCISE := exercise/wasmhost
 ISLANDS := exercise/islands
+WORKERSTATE := exercise/workerstate
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -47,3 +48,12 @@ exercise-islands: ## Mission #60 exercise: a page whose islands load and mount b
 	go build -buildvcs=false -o $(ISLANDS)/dist/server ./$(ISLANDS)
 	cd $(ISLANDS) && node build.mjs
 	cd $(ISLANDS) && node run.mjs
+
+exercise-worker-state: ## Mission #74 exercise: a stateful service in a Web Worker, its memory, a reload, long jobs and an abort, in headless Chromium
+	cd $(WORKERSTATE) && pnpm install --frozen-lockfile
+	mkdir -p $(WORKERSTATE)/dist
+	GOOS=js GOARCH=wasm go build -buildvcs=false -o $(WORKERSTATE)/dist/state.wasm ./$(WORKERSTATE)/wasm
+	cp "$(GOROOT_WASM)/wasm_exec.js" $(WORKERSTATE)/web/index.html $(WORKERSTATE)/dist/
+	cd $(WORKERSTATE) && pnpm exec esbuild web/main.ts --bundle --format=esm --outfile=dist/main.js --log-level=warning
+	cd $(WORKERSTATE) && pnpm exec esbuild ../../tsappkit/src/wasmhost/worker.ts --bundle --format=iife --outfile=dist/worker.js --log-level=warning
+	cd $(WORKERSTATE) && node run.mjs

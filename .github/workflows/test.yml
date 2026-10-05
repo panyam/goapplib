@@ -106,3 +106,39 @@ jobs:
           name: exercise-islands-screenshots
           path: exercise/islands/dist/screenshots/
           if-no-files-found: warn
+
+  # Mission #74's exercise: a stateful service in a Web Worker (memory after a heavy job, a reload,
+  # long jobs, an abort), in headless Chromium. Checks waiting on a ticket are pending in run.mjs.
+  exercise-worker-state:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: exercise/workerstate/pnpm-lock.yaml
+
+      - name: Install Chromium
+        working-directory: exercise/workerstate
+        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+
+      - name: Run the exercise
+        run: make exercise-worker-state
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exercise-worker-state-screenshots
+          path: exercise/workerstate/dist/screenshots/
+          if-no-files-found: ignore
