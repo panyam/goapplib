@@ -114,3 +114,24 @@ func TestOpenRestoresFromTheCacheInsteadOfIngesting(t *testing.T) {
 		t.Fatalf("different inputs: %+v; want an ingest", c)
 	}
 }
+
+func TestRestoreNeverIngests(t *testing.T) {
+	cache := &wasmhost.MemCache{}
+	h := (&Service{Cache: cache}).Handler()
+	if rec := do(t, h, "POST", "/restore", `{"peakMB": 4, "resultMB": 1}`, context.Background()); rec.Code != http.StatusNotFound {
+		t.Fatalf("restore before anything is cached: %d", rec.Code)
+	}
+	if st := state(t, h); st.IngestCount != 0 || st.ResultBytes != 0 {
+		t.Fatalf("a missed restore changed the state: %+v", st)
+	}
+	do(t, (&Service{Cache: cache}).Handler(), "POST", "/open", `{"peakMB": 4, "resultMB": 1}`, context.Background())
+	if rec := do(t, h, "POST", "/restore", `{"peakMB": 4, "resultMB": 1}`, context.Background()); rec.Code != http.StatusOK {
+		t.Fatalf("restore after another service cached it: %d", rec.Code)
+	}
+	if st := state(t, h); st.IngestCount != 0 || !st.Restored || st.ResultBytes != 1<<20 {
+		t.Fatalf("after a hit: %+v; want restored, no ingest", st)
+	}
+	if rec := do(t, h, "POST", "/churn", `{"mb": 2}`, context.Background()); rec.Code != http.StatusOK {
+		t.Fatalf("churn: %d", rec.Code)
+	}
+}

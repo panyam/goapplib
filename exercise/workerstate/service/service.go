@@ -56,6 +56,8 @@ func (s *Service) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /ingest", s.ingest)
 	mux.HandleFunc("POST /open", s.open)
+	mux.HandleFunc("POST /restore", s.restore)
+	mux.HandleFunc("POST /churn", s.churn)
 	mux.HandleFunc("GET /state", s.getState)
 	mux.HandleFunc("POST /query", s.query)
 	mux.HandleFunc("POST /longjob", s.longJob)
@@ -84,7 +86,7 @@ func (s *Service) open(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.build(req))
 		return
 	}
-	key := wasmhost.CacheKey([]byte("workerstate-v1"), []byte(strconv.Itoa(req.PeakMB)), []byte(strconv.Itoa(req.ResultMB)))
+	key := cacheKey(req)
 	b, err := s.Cache.Get(r.Context(), key)
 	if err == nil {
 		writeJSON(w, s.keep(b, true))
@@ -97,6 +99,47 @@ func (s *Service) open(w http.ResponseWriter, r *http.Request) {
 		st = s.cacheFailed(err)
 	}
 	writeJSON(w, st)
+}
+
+// restore is /open without the ingest: the result for these inputs from the cache, or 404. It's
+// what a lane's warm calls, so a replacement worker never pulls an ingest's peak into a worker
+// that's meant to stay up.
+func (s *Service) restore(w http.ResponseWriter, r *http.Request) {
+	req, ok := readIngest(w, r)
+	if !ok {
+		return
+	}
+	if s.Cache == nil {
+		http.Error(w, "no cache", http.StatusNotFound)
+		return
+	}
+	b, err := s.Cache.Get(r.Context(), cacheKey(req))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	writeJSON(w, s.keep(b, true))
+}
+
+// churn allocates and drops MB megabytes, the way a medium-sized request does: the memory is
+// garbage straight after, but the wasm memory it grew stays.
+func (s *Service) churn(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		MB int `json:"mb"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.MB <= 0 {
+		http.Error(w, "want {mb}", http.StatusBadRequest)
+		return
+	}
+	scratch := make([]byte, req.MB<<20)
+	for i := range scratch {
+		scratch[i] = byte(i)
+	}
+	writeJSON(w, map[string]any{"churnedMB": req.MB, "last": scratch[len(scratch)-1]})
+}
+
+func cacheKey(req IngestRequest) string {
+	return wasmhost.CacheKey([]byte("workerstate-v1"), []byte(strconv.Itoa(req.PeakMB)), []byte(strconv.Itoa(req.ResultMB)))
 }
 
 func readIngest(w http.ResponseWriter, r *http.Request) (IngestRequest, bool) {

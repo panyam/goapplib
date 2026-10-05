@@ -60,7 +60,7 @@ async function drive(url) {
 
     const first = await load(page, () => page.goto(url));
     // A terminated worker's close event can land just after the page says it's done.
-    for (let i = 0; i < 20 && workers.filter((w) => w.closed).length < 2; i++) await page.waitForTimeout(100);
+    for (let i = 0; i < 20 && workers.filter((w) => w.closed).length < 3; i++) await page.waitForTimeout(100);
     const firstWorkers = workers.map((w) => ({ ...w }));
     await page.screenshot({ path: shots + "1-first-load.png" });
     const again = await load(page, () => page.reload());
@@ -88,9 +88,9 @@ async function drive(url) {
         first.ingest?.restored === true &&
         first.ingest?.ingestCount === 0 &&
         first.ingest?.checksum === first.job?.checksum &&
-        firstWorkers.length === 4 &&
-        firstWorkers.filter((w) => w.closed).length === 2,
-      `throwaway worker: ingestCount ${first.job?.ingestCount}, restored ${first.job?.restored}; serving worker: restored ${first.ingest?.restored}, ingestCount ${first.ingest?.ingestCount}; ${firstWorkers.length} workers started on the first load and ${firstWorkers.filter((w) => w.closed).length} ended (want 4 and 2: serving, throwaway (ended), jobs lane (ended by the abort), its replacement)`,
+        firstWorkers.length === 5 &&
+        firstWorkers.filter((w) => w.closed).length === 3,
+      `throwaway worker: ingestCount ${first.job?.ingestCount}, restored ${first.job?.restored}; serving worker: restored ${first.ingest?.restored}, ingestCount ${first.ingest?.ingestCount}; ${firstWorkers.length} workers started on the first load and ${firstWorkers.filter((w) => w.closed).length} ended (want 5 and 3: serving (ended past its memory limit), throwaway (ended), jobs lane (ended by the abort), and the two replacements)`,
     );
 
     const growth = first.memAfter - first.memBefore;
@@ -125,6 +125,17 @@ async function drive(url) {
       "progress",
       early.length >= 3,
       `${early.length} progress lines arrived while the job ran (lines at ${arrivals.map((a) => a.at).join(", ")} ms); want at least 3`,
+    );
+
+    const restarts = first.restarts ?? [];
+    check(
+      "restart-past-watermark",
+      restarts.length === 1 &&
+        restarts[0] > 96 << 20 &&
+        first.stateAfterChurn?.restored === true &&
+        first.stateAfterChurn?.checksum === first.ingest?.checksum &&
+        first.memAfterChurn < 96 << 20,
+      `serving worker at ${mb(first.memBeforeChurn)} before a 100 MB churn; lane restarts at [${restarts.map(mb)}]; after: ${mb(first.memAfterChurn)}, restored ${first.stateAfterChurn?.restored}, checksum ${first.stateAfterChurn?.checksum === first.ingest?.checksum ? "same" : "different"}; want one restart past 96 MB, then under it with the state restored`,
     );
 
     check("console", errors.length === 0, errors.length ? errors.join(" | ") : "no console errors");

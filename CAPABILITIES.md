@@ -1,7 +1,7 @@
 # GoAppLib
 
 ## Version
-0.6.7
+0.6.8
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)
@@ -25,6 +25,7 @@
 - one-shot-worker: `@panyam/tsappkit/wasmhost` 0.6.5's `oneShotFetch(opts)`, a fetch that runs each request in a fresh worker and terminates it once the response is in, so a job's peak wasm memory goes back to the browser; the job leaves its result in `wasmhost.Cache` for the long-lived worker (#77). `startWorker` now terminates a worker that fails to load
 - worker-lanes: `@panyam/tsappkit/wasmhost` 0.6.6's `startLane(opts, { warm })`, one replaceable worker per kind of request; aborting a request on a lane terminates its worker (the only way to stop a Go job that never yields) and starts a new one, re-warmed from `wasmhost.Cache` (#80)
 - worker-streaming: `wasmhost.Host.DoStream` hands each `Flush` to a callback while the handler runs, and the `http` export's chunk callback carries them to the page, so `workerFetch` (0.6.7) resolves at the first flush with a streamed body; aborting sends `cancel(id)`, which ends the handler's context. `oneShotFetch` and lanes hold their worker until a streamed body ends (#78)
+- worker-watermark: `startLane(opts, { maxMemoryBytes, onRestart })` (0.6.8) measures the worker's wasm memory when the lane goes idle and, past the limit, replaces it with a fresh worker warmed from the cache, never interrupting a request (#79)
 
 ## Module
 github.com/panyam/goapplib

@@ -4,7 +4,7 @@
 // request nor an abort can reach it. A lane holds one worker it can replace: aborting a request
 // on it terminates the worker, which is the only way to stop a job that never yields, and starts
 // a fresh one, warmed from the shared Cache by the app's warm function.
-import { endWorker, startWorker, untilBodyEnds, workerFetch, type StartWorkerOptions } from "./client";
+import { endWorker, startWorker, untilBodyEnds, workerFetch, workerMemory, type StartWorkerOptions } from "./client";
 
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -16,6 +16,18 @@ export interface LaneOptions {
    * request gets; the request after it starts another worker.
    */
   warm?: (fetch: Fetch) => Promise<unknown>;
+  /**
+   * A memory limit for the lane's worker, in bytes of wasm memory (workerMemory). Wasm memory never
+   * shrinks, so a long-lived worker creeps up through requests that each allocate and drop some.
+   * When a request finishes (its body read to the end, or failed) and the lane has nothing else
+   * in flight, the lane asks the worker how much it holds, and past this limit replaces it with a
+   * fresh one, warmed as on an abort. It never interrupts a request, so a lane that's never idle
+   * never restarts, and a response whose body nobody reads keeps the lane busy. Size it above what
+   * the warmed state needs, or the lane restarts after every request.
+   */
+  maxMemoryBytes?: number;
+  /** Called when the lane replaces its worker for passing maxMemoryBytes, with what it held. */
+  onRestart?: (why: { memoryBytes: number }) => void;
 }
 
 /** One replaceable worker. See startLane. */
@@ -73,6 +85,21 @@ export function startLane(opts: StartWorkerOptions, lane: LaneOptions = {}): Lan
     return boot();
   };
 
+  let inFlight = 0;
+  // Runs when the lane goes idle. A request that starts while workerMemory is out means the lane
+  // isn't idle any more, so the restart waits for the next idle moment.
+  const checkMemory = async (w: Worker, of: Promise<Worker>) => {
+    let bytes: number;
+    try {
+      bytes = await workerMemory(w);
+    } catch {
+      return;
+    }
+    if (bytes <= lane.maxMemoryBytes! || inFlight !== 0 || current !== of || closed) return;
+    lane.onRestart?.({ memoryBytes: bytes });
+    void replace(w, new Error("wasm host lane: restarted past its memory limit")).catch(() => {});
+  };
+
   boot();
 
   return {
@@ -84,10 +111,27 @@ export function startLane(opts: StartWorkerOptions, lane: LaneOptions = {}): Lan
       const booting = current;
       const w = await booting;
       if (signal?.aborted) throw abortReason(signal);
+      inFlight++;
+      let ended = false;
+      const end = () => {
+        if (ended) return;
+        ended = true;
+        inFlight--;
+        if (inFlight === 0 && lane.maxMemoryBytes !== undefined && current === booting) void checkMemory(w, booting);
+      };
       const run = workerFetch(w)(input, init);
-      if (!signal) return run;
+      if (!signal) {
+        return run.then(
+          (res) => untilBodyEnds(res, end),
+          (err) => {
+            end();
+            throw err;
+          },
+        );
+      }
       return new Promise<Response>((resolve, reject) => {
         const onAbort = () => {
+          end();
           reject(abortReason(signal));
           if (current === booting) void replace(w, new Error("wasm host lane: restarted after an abort")).catch(() => {});
         };
@@ -95,9 +139,16 @@ export function startLane(opts: StartWorkerOptions, lane: LaneOptions = {}): Lan
         run.then(
           // A streamed body is still coming from the busy worker, so an abort until it ends must
           // still end the worker.
-          (res) => resolve(untilBodyEnds(res, () => signal.removeEventListener("abort", onAbort))),
+          (res) =>
+            resolve(
+              untilBodyEnds(res, () => {
+                signal.removeEventListener("abort", onAbort);
+                end();
+              }),
+            ),
           (err) => {
             signal.removeEventListener("abort", onAbort);
+            end();
             reject(err);
           },
         );

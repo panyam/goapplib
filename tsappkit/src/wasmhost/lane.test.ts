@@ -16,8 +16,19 @@ class LaneWorker extends EventTarget {
     queueMicrotask(() => this.send({ ready: true }));
   }
 
+  // What a stats request reports, per worker number; 10 MB unless a test says otherwise.
+  static memory = (_n: number) => 10 << 20;
+  stats = 0;
+
   postMessage(req: HostRequest) {
-    if (this.terminated || req.kind !== "http") return;
+    if (this.terminated) return;
+    if (req.kind === "stats") {
+      this.stats++;
+      const memoryBytes = LaneWorker.memory(this.n);
+      queueMicrotask(() => this.send({ id: req.id, ok: true, memoryBytes }));
+      return;
+    }
+    if (req.kind !== "http") return;
     this.paths.push(req.url);
     if (req.url === "/slow") return;
     const body = new TextEncoder().encode(`worker ${this.n}: ${req.url}`);
@@ -39,6 +50,7 @@ const text = async (r: Promise<Response>) => (await r).text();
 afterEach(() => {
   vi.unstubAllGlobals();
   LaneWorker.all = [];
+  LaneWorker.memory = () => 10 << 20;
 });
 
 describe("startLane", () => {
@@ -131,5 +143,69 @@ describe("startLane with a streamed response", () => {
     await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
     expect(LaneWorker.all[0].terminated).toBe(true);
     expect(await text(lane.fetch("http://x/state"))).toBe("worker 2: /state");
+  });
+});
+
+describe("startLane with maxMemoryBytes", () => {
+  const settle = () => new Promise((r) => setTimeout(r, 10));
+
+  it("replaces a worker past the limit once its request is done, warmed, and tells onRestart", async () => {
+    vi.stubGlobal("Worker", LaneWorker);
+    LaneWorker.memory = (n) => (n === 1 ? 120 << 20 : 40 << 20);
+    const restarts: number[] = [];
+    let warms = 0;
+    const lane = startLane(opts, {
+      warm: async () => void warms++,
+      maxMemoryBytes: 96 << 20,
+      onRestart: ({ memoryBytes }) => restarts.push(memoryBytes),
+    });
+    expect(await text(lane.fetch("http://x/churn"))).toBe("worker 1: /churn");
+    await settle();
+    expect(restarts).toEqual([120 << 20]);
+    expect(LaneWorker.all[0].terminated).toBe(true);
+    expect(await text(lane.fetch("http://x/state"))).toBe("worker 2: /state");
+    expect(warms).toBe(2);
+    await settle();
+    expect(restarts).toHaveLength(1);
+  });
+
+  it("keeps a worker under the limit, and never measures without a limit", async () => {
+    vi.stubGlobal("Worker", LaneWorker);
+    const under = startLane(opts, { maxMemoryBytes: 96 << 20 });
+    await text(under.fetch("http://x/a"));
+    await settle();
+    expect(LaneWorker.all[0].stats).toBe(1);
+    expect(LaneWorker.all[0].terminated).toBe(false);
+
+    const unlimited = startLane(opts);
+    await text(unlimited.fetch("http://x/a"));
+    await settle();
+    expect(LaneWorker.all[1].stats).toBe(0);
+  });
+
+  it("waits until nothing is in flight, so it never cuts a request off", async () => {
+    vi.stubGlobal("Worker", LaneWorker);
+    LaneWorker.memory = () => 200 << 20;
+    const lane = startLane(opts, { maxMemoryBytes: 96 << 20 });
+    await lane.worker();
+    const busy = lane.fetch("http://x/slow");
+    void busy.catch(() => {});
+    await text(lane.fetch("http://x/a"));
+    await settle();
+    expect(LaneWorker.all[0].stats).toBe(0);
+    expect(LaneWorker.all[0].terminated).toBe(false);
+  });
+
+  it("measures only once a streamed body has been read to the end", async () => {
+    vi.stubGlobal("Worker", LaneWorker);
+    LaneWorker.memory = () => 200 << 20;
+    const lane = startLane(opts, { maxMemoryBytes: 96 << 20 });
+    const res = await lane.fetch("http://x/a");
+    await settle();
+    expect(LaneWorker.all[0].stats).toBe(0);
+    await res.text();
+    await settle();
+    expect(LaneWorker.all[0].stats).toBe(1);
+    expect(LaneWorker.all[0].terminated).toBe(true);
   });
 });
