@@ -11,8 +11,11 @@
 //   - Never block inside a js.FuncOf callback. Every export returns a Promise and does its work on a
 //     goroutine, because a callback that waits on something the JS event loop must deliver (a fetch,
 //     a timer, a Promise) deadlocks the worker.
-//   - Push the bytes in before the request, never pull them during it. fs.FS is synchronous and
-//     every browser source of bytes is asynchronous, so the files go into memory first.
+//   - Push the files in before the request, never pull them during it. fs.FS is synchronous and
+//     every browser source of bytes is asynchronous, so the files go into memory first. State a
+//     service builds for itself is different: it reads and writes a Cache (BrowserCache in the
+//     browser, over the Origin Private File System), whose calls wait on the browser and so are
+//     made from a handler's goroutine, which is allowed to wait, never from a js.FuncOf callback.
 //   - Speak the app's existing wire protocol, so its generated clients don't know whether a server
 //     or the worker answered.
 //

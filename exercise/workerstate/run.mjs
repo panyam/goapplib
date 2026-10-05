@@ -12,7 +12,6 @@ import { chromium } from "playwright-core";
 
 const pending = {
   "memory-after-ingest": "#77",
-  "restore-on-reload": "#76",
   "quick-query-during-long-job": "#80",
   "abort-stops-long-job": "#78",
   progress: "#78",
@@ -74,6 +73,8 @@ async function drive(url) {
       first.error ? `page error: ${first.error}` : `ingest built ${mb(result)} with checksum ${first.ingest?.checksum?.slice(0, 12)}…`,
     );
 
+    console.log(`  after reload, /open took ${again.openMs} ms (restored: ${again.state?.restored})`);
+
     const growth = first.memAfter - first.memBefore;
     check(
       "memory-after-ingest",
@@ -83,8 +84,8 @@ async function drive(url) {
 
     check(
       "restore-on-reload",
-      !again.error && again.state?.checksum === first.ingest?.checksum && again.state?.ingestCount === 0,
-      `after reload: ${JSON.stringify(again.state ?? again.error)}; want checksum ${first.ingest?.checksum?.slice(0, 12)}… with ingestCount 0`,
+      !again.error && again.state?.restored === true && again.state?.checksum === first.ingest?.checksum && again.state?.ingestCount === 0,
+      `after reload: ${JSON.stringify(again.state ?? again.error)}; want restored, checksum ${first.ingest?.checksum?.slice(0, 12)}…, ingestCount 0`,
     );
 
     check(
