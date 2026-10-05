@@ -5,11 +5,12 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- Mission #60 `mission_lazy_islands`: 2/5 tickets (#61 exercise, #36 load strategies). `make exercise-islands` last ran at be75166 (2026-10-04, logged on #60): 4 pass, 3 pending on #35. Next ready: #35 (lazy registry entries, per-island chunks, Go writing `modulepreload` from the esbuild metafile), then #39 (slot fallbacks) and #42 (dev aids).
-- Off-mission P3: #37, #38, #40, #41, #48. Waiting: content services (#6-#9, #13-#15, #17), #18, #19, #28, #29, #43, #44, #49, #56.
-- This run: no branch threads open (#62 and #63 merged); moved the islands exercise, pending-list, screenshot and `pr-assets` conventions into CLAUDE.md.
+- Mission #60 `mission_lazy_islands`: 7/7 goapplib tickets closed. `make exercise-islands` last ran at 03a6a3b (2026-10-05, logged on #60): all 11 checks pass, nothing merged since. It stays open for done-when's consumer page, panyam/thambura#204.
+- Next mission: #70 (wasmhost state store, ingest workers, memory recycling, lanes, cancellation; P2, no mission yet) is the leading candidate, to be set up with `/retriage`.
+- Off-mission P3: #37, #38, #40, #41, #48. Waiting: content services (#6-#9, #13-#15, #17), #18, #19, #28, #29, #43, #44, #49, #56, #64.
+- This run: no branch threads open (#65, #66, #68, #69, #72, #73 merged; v0.6.0 to v0.6.3 released); dropped the lock-step and trusted-publishing notes, now in CLAUDE.md.
 
 ## Across threads
 
-- v0.6.0 is the first lock-step release (goapplib, tsappkit and tsappkit-solid all 0.6.0; the never-released tsappkit 0.4.0 is folded into it). It carries #36's load strategies and #35's lazy chunks, for #60's done-when consumer page.
-- npm trusted publishing needs `npm trust github` run once per package (command in CLAUDE.md) before the v0.6.0 tag, or the publish job fails with E404 as v0.5.0's did.
+- When thambura#204 merges, run `make exercise-islands` once more, post the mission log on #60, and close #60 if the consumer page loads its islands lazily. agni has its own ticket for the same adoption (panyam/agni#903, P3).
+- Dependabot PR #25 (Go modules, 2026-09-02) has been open a month with green checks: merge it or close it.

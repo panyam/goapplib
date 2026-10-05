@@ -38,10 +38,11 @@ goapplib/
 │       ├── gorm/users_service.go    # GORM/PostgreSQL backend
 │       └── gae/users_service.go     # Google Datastore backend
 │
-├── page/               # page.Spec: a page's layout and the islands it mounts (#30)
+├── page/               # page.Spec (a page's islands, #30), page.Assets (chunks to preload, #35), CheckIslands (#42)
 ├── wasmhost/           # Run an app's HTTP/Connect handlers as wasm in a Web Worker (#32)
 ├── exercise/wasmhost/  # `make exercise-wasmhost`: the worker host end to end in headless Chromium
-├── scripts/            # npm-publish.sh: publishes the TS packages from a release tag (#46)
+├── exercise/islands/   # `make exercise-islands`: lazy islands by load strategy in headless Chromium (#60)
+├── scripts/            # npm-publish.sh (publishes the TS packages from a tag, #46), check-versions.sh (#66)
 │
 ├── tsappkit/           # @panyam/tsappkit: BasePage and component lifecycle, IslandPage, wasmhost client
 ├── tsappkit-solid/     # @panyam/tsappkit-solid: SolidIsland, mounting a Solid tree as an island
@@ -49,7 +50,7 @@ goapplib/
 └── templates/          # Base templates (copy/symlink to your app)
     ├── BasePage.html
     ├── Header.html
-    ├── page/Islands.html   # PageSpecScript: writes a page.Spec as #page-spec JSON
+    ├── page/Islands.html   # PageSpecScript (a page.Spec as #page-spec JSON), IslandPreloads
     └── components/
         ├── BorderLayout.html
         ├── Drawer.html
@@ -148,7 +149,7 @@ resp, err := userService.CreateUser(ctx, &v1.CreateUserRequest{
 
 ### 10. Island Pages
 
-A server-rendered page names its client-side islands in a `page.Spec`, written into the page as `#page-spec` JSON. tsappkit's `IslandPage` reads it and mounts each island into its `data-slot` from a registry of factories, so apps don't hand-write a `main.ts` per page. Apps extend the spec by embedding `page.Spec` in Go and reading their own fields with `readExtension` in TS. Each island's `Load` (`eager`, `idle`, `visible`, `media:<query>`) says when it mounts; `IslandPage` (tsappkit 0.6.0) waits for it and the slot shows Go's fallback until then. `page/testdata/spec.json` is checked by both the Go and TS tests so the format can't drift. See USAGE_GUIDE.md, "Island Pages".
+A server-rendered page names its client-side islands in a `page.Spec`, written into the page as `#page-spec` JSON. tsappkit's `IslandPage` reads it and mounts each island into its `data-slot` from a registry of factories, so apps don't hand-write a `main.ts` per page. Apps extend the spec by embedding `page.Spec` in Go and reading their own fields with `readExtension` in TS. Each island's `Load` (`eager`, `idle`, `visible`, `media:<query>`) says when it mounts; `IslandPage` (tsappkit 0.6.0) waits for it and the slot shows Go's fallback until then, which the island replaces (one owner per region). A `lazy(() => import(...))` registry entry makes an island its own chunk, and `page.Assets` (read from esbuild's metafile) gives the page `modulepreload` links for its entry's chunks and its eager islands' (`For(entry, spec)`). `page.CheckIslands` catches spec islands the registry doesn't have, and `?islands` on a page labels each slot with its island's state. `page/testdata/spec.json` is checked by both the Go and TS tests so the format can't drift. See USAGE_GUIDE.md, "Island Pages".
 
 ### 11. Wasm Worker Host
 
