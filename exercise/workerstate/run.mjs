@@ -11,8 +11,6 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const pending = {
-  "quick-query-during-long-job": "#80",
-  "abort-stops-long-job": "#78",
   progress: "#78",
 };
 
@@ -62,6 +60,8 @@ async function drive(url) {
     });
 
     const first = await load(page, () => page.goto(url));
+    // A terminated worker's close event can land just after the page says it's done.
+    for (let i = 0; i < 20 && workers.filter((w) => w.closed).length < 2; i++) await page.waitForTimeout(100);
     const firstWorkers = workers.map((w) => ({ ...w }));
     await page.screenshot({ path: shots + "1-first-load.png" });
     const again = await load(page, () => page.reload());
@@ -89,9 +89,9 @@ async function drive(url) {
         first.ingest?.restored === true &&
         first.ingest?.ingestCount === 0 &&
         first.ingest?.checksum === first.job?.checksum &&
-        firstWorkers.length === 2 &&
-        firstWorkers.filter((w) => w.closed).length === 1,
-      `throwaway worker: ingestCount ${first.job?.ingestCount}, restored ${first.job?.restored}; serving worker: restored ${first.ingest?.restored}, ingestCount ${first.ingest?.ingestCount}; ${firstWorkers.length} workers started on the first load, ${firstWorkers.filter((w) => w.closed).length} ended`,
+        firstWorkers.length === 4 &&
+        firstWorkers.filter((w) => w.closed).length === 2,
+      `throwaway worker: ingestCount ${first.job?.ingestCount}, restored ${first.job?.restored}; serving worker: restored ${first.ingest?.restored}, ingestCount ${first.ingest?.ingestCount}; ${firstWorkers.length} workers started on the first load and ${firstWorkers.filter((w) => w.closed).length} ended (want 4 and 2: serving, throwaway (ended), jobs lane (ended by the abort), its replacement)`,
     );
 
     const growth = first.memAfter - first.memBefore;
@@ -115,8 +115,8 @@ async function drive(url) {
 
     check(
       "abort-stops-long-job",
-      first.abortOutcome === "aborted" && first.abortSettleMs < 300 && first.stateAfterAbort?.lastJob === "cancelled",
-      `fetch ${first.abortOutcome} ${first.abortSettleMs} ms after the abort, job ${first.stateAfterAbort?.lastJob}; want aborted within 300 ms and cancelled`,
+      first.abortOutcome === "aborted" && first.abortSettleMs < 300 && typeof first.laneAfterAbort?.ingestCount === "number",
+      `fetch ${first.abortOutcome} ${first.abortSettleMs} ms after the abort; the jobs lane answered again in ${first.laneAfterAbortMs} ms (${first.laneAfterAbort ? "yes" : "no"}); want aborted within 300 ms, and a lane that answers afterwards`,
     );
 
     const arrivals = first.progressArrivals ?? [];

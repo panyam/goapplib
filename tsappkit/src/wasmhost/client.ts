@@ -47,7 +47,7 @@ class Channel {
     });
   }
 
-  private fail(err: Error) {
+  fail(err: Error) {
     this.dead = err;
     for (const p of this.pending.values()) p.reject(err);
     this.pending.clear();
@@ -55,6 +55,16 @@ class Channel {
 }
 
 const channels = new WeakMap<Worker, Channel>();
+
+/**
+ * Terminates worker and rejects every request still waiting on it with `err`, which terminate
+ * alone wouldn't do: a terminated worker never replies, so its pending requests would wait forever.
+ * For lane.ts; not exported from the package.
+ */
+export function endWorker(worker: Worker, err: Error): void {
+  channels.get(worker)?.fail(err);
+  worker.terminate();
+}
 
 function channel(worker: Worker): Channel {
   let c = channels.get(worker);
