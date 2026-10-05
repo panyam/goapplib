@@ -5,12 +5,12 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- Mission #60 `mission_lazy_islands`: 7/7 goapplib tickets closed. `make exercise-islands` last ran at 03a6a3b (2026-10-05, logged on #60): all 11 checks pass, nothing merged since. It stays open for done-when's consumer page, panyam/thambura#204.
-- Mission #74 `mission_worker_state` (new, active): 0/6 tickets. Next ready: #75 (build `make exercise-worker-state`, every check pending), then #76 (blob store) and #78 (cancellation). #70 is its epic.
-- Off-mission P3: #37, #38, #40, #41, #48. Waiting: content services (#6-#9, #13-#15, #17), #18, #19, #28, #29, #43, #44, #49, #56, #64.
-- This run: retriage made #70 into mission #74 with tickets #75-#80; no branch threads open (#65, #66, #68, #69, #72, #73 merged; v0.6.0 to v0.6.3 released); dropped the lock-step and trusted-publishing notes, now in CLAUDE.md.
+- Mission #74 `mission_worker_state`: 6/6 goapplib tickets closed (#75, #76, #77, #78, #79, #80). `make exercise-worker-state` last ran at c2fbc93 (2026-10-05, logged on #74): all 9 checks pass. It stays open for done-when's agni measurement, panyam/agni#911.
+- Mission #60 `mission_lazy_islands`: 7/7 goapplib tickets closed; `make exercise-islands` passes 11/11 (last at 03a6a3b). It stays open for panyam/thambura#204.
+- Nothing is ready in goapplib's queue. Off-mission P3: #37, #38, #40, #41, #48. Waiting: content services (#6-#9, #13-#15, #17), #18, #19, #28, #29, #43, #44, #49, #56, #64, #82, #83.
+- This run: no branch threads open (#81, #84, #85, #86, #87, #88 merged); v0.6.8 tagged, the first release since v0.6.3.
 
 ## Across threads
 
-- When thambura#204 merges, run `make exercise-islands` once more, post the mission log on #60, and close #60 if the consumer page loads its islands lazily. agni has its own ticket for the same adoption (panyam/agni#903, P3).
+- When panyam/agni#911 records its Jetson numbers, post them on #74 and close it; when panyam/thambura#204 merges, run `make exercise-islands` and close #60. With both closed, run `/retriage` to pick the next mission (candidates: #48 wasmhost guide page, #41, #38).
 - Dependabot PR #25 (Go modules, 2026-09-02) has been open a month with green checks: merge it or close it.
