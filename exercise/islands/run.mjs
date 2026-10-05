@@ -152,7 +152,7 @@ async function wide(browser) {
     want !== null && same(links, want),
     want === null
       ? `hero has no chunk of its own (the registry imports it with the page), so there is nothing to preload; page links: [${links}]`
-      : `page links [${links}], want the eager chunks [${want}]`,
+      : `page links [${links}], want the entry's and eager island's chunks [${want}]`,
   );
 
   wide.narrowAtWide = narrowAtWide;
@@ -229,8 +229,9 @@ function snapshot(page) {
   }));
 }
 
-// The chunks the eager island (hero) needs besides the entry, from esbuild's metafile: the output
-// files holding hero's module, plus what they import. null when hero lives in the entry itself.
+// What the page should preload, from esbuild's metafile: the chunks the entry (main) imports
+// statically, plus the output files holding the eager island's (hero's) module and what they import.
+// Never the entry itself, which its <script> loads. null when hero lives in the entry.
 function eagerChunks() {
   const outputs = meta.outputs;
   const entry = Object.keys(outputs).find((o) => outputs[o].entryPoint?.endsWith("web/main.ts"));
@@ -244,6 +245,7 @@ function eagerChunks() {
     seen.add(o);
     for (const imp of outputs[o].imports ?? []) if (imp.kind === "import-statement") visit(imp.path);
   };
+  for (const imp of outputs[entry].imports ?? []) if (imp.kind === "import-statement") visit(imp.path);
   heroOut.forEach(visit);
   return [...seen].map((o) => "/static/" + o.replace(/^.*?dist\//, "")).sort();
 }

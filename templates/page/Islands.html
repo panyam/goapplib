@@ -6,8 +6,9 @@ to mount its islands. Render it with the spec as dot:
 so an app's own spec that embeds page.Spec does too.
 
 IslandPreloads writes a modulepreload link for each URL in dot, for the <head>:
-{{ template "IslandPreloads" (.Assets.For .Spec) }}, with Assets a page.Assets
-loaded at startup. A nil Assets writes nothing.
+{{ template "IslandPreloads" (.Assets.For "main" .Spec) }}, with Assets a
+page.Assets loaded at startup and "main" the page's entry script. A nil Assets
+writes nothing.
 -->
 {{ define "PageSpecScript" }}<script type="application/json" id="page-spec">{{ .JSON }}</script>{{ end }}
 {{ define "IslandPreloads" }}{{ range . }}<link rel="modulepreload" href="{{ . }}">

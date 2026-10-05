@@ -52,7 +52,7 @@ func newHandler(dist, partial string) (http.Handler, error) {
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(dist))))
 	mux.HandleFunc("/{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := t.ExecuteTemplate(w, "page", map[string]any{"Spec": spec, "Preloads": assets.For(spec)}); err != nil {
+		if err := t.ExecuteTemplate(w, "page", map[string]any{"Spec": spec, "Preloads": assets.For("main", spec)}); err != nil {
 			log.Printf("render: %v", err)
 		}
 	})

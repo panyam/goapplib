@@ -943,17 +943,17 @@ protected registry() {
 
 A lazy island mounts late even when it's eager, since its chunk arrives after the page has started, so the same rule applies: nothing that something else needs at startup. A chunk that fails to load is logged and skipped.
 
-So the eager islands' chunks don't wait for the entry to run before they're requested, Go writes `modulepreload` links for them. Build with a metafile (`esbuild ... --bundle --splitting --format=esm --metafile=dist/meta.json`), load it at startup, and write the links in `<head>`:
+So that neither the eager islands' chunks nor the chunks the entry script imports wait for the entry to arrive before they're requested, Go writes `modulepreload` links for them. The entry's own chunks matter as soon as an island shares code with the page: esbuild moves that code (tsappkit's core, say) out of the entry into a chunk the entry imports, and the browser only finds it once the entry has been parsed. Build with a metafile (`esbuild ... --bundle --splitting --format=esm --metafile=dist/meta.json`), load it at startup, and write the links in `<head>`:
 
 ```go
 assets, err := page.LoadEsbuildMetafile("dist/meta.json", page.EsbuildOptions{OutDir: "dist", URLPrefix: "/static/"})
 ```
 
 ```html
-{{ template "IslandPreloads" (.Assets.For .Spec) }}
+{{ template "IslandPreloads" (.Assets.For "main" .Spec) }}
 ```
 
-`For` lists the chunks of the spec's eager islands and everything they import, and leaves out `idle`, `visible` and `media` islands. An island is matched to its chunk by its source file's base name (`islands/player.ts` is `player`); `EsbuildOptions.Name` changes that. Another bundler's build can write the same shape `page.Assets` has (`{"islands": {"player": {"file": ..., "imports": [...]}}}`) for `page.LoadAssets` to read.
+`For` takes the name of the page's entry script (`web/main.ts` is `main`) and lists the chunks it imports, then the chunks of the spec's eager islands and everything they import. It leaves out the entry file itself, which the page's `<script>` loads, and `idle`, `visible` and `media` islands. Entries and islands are named by their source file's base name (`islands/player.ts` is `player`); `EsbuildOptions.Name` changes that. Another bundler's build can write the same shape `page.Assets` has (`{"entries": {"main": {"file": ..., "imports": [...]}}, "islands": {"player": {...}}}`) for `page.LoadAssets` to read.
 
 ---
 

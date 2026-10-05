@@ -9,27 +9,32 @@ import (
 	"strings"
 )
 
-// Assets says which built files each island needs, so a page can write
-// <link rel="modulepreload"> for the islands its spec mounts at once (see
-// For and the IslandPreloads partial in templates/page/Islands.html). It's
-// the browser side's lazy registry entries (tsappkit's lazy) seen from Go:
-// each lazy island is its own chunk, and without preload links the browser
-// only finds that chunk, then its imports, after the entry has run.
+// Assets says which built files a page and its islands need, so a page can
+// write <link rel="modulepreload"> for what it loads at once (see For and the
+// IslandPreloads partial in templates/page/Islands.html). Each lazy island
+// (tsappkit's lazy) is its own chunk, and code an island shares with the
+// page's entry script goes into chunks the entry imports. Without preload
+// links the browser only finds those chunks, and then their imports, after
+// the entry has arrived and been parsed.
 //
 // The JSON form is the shape any bundler's build can write:
 //
-//	{"islands": {"hero": {"file": "/static/chunks/hero-X.js", "imports": ["/static/chunks/chunk-Y.js"]}}}
+//	{"entries": {"main": {"file": "/static/main.js", "imports": ["/static/chunks/chunk-Z.js"]}},
+//	 "islands": {"hero": {"file": "/static/chunks/hero-X.js", "imports": ["/static/chunks/chunk-Y.js"]}}}
 //
 // LoadAssets reads that; LoadEsbuildMetafile builds it from esbuild's metafile.
 type Assets struct {
-	Islands map[string]IslandAsset `json:"islands"`
+	// Entries are the page scripts (esbuild's entry points), by name.
+	Entries map[string]Chunk `json:"entries"`
+	// Islands are the lazy islands' chunks, by island name.
+	Islands map[string]Chunk `json:"islands"`
 }
 
-// IslandAsset is one island's chunk. File is the URL of the chunk holding the
-// island's module; Imports are the URLs of every chunk it statically imports,
-// directly or through another chunk, in a stable order. Neither includes the
-// page's entry script, which the page loads itself.
-type IslandAsset struct {
+// Chunk is one built script and what it needs. File is its URL; Imports are
+// the URLs of every chunk it statically imports, directly or through another
+// chunk, in a stable order. They never include a chunk reached only through a
+// dynamic import(), which is another island and loads when that island does.
+type Chunk struct {
 	File    string   `json:"file"`
 	Imports []string `json:"imports"`
 }
@@ -48,7 +53,7 @@ func LoadAssets(file string) (*Assets, error) {
 }
 
 // EsbuildOptions says how LoadEsbuildMetafile turns the metafile's paths into
-// island names and URLs.
+// entry and island names and URLs.
 type EsbuildOptions struct {
 	// OutDir is the output directory as the metafile writes it (the --outdir
 	// relative to where esbuild ran, "dist" say). It's cut from the front of
@@ -56,11 +61,11 @@ type EsbuildOptions struct {
 	OutDir string
 	// URLPrefix is where the page serves OutDir, such as "/static/".
 	URLPrefix string
-	// Name gives the island name for the source file of a dynamically
-	// imported chunk (its path as the metafile has it, "web/islands/hero.ts").
-	// The default is the file's base name without its extension ("hero"), so
-	// a registry entry `hero: lazy(() => import("./islands/hero"))` needs no
-	// setting. Returning "" leaves that chunk out.
+	// Name gives the entry or island name for an output's source file (its
+	// path as the metafile has it, "web/islands/hero.ts"). The default is the
+	// file's base name without its extension ("hero", or "main" for
+	// web/main.ts), so a registry entry `hero: lazy(() => import("./islands/hero"))`
+	// needs no setting. Returning "" leaves that output out.
 	Name func(source string) string
 }
 
@@ -75,11 +80,12 @@ type esbuildMetafile struct {
 }
 
 // LoadEsbuildMetafile builds Assets from the metafile of an esbuild build run
-// with --splitting --format=esm --metafile. Each output some other output
-// reaches through a dynamic import() is an island chunk, named by
-// opts.Name from its source file; its Imports are the chunks it reaches
-// through static imports. Two chunks with the same island name are an error,
-// since the page couldn't tell which one the spec means.
+// with --splitting --format=esm --metafile. An output with a source file that
+// some other output reaches through a dynamic import() is an island chunk;
+// any other output with a source file is an entry. Both are named by
+// opts.Name, and their Imports are the chunks they reach through static
+// imports. Two islands, or two entries, with the same name are an error,
+// since the page couldn't tell which one it means.
 func LoadEsbuildMetafile(file string, opts EsbuildOptions) (*Assets, error) {
 	b, err := os.ReadFile(file)
 	if err != nil {
@@ -103,30 +109,7 @@ func LoadEsbuildMetafile(file string, opts EsbuildOptions) (*Assets, error) {
 		}
 		return opts.URLPrefix + rel
 	}
-
-	dynamic := map[string]bool{}
-	for _, o := range m.Outputs {
-		for _, imp := range o.Imports {
-			if imp.Kind == "dynamic-import" {
-				dynamic[imp.Path] = true
-			}
-		}
-	}
-	a := &Assets{Islands: map[string]IslandAsset{}}
-	from := map[string]string{}
-	for out, o := range m.Outputs {
-		if !dynamic[out] || o.EntryPoint == "" {
-			continue
-		}
-		n := name(o.EntryPoint)
-		if n == "" {
-			continue
-		}
-		if prev, ok := from[n]; ok {
-			return nil, fmt.Errorf("%s: island %q has two chunks, from %s and %s", file, n, prev, o.EntryPoint)
-		}
-		from[n] = o.EntryPoint
-
+	chunk := func(out string) Chunk {
 		var imports []string
 		seen := map[string]bool{out: true}
 		var visit func(string)
@@ -141,19 +124,52 @@ func LoadEsbuildMetafile(file string, opts EsbuildOptions) (*Assets, error) {
 			}
 		}
 		visit(out)
-		a.Islands[n] = IslandAsset{File: url(out), Imports: imports}
+		return Chunk{File: url(out), Imports: imports}
+	}
+
+	dynamic := map[string]bool{}
+	for _, o := range m.Outputs {
+		for _, imp := range o.Imports {
+			if imp.Kind == "dynamic-import" {
+				dynamic[imp.Path] = true
+			}
+		}
+	}
+	a := &Assets{Entries: map[string]Chunk{}, Islands: map[string]Chunk{}}
+	from := map[string]string{}
+	for out, o := range m.Outputs {
+		if o.EntryPoint == "" {
+			continue
+		}
+		n := name(o.EntryPoint)
+		if n == "" {
+			continue
+		}
+		kind, into := "entry", a.Entries
+		if dynamic[out] {
+			kind, into = "island", a.Islands
+		}
+		if prev, ok := from[kind+" "+n]; ok {
+			return nil, fmt.Errorf("%s: %s %q has two outputs, from %s and %s", file, kind, n, prev, o.EntryPoint)
+		}
+		from[kind+" "+n] = o.EntryPoint
+		into[n] = chunk(out)
 	}
 	return a, nil
 }
 
-// For lists the chunks to preload for spec: those of each island that mounts
-// at once (Load "" or "eager"), each followed by its imports, in spec order
-// and without repeats. Islands that wait (idle, visible, media) are left out,
-// since preloading them would download what the page means to put off. An
-// island Assets doesn't know is skipped (it's bundled with the entry, or
-// built some other way), and a nil Assets gives nothing, so a page can call
-// it whether or not the app loaded a manifest.
-func (a *Assets) For(spec Spec) []string {
+// For lists the chunks to preload on a page whose script is the entry named
+// entry and whose islands are spec's: the entry's imports first, then each
+// island that mounts at once (Load "" or "eager") followed by its imports, in
+// spec order and without repeats. The entry file itself is left out, since the
+// page's <script> loads it. Islands that wait (idle, visible, media) are left
+// out too, since preloading them would download what the page means to put
+// off.
+//
+// An entry or island Assets doesn't know adds nothing (an island bundled with
+// the entry, say), and a nil Assets gives nothing, so a page can call it
+// whether or not the app loaded a manifest.
+func (a *Assets) For(entry string, spec Spec) []string {
 	if a == nil {
 		return nil
 	}
@@ -164,6 +180,9 @@ func (a *Assets) For(spec Spec) []string {
 			seen[u] = true
 			out = append(out, u)
 		}
+	}
+	for _, u := range a.Entries[entry].Imports {
+		add(u)
 	}
 	for _, is := range spec.Islands {
 		if is.Load != "" && is.Load != "eager" {
