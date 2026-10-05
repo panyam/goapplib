@@ -7,7 +7,9 @@
 # pack. Same contents: skipped. Different contents: fails, because the package
 # changed without a version bump and a publish would silently skip it.
 #
-# A publish isn't done until `npm view` shows it, which can take a few minutes.
+# A publish is done once npm accepts it (`npm publish` exits 0). npm can take minutes to show a new
+# version (v0.6.8's tsappkit-solid took 29), so the script waits up to 2 minutes to say it's visible
+# and otherwise warns and carries on, rather than failing a release npm has already taken.
 #
 #   scripts/npm-publish.sh [package-dir...]   (default: tsappkit tsappkit-solid)
 #   DRY_RUN=1 scripts/npm-publish.sh          builds, tests and compares, publishes nothing
@@ -50,13 +52,15 @@ for dir in "$@"; do
     continue
   fi
   npm publish "$work/$dir/$tarball" --provenance --access public
-  for _ in $(seq 1 40); do
+  for _ in $(seq 1 8); do
     if [ "$(npm view "$name@$version" version --prefer-online 2>/dev/null)" = "$version" ]; then
       echo "   published, and npm shows it"
       continue 2
     fi
     sleep 15
   done
-  echo "   published, but npm still doesn't show $name@$version after 10 minutes" >&2
-  exit 1
+  echo "   published (npm accepted it), but npm doesn't show $name@$version yet; it can take half an hour" >&2
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "::warning::npm accepted $name@$version but doesn't show it yet; check https://registry.npmjs.org/$name/$version later"
+  fi
 done
