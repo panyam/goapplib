@@ -9,5 +9,5 @@ import (
 )
 
 func main() {
-	wasmhost.Serve("state", (&service.Service{}).Handler())
+	wasmhost.Serve("state", (&service.Service{Store: wasmhost.BrowserStore()}).Handler())
 }

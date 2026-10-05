@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/panyam/goapplib/wasmhost"
 )
 
 func do(t *testing.T, h http.Handler, method, path, body string, ctx context.Context) *httptest.ResponseRecorder {
@@ -85,5 +87,30 @@ func TestLongJobReportsProgressAndHowItEnded(t *testing.T) {
 	}
 	if got := state(t, h).LastJob; got != "cancelled" {
 		t.Fatalf("lastJob %q after a cancelled job", got)
+	}
+}
+
+func TestOpenRestoresFromTheStoreInsteadOfIngesting(t *testing.T) {
+	store := &wasmhost.MemStore{}
+	first := (&Service{Store: store}).Handler()
+	do(t, first, "POST", "/open", `{"peakMB": 4, "resultMB": 1}`, context.Background())
+	a := state(t, first)
+	if a.IngestCount != 1 || a.Restored || a.StoreError != "" {
+		t.Fatalf("first open: %+v; want one ingest, not restored", a)
+	}
+
+	second := (&Service{Store: store}).Handler()
+	do(t, second, "POST", "/open", `{"peakMB": 4, "resultMB": 1}`, context.Background())
+	b := state(t, second)
+	if b.IngestCount != 0 || !b.Restored || b.Checksum != a.Checksum || b.ResultBytes != a.ResultBytes {
+		t.Fatalf("second open over the same store: %+v; want restored with checksum %s and no ingest", b, a.Checksum)
+	}
+	if !strings.Contains(do(t, second, "POST", "/query", "", context.Background()).Body.String(), `"ok":true`) {
+		t.Fatal("a restored service should answer queries")
+	}
+
+	do(t, second, "POST", "/open", `{"peakMB": 4, "resultMB": 2}`, context.Background())
+	if c := state(t, second); c.IngestCount != 1 || c.Restored {
+		t.Fatalf("different inputs: %+v; want an ingest", c)
 	}
 }

@@ -1,7 +1,9 @@
 // The worker-state exercise page (goapplib issue 75, mission 74). It measures and records; run.mjs
-// decides what passes. The first load ingests and then runs three long jobs (one with a quick query
-// beside it, one read as a stream, one aborted). After a reload it only reads the state back, which
-// is how run.mjs tells a restored state from a rebuilt one.
+// decides what passes. Both loads open the state with POST /open, which restores it from the
+// worker's store (wasmhost.BrowserStore, issue 76) or ingests it. The first load finds nothing and
+// ingests, then runs three long jobs (one with a quick query beside it, one read as a stream, one
+// aborted). After a reload, /open should restore, which run.mjs tells from a rebuild by the ingest
+// count.
 import { startWorker, workerFetch, workerMemory } from "../../../tsappkit/src/wasmhost";
 
 const INGEST = { peakMB: 256, resultMB: 32 };
@@ -27,6 +29,9 @@ async function run() {
 
   if (sessionStorage.getItem(FLAG)) {
     data.phase = "reload";
+    const to = performance.now();
+    data.open = await (await post("/open", INGEST)).json();
+    data.openMs = Math.round(performance.now() - to);
     data.state = await getState();
     log(`after reload, state: ${JSON.stringify(data.state)}`);
     return;
@@ -35,7 +40,7 @@ async function run() {
 
   data.memBefore = await workerMemory(worker);
   const ti = performance.now();
-  data.ingest = await (await post("/ingest", INGEST)).json();
+  data.ingest = await (await post("/open", INGEST)).json();
   data.ingestMs = Math.round(performance.now() - ti);
   data.memAfter = await workerMemory(worker);
   sessionStorage.setItem(FLAG, "1");

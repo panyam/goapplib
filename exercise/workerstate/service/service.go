@@ -11,9 +11,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/panyam/goapplib/wasmhost"
 )
 
 // State is what GET /state reports.
@@ -25,10 +29,17 @@ type State struct {
 	Checksum    string `json:"checksum"`
 	// LastJob is how the last /longjob ended: "", "completed" or "cancelled".
 	LastJob string `json:"lastJob"`
+	// Restored says the result came from the store rather than an ingest.
+	Restored bool `json:"restored"`
+	// StoreError is the last store failure other than a miss, for the exercise to show.
+	StoreError string `json:"storeError,omitempty"`
 }
 
-// Service holds the result of the last ingest.
+// Service holds the result of the last ingest. Store, when set, is where /open looks for a result
+// before ingesting, and where it keeps one after.
 type Service struct {
+	Store wasmhost.Store
+
 	mu     sync.Mutex
 	result []byte
 	state  State
@@ -44,6 +55,7 @@ type IngestRequest struct {
 func (s *Service) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /ingest", s.ingest)
+	mux.HandleFunc("POST /open", s.open)
 	mux.HandleFunc("GET /state", s.getState)
 	mux.HandleFunc("POST /query", s.query)
 	mux.HandleFunc("POST /longjob", s.longJob)
@@ -54,11 +66,49 @@ func (s *Service) Handler() http.Handler {
 // deterministically, so the same request always gives the same checksum. The scratch is garbage
 // afterwards, but wasm linear memory never shrinks, which is what the exercise measures.
 func (s *Service) ingest(w http.ResponseWriter, r *http.Request) {
+	req, ok := readIngest(w, r)
+	if !ok {
+		return
+	}
+	writeJSON(w, s.build(req))
+}
+
+// open is what a page calls on load: the result for these inputs from the store if it's there,
+// and otherwise an ingest, whose result then goes into the store for the next load.
+func (s *Service) open(w http.ResponseWriter, r *http.Request) {
+	req, ok := readIngest(w, r)
+	if !ok {
+		return
+	}
+	if s.Store == nil {
+		writeJSON(w, s.build(req))
+		return
+	}
+	key := wasmhost.Key([]byte("workerstate-v1"), []byte(strconv.Itoa(req.PeakMB)), []byte(strconv.Itoa(req.ResultMB)))
+	b, err := s.Store.Get(r.Context(), key)
+	if err == nil {
+		writeJSON(w, s.keep(b, true))
+		return
+	}
+	st := s.build(req)
+	if !errors.Is(err, wasmhost.ErrNotFound) {
+		st = s.storeFailed(err)
+	} else if err := s.Store.Put(r.Context(), key, s.current()); err != nil {
+		st = s.storeFailed(err)
+	}
+	writeJSON(w, st)
+}
+
+func readIngest(w http.ResponseWriter, r *http.Request) (IngestRequest, bool) {
 	var req IngestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PeakMB <= 0 || req.ResultMB <= 0 || req.ResultMB > req.PeakMB {
 		http.Error(w, "want {peakMB, resultMB} with 0 < resultMB <= peakMB", http.StatusBadRequest)
-		return
+		return req, false
 	}
+	return req, true
+}
+
+func (s *Service) build(req IngestRequest) State {
 	scratch := make([]byte, req.PeakMB<<20)
 	for i := range scratch {
 		scratch[i] = byte(i*31 + i>>8)
@@ -68,16 +118,35 @@ func (s *Service) ingest(w http.ResponseWriter, r *http.Request) {
 	for i := range result {
 		result[i] = scratch[i*step] ^ byte(i>>4)
 	}
-	sum := sha256.Sum256(result)
+	return s.keep(result, false)
+}
 
+// keep makes result the service's state. An ingest counts; a restore doesn't.
+func (s *Service) keep(result []byte, restored bool) State {
+	sum := sha256.Sum256(result)
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.result = result
-	s.state.IngestCount++
+	if !restored {
+		s.state.IngestCount++
+	}
+	s.state.Restored = restored
 	s.state.ResultBytes = len(result)
 	s.state.Checksum = hex.EncodeToString(sum[:])
-	st := s.state
-	s.mu.Unlock()
-	writeJSON(w, st)
+	return s.state
+}
+
+func (s *Service) current() []byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.result
+}
+
+func (s *Service) storeFailed(err error) State {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.state.StoreError = err.Error()
+	return s.state
 }
 
 func (s *Service) getState(w http.ResponseWriter, _ *http.Request) {
