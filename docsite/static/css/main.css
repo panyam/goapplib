@@ -1,37 +1,37 @@
 /* goapplib documentation styles, adapted from jaala's docsite (itself adapted from agni's). */
 
 :root {
-    /* The palette: blues for the brand, cyan for the accent, slate neutrals. Red is kept for
+    /* The palette: greens for the brand, teal for the accent, slate neutrals. Red is kept for
        errors only, where it means error rather than brand. */
-    --primary-color: #1e40af;
+    --primary-color: #047857;
     --secondary-color: #475569;
-    --accent-color: #0891b2;
+    --accent-color: #0d9488;
     --text-color: #0f172a;
     --text-light: #64748b;
     --bg-color: #ffffff;
-    --bg-light: #f4f7fb;
-    --border-color: #e2e8f0;
+    --bg-light: #f2f8f4;
+    --border-color: #dce8e1;
     --code-bg: #1e293b;
     --code-color: #f1f5f9;
-    --link-color: #1d4ed8;
-    --link-hover: #1e3a8a;
+    --link-color: #047857;
+    --link-hover: #064e3b;
 }
 
 /* Dark mode */
 :root.dark,
 [data-theme="dark"] {
-    --primary-color: #60a5fa;
+    --primary-color: #34d399;
     --secondary-color: #94a3b8;
-    --accent-color: #22d3ee;
+    --accent-color: #2dd4bf;
     --text-color: #e2e8f0;
     --text-light: #94a3b8;
-    --bg-color: #0b1120;
-    --bg-light: #111a2e;
-    --border-color: #1f2a40;
-    --code-bg: #0a0f1c;
+    --bg-color: #08130f;
+    --bg-light: #0e1d17;
+    --border-color: #1b3128;
+    --code-bg: #060f0b;
     --code-color: #f1f5f9;
-    --link-color: #93c5fd;
-    --link-hover: #dbeafe;
+    --link-color: #6ee7b7;
+    --link-hover: #d1fae5;
 }
 
 * {
@@ -54,7 +54,7 @@ body {
 
 /* Header */
 .site-header {
-    background: linear-gradient(135deg, #172554 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #022c22 0%, #047857 100%);
     color: white;
     padding: 1rem 0;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -369,13 +369,13 @@ pre code {
 
 .home-hero .btn-primary {
     background-color: #ffffff;
-    color: #1e3a8a;
+    color: #065f46;
     border-color: #ffffff;
 }
 
 .home-hero .btn-primary:hover {
-    background-color: #e0f2fe;
-    color: #1e3a8a;
+    background-color: #d1fae5;
+    color: #065f46;
 }
 
 .home-hero .btn-secondary,
@@ -413,7 +413,7 @@ pre code {
 
 /* Footer */
 .site-footer {
-    background-color: #17110e;
+    background-color: #05120d;
     color: white;
     padding: 3rem 2rem 1rem;
     margin-top: 4rem;
@@ -460,7 +460,7 @@ pre code {
 .home-hero {
     text-align: center;
     padding: 4rem 2rem;
-    background: linear-gradient(135deg, #1e3a8a 0%, #0891b2 100%);
+    background: linear-gradient(135deg, #065f46 0%, #0d9488 100%);
     color: white;
     border-radius: 8px;
     margin-bottom: 3rem;

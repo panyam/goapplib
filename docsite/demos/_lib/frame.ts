@@ -13,7 +13,7 @@ const style = document.createElement("style");
 style.textContent = `
   :root { color-scheme: ${light ? "light" : "dark"}; }
   body { margin: 0; padding: 1rem; font: 15px/1.5 system-ui, sans-serif;
-    background: ${light ? "#ffffff" : "#0f172a"}; color: ${light ? "#0f172a" : "#e2e8f0"}; }
+    background: ${light ? "#ffffff" : "#08130f"}; color: ${light ? "#0f172a" : "#e2e8f0"}; }
   button { font: inherit; padding: .3rem .9rem; }
 `;
 document.head.prepend(style);
