@@ -7,13 +7,13 @@ import (
 	"testing"
 )
 
-// testStore is what every Store must do, run against each implementation.
-func testStore(t *testing.T, s Store) {
+// testCache is what every Cache must do, run against each implementation.
+func testCache(t *testing.T, s Cache) {
 	ctx := context.Background()
-	key := Key([]byte("v1"), []byte("design.edif"))
+	key := CacheKey([]byte("v1"), []byte("design.edif"))
 
-	if _, err := s.Get(ctx, key); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("Get of a missing key: %v, want ErrNotFound", err)
+	if _, err := s.Get(ctx, key); !errors.Is(err, ErrMiss) {
+		t.Fatalf("Get of a missing key: %v, want ErrMiss", err)
 	}
 
 	in := []byte("parsed design")
@@ -27,7 +27,7 @@ func testStore(t *testing.T, s Store) {
 	}
 	got[0] = 'Y'
 	if again, _ := s.Get(ctx, key); string(again) != "parsed design" {
-		t.Fatalf("changing a Get's result changed the store: %q", again)
+		t.Fatalf("changing a Get's result changed the cache: %q", again)
 	}
 
 	if err := s.Put(ctx, key, []byte("rebuilt")); err != nil {
@@ -49,24 +49,24 @@ func testStore(t *testing.T, s Store) {
 		if err := s.Put(ctx, bad, nil); err == nil {
 			t.Errorf("Put accepted key %q", bad)
 		}
-		if _, err := s.Get(ctx, bad); err == nil || errors.Is(err, ErrNotFound) {
+		if _, err := s.Get(ctx, bad); err == nil || errors.Is(err, ErrMiss) {
 			t.Errorf("Get of key %q: %v, want a key error", bad, err)
 		}
 	}
 }
 
-func TestMemStore(t *testing.T) {
-	testStore(t, &MemStore{})
+func TestMemCache(t *testing.T) {
+	testCache(t, &MemCache{})
 }
 
-func TestKey(t *testing.T) {
-	if Key([]byte("ab"), []byte("c")) == Key([]byte("a"), []byte("bc")) {
+func TestCacheKey(t *testing.T) {
+	if CacheKey([]byte("ab"), []byte("c")) == CacheKey([]byte("a"), []byte("bc")) {
 		t.Fatal(`("ab","c") and ("a","bc") got the same key`)
 	}
-	if a, b := Key([]byte("x")), Key([]byte("x")); a != b || len(a) != 64 {
+	if a, b := CacheKey([]byte("x")), CacheKey([]byte("x")); a != b || len(a) != 64 {
 		t.Fatalf("Key isn't a stable 64-character hex string: %q %q", a, b)
 	}
-	if err := checkKey(Key([]byte("x"))); err != nil {
-		t.Fatalf("Key made a key the stores reject: %v", err)
+	if err := checkKey(CacheKey([]byte("x"))); err != nil {
+		t.Fatalf("CacheKey made a key the caches reject: %v", err)
 	}
 }

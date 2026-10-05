@@ -7,42 +7,42 @@ import (
 	"syscall/js"
 )
 
-// BrowserStore is the Store tsappkit's worker gives the wasm, over the Origin Private File System
+// BrowserCache is the Cache tsappkit's worker gives the wasm, over the Origin Private File System
 // (wasmhost/<ns>/ in the page origin's private storage), so a blob Put before a reload is there
-// for Get after it. The worker installs it as globalThis.wasmhostStore before Go starts; without
-// one (no OPFS, or a worker from tsappkit before 0.6.4) every call returns ErrNoStore.
+// for Get after it. The worker installs it as globalThis.wasmhostCache before Go starts; without
+// one (no OPFS, or a worker from tsappkit before 0.6.4) every call returns ErrNoCache.
 //
 // Each call waits on a JS Promise, so it must run on a goroutine, such as a handler's; ctx ends
 // the wait, though the browser may still finish the write.
-func BrowserStore() Store {
-	return browserStore{js.Global().Get("wasmhostStore")}
+func BrowserCache() Cache {
+	return browserCache{js.Global().Get("wasmhostCache")}
 }
 
-type browserStore struct{ v js.Value }
+type browserCache struct{ v js.Value }
 
-func (s browserStore) Get(ctx context.Context, key string) ([]byte, error) {
+func (s browserCache) Get(ctx context.Context, key string) ([]byte, error) {
 	if err := checkKey(key); err != nil {
 		return nil, err
 	}
 	if s.v.Type() != js.TypeObject {
-		return nil, ErrNoStore
+		return nil, ErrNoCache
 	}
 	v, err := awaitJS(ctx, s.v.Call("get", key))
 	if err != nil {
 		return nil, err
 	}
 	if v.IsNull() || v.IsUndefined() {
-		return nil, ErrNotFound
+		return nil, ErrMiss
 	}
 	return bytesFromJS(v)
 }
 
-func (s browserStore) Put(ctx context.Context, key string, b []byte) error {
+func (s browserCache) Put(ctx context.Context, key string, b []byte) error {
 	if err := checkKey(key); err != nil {
 		return err
 	}
 	if s.v.Type() != js.TypeObject {
-		return ErrNoStore
+		return ErrNoCache
 	}
 	_, err := awaitJS(ctx, s.v.Call("put", key, bytesToJS(b)))
 	return err
@@ -89,7 +89,7 @@ func arg(a []js.Value) js.Value {
 
 type jsErr string
 
-func (e jsErr) Error() string { return "wasmhost: store: " + string(e) }
+func (e jsErr) Error() string { return "wasmhost: cache: " + string(e) }
 
 func jsError(v js.Value) error {
 	if v.Type() == js.TypeObject {

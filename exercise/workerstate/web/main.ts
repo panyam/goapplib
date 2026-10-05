@@ -1,6 +1,6 @@
 // The worker-state exercise page (goapplib issue 75, mission 74). It measures and records; run.mjs
 // decides what passes. Both loads open the state with POST /open, which restores it from the
-// worker's store (wasmhost.BrowserStore, issue 76) or ingests it. The first load finds nothing and
+// worker's cache (wasmhost.BrowserCache, issue 76) or ingests it. The first load finds nothing and
 // ingests, then runs three long jobs (one with a quick query beside it, one read as a stream, one
 // aborted). After a reload, /open should restore, which run.mjs tells from a rebuild by the ingest
 // count.

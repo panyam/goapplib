@@ -9,9 +9,9 @@ import (
 	"testing"
 )
 
-func TestDirStore(t *testing.T) {
+func TestDirCache(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "made-on-first-put")
-	testStore(t, DirStore(dir))
+	testCache(t, DirCache(dir))
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -21,7 +21,7 @@ func TestDirStore(t *testing.T) {
 			t.Errorf("a temporary file was left behind: %s", e.Name())
 		}
 	}
-	if got, err := DirStore(dir).Get(context.Background(), "big"); err != nil || len(got) != 3<<20 {
-		t.Fatalf("a second DirStore over the same directory: %d bytes, %v", len(got), err)
+	if got, err := DirCache(dir).Get(context.Background(), "big"); err != nil || len(got) != 3<<20 {
+		t.Fatalf("a second DirCache over the same directory: %d bytes, %v", len(got), err)
 	}
 }

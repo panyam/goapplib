@@ -10,28 +10,28 @@ import (
 	"path/filepath"
 )
 
-// DirStore is a Store in a directory, one file per key, for a service running natively (on a
+// DirCache is a Cache in a directory, one file per key, for a service running natively (on a
 // server, or in tests). The directory is created on the first Put.
-func DirStore(dir string) Store {
-	return dirStore(dir)
+func DirCache(dir string) Cache {
+	return dirCache(dir)
 }
 
-type dirStore string
+type dirCache string
 
-func (d dirStore) Get(_ context.Context, key string) ([]byte, error) {
+func (d dirCache) Get(_ context.Context, key string) ([]byte, error) {
 	if err := checkKey(key); err != nil {
 		return nil, err
 	}
 	b, err := os.ReadFile(filepath.Join(string(d), key))
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, ErrNotFound
+		return nil, ErrMiss
 	}
 	return b, err
 }
 
 // Put writes a temporary file and renames it over the key, so a concurrent Get sees the old blob
 // or the new one, never part of one.
-func (d dirStore) Put(_ context.Context, key string, b []byte) error {
+func (d dirCache) Put(_ context.Context, key string, b []byte) error {
 	if err := checkKey(key); err != nil {
 		return err
 	}

@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-// fakeStore is a JS object shaped like the one tsappkit's worker installs: get and put return
+// fakeCache is a JS object shaped like the one tsappkit's worker installs: get and put return
 // Promises, and get resolves to null for a missing key.
-func fakeStore() js.Value {
+func fakeCache() js.Value {
 	return js.Global().Get("Function").New(`
 		const m = new Map();
 		return {
@@ -22,33 +22,33 @@ func fakeStore() js.Value {
 		};`).Invoke()
 }
 
-func TestBrowserStoreWaitsOnTheWorkersPromises(t *testing.T) {
-	js.Global().Set("wasmhostStore", fakeStore())
-	defer js.Global().Delete("wasmhostStore")
-	testStore(t, BrowserStore())
+func TestBrowserCacheWaitsOnTheWorkersPromises(t *testing.T) {
+	js.Global().Set("wasmhostCache", fakeCache())
+	defer js.Global().Delete("wasmhostCache")
+	testCache(t, BrowserCache())
 }
 
-func TestBrowserStoreWithoutAStoreIsErrNoStore(t *testing.T) {
-	js.Global().Delete("wasmhostStore")
-	s := BrowserStore()
-	if _, err := s.Get(context.Background(), "k"); !errors.Is(err, ErrNoStore) {
+func TestBrowserCacheWithoutAStoreIsErrNoCache(t *testing.T) {
+	js.Global().Delete("wasmhostCache")
+	s := BrowserCache()
+	if _, err := s.Get(context.Background(), "k"); !errors.Is(err, ErrNoCache) {
 		t.Fatalf("Get: %v", err)
 	}
-	if err := s.Put(context.Background(), "k", []byte("x")); !errors.Is(err, ErrNoStore) {
+	if err := s.Put(context.Background(), "k", []byte("x")); !errors.Is(err, ErrNoCache) {
 		t.Fatalf("Put: %v", err)
 	}
 }
 
-func TestBrowserStoreReportsRejectionsAndStopsWaitingWhenCancelled(t *testing.T) {
-	js.Global().Set("wasmhostStore", js.Global().Get("Function").New(`
+func TestBrowserCacheReportsRejectionsAndStopsWaitingWhenCancelled(t *testing.T) {
+	js.Global().Set("wasmhostCache", js.Global().Get("Function").New(`
 		return {
 			get: () => Promise.reject(new Error("quota exceeded")),
 			put: () => new Promise(() => {}),
 		};`).Invoke())
-	defer js.Global().Delete("wasmhostStore")
-	s := BrowserStore()
+	defer js.Global().Delete("wasmhostCache")
+	s := BrowserCache()
 	if _, err := s.Get(context.Background(), "k"); err == nil || !strings.Contains(err.Error(), "quota exceeded") {
-		t.Fatalf("Get of a rejecting store: %v", err)
+		t.Fatalf("Get of a rejecting cache: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()

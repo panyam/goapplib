@@ -7,7 +7,7 @@
 // globalThis.Go, which importScripts can load and a module worker cannot. The asset URLs and the
 // namespace come in the worker's query string (?wasm=&exec=&ns=), which startWorker writes.
 import type { Files, HostReply, HostRequest, HostStatus } from "./protocol";
-import { workerStore } from "./store";
+import { workerCache } from "./cache";
 
 interface Exports {
   ready?: () => void;
@@ -42,9 +42,9 @@ let memory: WebAssembly.Memory | undefined;
 
 const post = (m: HostStatus | HostReply, transfer: Transferable[] = []) => self.postMessage(m, transfer);
 
-// Go's wasmhost.BrowserStore finds the store here (store.ts).
-const store = workerStore(ns, (self as unknown as { navigator?: { storage?: { getDirectory?: () => Promise<unknown> } } }).navigator?.storage);
-if (store) self.wasmhostStore = store;
+// Go's wasmhost.BrowserCache finds the cache here (cache.ts).
+const cache = workerCache(ns, (self as unknown as { navigator?: { storage?: { getDirectory?: () => Promise<unknown> } } }).navigator?.storage);
+if (cache) self.wasmhostCache = cache;
 
 async function boot(): Promise<Exports> {
   importScripts(execUrl);

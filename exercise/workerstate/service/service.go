@@ -22,23 +22,23 @@ import (
 
 // State is what GET /state reports.
 type State struct {
-	// IngestCount is how many ingests this process has run. A state restored from a store
+	// IngestCount is how many ingests this process has run. A state restored from the cache
 	// rather than rebuilt leaves it at 0.
 	IngestCount int    `json:"ingestCount"`
 	ResultBytes int    `json:"resultBytes"`
 	Checksum    string `json:"checksum"`
 	// LastJob is how the last /longjob ended: "", "completed" or "cancelled".
 	LastJob string `json:"lastJob"`
-	// Restored says the result came from the store rather than an ingest.
+	// Restored says the result came from the cache rather than an ingest.
 	Restored bool `json:"restored"`
-	// StoreError is the last store failure other than a miss, for the exercise to show.
-	StoreError string `json:"storeError,omitempty"`
+	// CacheError is the last cache failure other than a miss, for the exercise to show.
+	CacheError string `json:"cacheError,omitempty"`
 }
 
-// Service holds the result of the last ingest. Store, when set, is where /open looks for a result
+// Service holds the result of the last ingest. Cache, when set, is where /open looks for a result
 // before ingesting, and where it keeps one after.
 type Service struct {
-	Store wasmhost.Store
+	Cache wasmhost.Cache
 
 	mu     sync.Mutex
 	result []byte
@@ -73,28 +73,28 @@ func (s *Service) ingest(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, s.build(req))
 }
 
-// open is what a page calls on load: the result for these inputs from the store if it's there,
-// and otherwise an ingest, whose result then goes into the store for the next load.
+// open is what a page calls on load: the result for these inputs from the cache if it's there,
+// and otherwise an ingest, whose result then goes into the cache for the next load.
 func (s *Service) open(w http.ResponseWriter, r *http.Request) {
 	req, ok := readIngest(w, r)
 	if !ok {
 		return
 	}
-	if s.Store == nil {
+	if s.Cache == nil {
 		writeJSON(w, s.build(req))
 		return
 	}
-	key := wasmhost.Key([]byte("workerstate-v1"), []byte(strconv.Itoa(req.PeakMB)), []byte(strconv.Itoa(req.ResultMB)))
-	b, err := s.Store.Get(r.Context(), key)
+	key := wasmhost.CacheKey([]byte("workerstate-v1"), []byte(strconv.Itoa(req.PeakMB)), []byte(strconv.Itoa(req.ResultMB)))
+	b, err := s.Cache.Get(r.Context(), key)
 	if err == nil {
 		writeJSON(w, s.keep(b, true))
 		return
 	}
 	st := s.build(req)
-	if !errors.Is(err, wasmhost.ErrNotFound) {
-		st = s.storeFailed(err)
-	} else if err := s.Store.Put(r.Context(), key, s.current()); err != nil {
-		st = s.storeFailed(err)
+	if !errors.Is(err, wasmhost.ErrMiss) {
+		st = s.cacheFailed(err)
+	} else if err := s.Cache.Put(r.Context(), key, s.current()); err != nil {
+		st = s.cacheFailed(err)
 	}
 	writeJSON(w, st)
 }
@@ -142,10 +142,10 @@ func (s *Service) current() []byte {
 	return s.result
 }
 
-func (s *Service) storeFailed(err error) State {
+func (s *Service) cacheFailed(err error) State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.state.StoreError = err.Error()
+	s.state.CacheError = err.Error()
 	return s.state
 }
 
