@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wasmhost: state, lanes and long jobs</title>
+<style>
+  .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .5rem 0; }
+  .out { font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap; margin: .4rem 0; }
+  progress { width: 12rem; }
+  ol { margin: .3rem 0; padding-left: 1.4rem; font-size: 14px; }
+</style>
+</head>
+<body>
+<ol id="steps"></ol>
+<div class="row">
+  <button id="job" type="button" disabled>Run a 3 s job</button>
+  <progress id="progress" max="1" value="0"></progress>
+  <button id="abort" type="button" disabled>Abort it</button>
+  <button id="query" type="button" disabled>Query the state</button>
+</div>
+<div class="row">
+  <button id="reload" type="button" disabled>Reload this demo</button>
+  <button id="clear" type="button" disabled>Clear the cache and reload</button>
+</div>
+<div id="out" class="out"></div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

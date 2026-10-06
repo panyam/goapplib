@@ -5,6 +5,7 @@ go 1.26.3
 require github.com/panyam/s3gen v0.1.6
 
 require (
+	connectrpc.com/connect v1.19.1 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/adrg/frontmatter v0.2.0 // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
@@ -12,12 +13,18 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/morrisxyang/xreflect v0.0.0-20231001053442-6df0df9858ba // indirect
-	github.com/panyam/goutils v0.1.13 // indirect
+	github.com/panyam/goutils v0.1.14 // indirect
 	github.com/panyam/templar v0.1.0 // indirect
 	github.com/radovskyb/watcher v1.0.7 // indirect
 	github.com/yuin/goldmark v1.7.13 // indirect
 	github.com/yuin/goldmark-highlighting v0.0.0-20220208100518-594be1970594 // indirect
 	go.abhg.dev/goldmark/anchor v0.2.0 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+require github.com/panyam/goapplib v0.6.8
+
+// The demos build against the goapplib in this checkout, so the site documents main.
+replace github.com/panyam/goapplib => ../
