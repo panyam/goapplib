@@ -23,9 +23,11 @@ build: demos
 	cp -r static dist/static
 	touch dist/.nojekyll
 
-# The docsite's tests: templates parse, navigation is wired, and every internal link in the built
-# site resolves (which needs the build first).
+# The docsite's tests: templates parse, navigation is wired, every internal link in the built
+# site resolves (which needs the build first), and the guide's example apps build and render. vet
+# type-checks the examples' mains, which have no tests of their own.
 test: build
+	go vet ./...
 	go test -count=1 ./...
 
 # Mission #91's exercise: build and test the site, then load every page and run every live demo in

@@ -87,6 +87,14 @@ a second `solid-js` or tsappkit from npm.
 A frame sizes itself to its content (`_lib/frame.ts`), so the height a page gives `demo` is only the
 first guess.
 
+## Examples
+
+Go code a guide page shows as a whole app lives in `examples/<name>/`, a package in this module
+that builds against the goapplib checkout (`replace ../`). The page includes the files with
+`{{ includeFileText "examples/<name>/app.go" }}`, so a reader copies what CI built, and the
+package's tests render it. `make test` runs `go vet ./...` too, which type-checks an example's
+`main`, since a package with no tests isn't compiled by `go test`.
+
 ## The exercise
 
 `run.mjs` serves `dist/` under `/goapplib/` the way Pages does, loads every page, fails on a page
