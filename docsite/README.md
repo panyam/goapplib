@@ -74,6 +74,16 @@ with `replace ../`, so a demo can import the exercises' services (`exercise/wasm
 exercises' generated Connect code gets `@bufbuild/*` and `@connectrpc/*` from this package, never
 from the exercise's own `node_modules` (the one-copy plugin in `build.mjs`).
 
+### Island demos
+
+A demo with a `page/` directory is an island page, rendered by Go the way an app's server renders
+one. `page/` is a Go `main` that calls `internal/islanddemo.Main` with a `page.Spec` and an embedded
+template defining `page`. `build.mjs` bundles the demo with `--splitting` and a metafile, so each
+`lazy` island is its own chunk, then runs `page/` to write `index.html` with the spec
+(`PageSpecScript`) and the preload links (`IslandPreloads`, from `page.LoadEsbuildMetafile`).
+Solid islands (`.tsx`) build with `esbuild-plugin-solid`, and `build.mjs` fails a demo that bundles
+a second `solid-js` or tsappkit from npm.
+
 A frame sizes itself to its content (`_lib/frame.ts`), so the height a page gives `demo` is only the
 first guess.
 

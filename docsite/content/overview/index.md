@@ -11,7 +11,7 @@ It's the Go module, `github.com/panyam/goapplib`. A page is a view, a Go type th
 
 ## tsappkit
 
-`@panyam/tsappkit` is the browser half. `BasePage` gives a page a component lifecycle, and `IslandPage` mounts the islands a Go page declares in its page spec, each when its load strategy says to: at once, when the browser is idle, when its slot scrolls into view, or when a media query matches. `@panyam/tsappkit-solid` adds `SolidIsland`, for islands written in Solid.
+`@panyam/tsappkit` is the browser half. `BasePage` gives a page a component lifecycle, and `IslandPage` mounts the islands a Go page declares in its page spec, each when its load strategy says to: at once, when the browser is idle, when its slot scrolls into view, or when a media query matches. `@panyam/tsappkit-solid` adds `SolidIsland`, for islands written in Solid. The [guide]({{.Site.PathPrefix}}/guide/islands/) shows both with live demos.
 
 ## wasmhost
 
