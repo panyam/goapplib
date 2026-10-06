@@ -17,12 +17,12 @@ hideTitle: true
 <div class="features">
 <div class="feature-card">
 <h3>Pages, mixins and htmx</h3>
-<p>Views that load their own data, mixins for pagination, auth and filtering, route groups, and htmx fragments from the same templates.</p>
+<p>Views load their own data, mixins add pagination, auth and filtering, and the same templates render whole pages and htmx fragments.</p>
 <a href="{{.Site.PathPrefix}}/overview/#goapplib">The Go library &rarr;</a>
 </div>
 <div class="feature-card">
 <h3>Islands</h3>
-<p>A page names its islands and their slots in Go; tsappkit mounts each one when its load strategy says, eagerly, when it scrolls into view, or when a media query matches.</p>
+<p>A page names its islands and their slots in Go; tsappkit mounts each one when its load strategy says to: at once, when the browser is idle, when its slot scrolls into view, or when a media query matches.</p>
 <a href="{{.Site.PathPrefix}}/overview/#tsappkit">The TypeScript kit &rarr;</a>
 </div>
 <div class="feature-card">
