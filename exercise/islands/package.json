@@ -4,7 +4,7 @@
   "description": "Mission exercise for goapplib issue 60: a page whose islands load and mount by strategy, driven from headless Chromium.",
   "type": "module",
   "devDependencies": {
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.1",
     "esbuild-plugin-solid": "^0.6.0",
     "playwright-core": "1.63.0",
     "solid-js": "^1.9.15"
