@@ -1953,3 +1953,9 @@ body.search-open {
 .demo iframe { display: block; width: 100%; border: 0; background: var(--bg-color); }
 .demo figcaption { padding: .4rem 1rem; font-size: .85em; opacity: .75; border-top: 1px solid var(--border-color, rgba(127,127,127,.2)); }
 .demo figcaption a { margin-left: .5rem; }
+
+/* The generated Go API reference (apiref.go). */
+.apiref h3, .apiref h4 { font-family: var(--font-mono, monospace); }
+.apiref h4 { font-size: 1rem; margin-top: 1.5rem; }
+.apiref-tag { font-size: .7em; font-weight: normal; padding: .1rem .4rem; margin-left: .5rem; border-radius: 4px; border: 1px solid var(--border-color); opacity: .8; }
+.apiref-guide { font-size: .85em; opacity: .8; }

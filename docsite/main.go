@@ -54,6 +54,7 @@ var Site = &s3.Site{
 		"siteVersion":     siteVersion,
 		"assetURL":        assetURL,
 		"demo":            demoHTML,
+		"apiref":          apiHTML,
 
 		// Helpers newer s3gen has in its default func map and the pinned version lacks.
 		"Contains":      strings.Contains,

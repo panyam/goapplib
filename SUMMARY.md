@@ -7,7 +7,7 @@ A lightweight, stdlib-native Go library for building server-rendered web applica
 ```
 goapplib/
 ├── go.mod              # Module definition
-├── USAGE_GUIDE.md      # Comprehensive documentation
+├── USAGE_GUIDE.md      # A pointer to the docs site, which replaced it
 ├── SUMMARY.md          # This file
 │
 ├── app.go              # App type, template setup, default funcs
@@ -150,7 +150,7 @@ resp, err := userService.CreateUser(ctx, &v1.CreateUserRequest{
 
 ### 10. Island Pages
 
-A server-rendered page names its client-side islands in a `page.Spec`, written into the page as `#page-spec` JSON. tsappkit's `IslandPage` reads it and mounts each island into its `data-slot` from a registry of factories, so apps don't hand-write a `main.ts` per page. Apps extend the spec by embedding `page.Spec` in Go and reading their own fields with `readExtension` in TS. Each island's `Load` (`eager`, `idle`, `visible`, `media:<query>`) says when it mounts; `IslandPage` (tsappkit 0.6.0) waits for it and the slot shows Go's fallback until then, which the island replaces (one owner per region). A `lazy(() => import(...))` registry entry makes an island its own chunk, and `page.Assets` (read from esbuild's metafile) gives the page `modulepreload` links for its entry's chunks and its eager islands' (`For(entry, spec)`). `page.CheckIslands` catches spec islands the registry doesn't have, and `?islands` on a page labels each slot with its island's state. `page/testdata/spec.json` is checked by both the Go and TS tests so the format can't drift. See USAGE_GUIDE.md, "Island Pages".
+A server-rendered page names its client-side islands in a `page.Spec`, written into the page as `#page-spec` JSON. tsappkit's `IslandPage` reads it and mounts each island into its `data-slot` from a registry of factories, so apps don't hand-write a `main.ts` per page. Apps extend the spec by embedding `page.Spec` in Go and reading their own fields with `readExtension` in TS. Each island's `Load` (`eager`, `idle`, `visible`, `media:<query>`) says when it mounts; `IslandPage` (tsappkit 0.6.0) waits for it and the slot shows Go's fallback until then, which the island replaces (one owner per region). A `lazy(() => import(...))` registry entry makes an island its own chunk, and `page.Assets` (read from esbuild's metafile) gives the page `modulepreload` links for its entry's chunks and its eager islands' (`For(entry, spec)`). `page.CheckIslands` catches spec islands the registry doesn't have, and `?islands` on a page labels each slot with its island's state. `page/testdata/spec.json` is checked by both the Go and TS tests so the format can't drift. See the docs site's [Island pages](https://panyam.github.io/goapplib/guide/islands/) guide.
 
 ### 11. Wasm Worker Host
 
@@ -190,7 +190,7 @@ user, err := ensureUser("oauth", "google", token, userInfo)
 
 ## Quick Start
 
-See `USAGE_GUIDE.md` for complete documentation.
+See the docs site, https://panyam.github.io/goapplib/, for how to use it.
 
 ```go
 // 1. Define ViewContext

@@ -1,6 +1,6 @@
 # goapplib
 
-A Go web-app framework (server-rendered pages, mixins, htmx, templates through templar) with the TS packages `tsappkit` and `tsappkit-solid`. See SUMMARY.md for an overview, USAGE_GUIDE.md and INTEGRATION_GUIDE.md for how to use it, and CAPABILITIES.md for the stack-facing API and version. Bump CAPABILITIES.md whenever the API changes.
+A Go web-app framework (server-rendered pages, mixins, htmx, templates through templar) with the TS packages `tsappkit` and `tsappkit-solid`. See SUMMARY.md for an overview, the docs site (https://panyam.github.io/goapplib/, built from `docsite/`) for how to use it, and CAPABILITIES.md for the stack-facing API and version. Bump CAPABILITIES.md whenever the API changes.
 
 ## Commands
 
@@ -19,7 +19,7 @@ A Go web-app framework (server-rendered pages, mixins, htmx, templates through t
 
 Work is queued by the missions it serves. The conventions are in `~/.claude/skills/retriage/CONVENTIONS.md`.
 
-- Active mission: #91 `mission_docsite`, a docs site (s3gen in `docsite/`, on GitHub Pages) with live wasmhost and islands demos, replacing USAGE_GUIDE.md and INTEGRATION_GUIDE.md. Its exercise is `make exercise-docsite`. Everything but #97 is done (the reference pages, and USAGE_GUIDE and INTEGRATION_GUIDE becoming pointers); its pending check is `page:reference/api`. Each mission is worked in its own worktree; `MISSION=mission_<slug> ~/.claude/skills/retriage/queue.sh` filters.
+- Active mission: #91 `mission_docsite`, a docs site (s3gen in `docsite/`, on GitHub Pages) with live wasmhost and islands demos, which replaced USAGE_GUIDE.md and INTEGRATION_GUIDE.md. Its exercise is `make exercise-docsite`, which passes in full. Each mission is worked in its own worktree; `MISSION=mission_<slug> ~/.claude/skills/retriage/queue.sh` filters.
 - Closed: #33 `mission_worker_host` and #34 `mission_island_pages` (2026-10-04), #60 `mission_lazy_islands` (2026-10-05, thambura#206 was its consumer page), #74 `mission_worker_state` (2026-10-05, agni#911 measured it on Jetson). `make exercise-islands` and `make exercise-worker-state` stay in CI as regression checks.
 - A new issue gets a priority (`P0`–`P3`) when it's filed, plus either a `mission_<slug>` label and a blocked-by link from its mission, or `waiting` with its trigger named in the body. Never both P and `waiting`.
 - Lifts from apps (thambura, agni) are `waiting` until a second app needs them. The issue body names that app.
