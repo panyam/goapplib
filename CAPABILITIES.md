@@ -1,7 +1,7 @@
 # GoAppLib
 
 ## Version
-0.6.8
+0.6.9
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)

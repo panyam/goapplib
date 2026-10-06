@@ -1,6 +1,6 @@
 {
   "name": "@panyam/tsappkit",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "description": "TypeScript application toolkit with component lifecycle management, event system, UI utilities, and documentation site components",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -51,7 +51,7 @@
     "docs-components"
   ],
   "author": "panyam",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "^22.20.5",
     "ace-builds": "^1.43.0",
