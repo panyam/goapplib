@@ -1,6 +1,7 @@
 package goapplib
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -29,7 +30,9 @@ func NewApp[AppContext any](ctx AppContext, templates *tmplr.TemplateGroup) *App
 }
 
 // RenderTemplate renders the named template with the given view data.
-// If RenderTemplateFunc is set, it delegates to that function.
+// The page is rendered in full before any of it is written, so on an error nothing has reached w
+// and the caller can still answer with an error status (#108). If RenderTemplateFunc is set, it
+// delegates to that function, which is responsible for its own writes.
 func (app *App[AppContext]) RenderTemplate(
 	w http.ResponseWriter,
 	templateFileName string,
@@ -47,13 +50,15 @@ func (app *App[AppContext]) RenderTemplate(
 		return fmt.Errorf("template load error: %s - %w", templateFile, err)
 	}
 
-	err = app.Templates.RenderHtmlTemplate(w, tmpl[0], templateBlockName, view, nil)
+	var buf bytes.Buffer
+	err = app.Templates.RenderHtmlTemplate(&buf, tmpl[0], templateBlockName, view, nil)
 	if err != nil {
 		log.Printf("Template render error: %s[%s] - %v", templateFileName, templateBlockName, err)
 		return fmt.Errorf("template render error: %s[%s] - %w", templateFileName, templateBlockName, err)
 	}
 
-	return nil
+	_, err = buf.WriteTo(w)
+	return err
 }
 
 // NewMux creates a MuxBuilder for fluent route building.

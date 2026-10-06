@@ -27,7 +27,7 @@ flowchart LR
   render --> out[HTML]
 ```
 
-`goapplib.Register[*GamesPage](app, mux, "/games")` puts a handler on the mux. For each request, that handler makes a fresh `GamesPage`, so pages never share state between requests, and calls its `Load`. If `Load` returns an error, the response is a 500 with the error's text. A `true` second value means `Load` has written the response itself (a redirect, a JSON answer), so nothing renders. Otherwise the handler renders the template named after the type, with the page as its data.
+`goapplib.Register[*GamesPage](app, mux, "/games")` puts a handler on the mux. For each request, that handler makes a fresh `GamesPage`, so pages never share state between requests, and calls its `Load`. If `Load` returns an error, the response is a 500 with the error's text. A `true` second value means `Load` has written the response itself (a redirect, a JSON answer), so nothing renders. Otherwise the handler renders the template named after the type, with the page as its data. The page renders in full before any of it is sent, so a template that fails partway through answers a 500 rather than a 200 with half a page.
 
 ## The app and its context
 
