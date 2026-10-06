@@ -192,3 +192,13 @@ func TestBorderLayout_StructuralIntegrity(t *testing.T) {
 		}
 	}
 }
+
+// TestBorderLayout_RegionsAreEmptyByDefault guards the header comment: an example {{ define }} in
+// an HTML comment is still a live definition, and one there once made every BorderLayout without
+// its own North render "My Toolbar".
+func TestBorderLayout_RegionsAreEmptyByDefault(t *testing.T) {
+	html := renderBorderLayout(t, map[string]any{})
+	if strings.Contains(html, "My Toolbar") {
+		t.Error("the header comment's example toolbar rendered as the default North region")
+	}
+}

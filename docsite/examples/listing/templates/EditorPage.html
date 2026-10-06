@@ -1,0 +1,13 @@
+{{# namespace "Goal" "BasePage.html" #}}
+{{# namespace "BL" "components/BorderLayout.html" #}}
+
+{{ define "Toolbar" }}<div class="p-2 border-b"><b>Editor</b> <button>Save</button></div>{{ end }}
+{{ define "StatusBar" }}<div class="p-1 text-xs border-t">Ready</div>{{ end }}
+
+{{# extend "BL:BorderLayout" "EditorLayout" "BL:BorderLayout_North" "Toolbar" "BL:BorderLayout_South" "StatusBar" #}}
+
+{{ define "EditorBody" }}{{ template "EditorLayout" (dict "ContentId" "canvas" "FlexMode" "fill") }}{{ end }}
+
+{{# extend "Goal:BasePage" "EditorShell" "Goal:BodySection" "EditorBody" #}}
+
+{{ define "EditorPage" }}{{ template "EditorShell" . }}{{ end }}

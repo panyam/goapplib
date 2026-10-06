@@ -1,0 +1,19 @@
+{{# namespace "Goal" "BasePage.html" #}}
+{{# namespace "EL" "components/EntityListing.html" #}}
+{{# include "components/Pagination.html" #}}
+
+{{ define "Results" }}
+<div id="results">
+  <p id="project-count">{{ .TotalCount }} projects</p>
+  {{ template "EL:EntityListing" .Listing }}
+  {{ template "Pagination" . }}
+</div>
+{{ end }}
+
+{{ define "ProjectsBody" }}<main>{{ template "Results" . }}</main>{{ end }}
+
+{{# extend "Goal:BasePage" "ProjectsLayout" "Goal:BodySection" "ProjectsBody" #}}
+
+{{ define "ProjectsPage" }}{{ template "ProjectsLayout" . }}{{ end }}
+
+{{ define "DeleteResponse" }}<p id="project-count" hx-swap-oob="true">{{ .Count }} projects</p>{{ end }}

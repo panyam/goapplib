@@ -29,12 +29,10 @@ Parameters:
 
 Standard IDs (for JavaScript access):
 - border-layout-wrapper: Main container
-- border-layout-north: North region
-- border-layout-south: South region
-- border-layout-east: East region
-- border-layout-west: West region
 - border-layout-center: Center region
 - [ContentId]: The content div inside center (default: "border-layout-content")
+The North, South, East and West regions have no element of their own, so give what you put in
+them an id if a script needs one.
 
 Block overrides (all optional):
 - BorderLayout_North: Top toolbar/header content
@@ -42,13 +40,15 @@ Block overrides (all optional):
 - BorderLayout_East: Right sidebar content
 - BorderLayout_West: Left sidebar content
 
-Example usage:
-
-{{ define "BorderLayout_North" }}
-  <div class="p-2 bg-gray-100 border-b">My Toolbar</div>
-{{ end }}
-
-{{ template "BorderLayout" (dict "ContentId" "my-canvas" "FlexMode" "fill") }}
+Each region is a block with an empty default in this file, so override it through namespace and
+extend, the way a page overrides BasePage's BodySection (defining it again fails with "multiple
+definition of template"):
+{{#/*
+  {{# namespace "BL" "components/BorderLayout.html" #}}
+  {{ define "MyToolbar" }}<div class="p-2 bg-gray-100 border-b">My Toolbar</div>{{ end }}
+  {{# extend "BL:BorderLayout" "MyLayout" "BL:BorderLayout_North" "MyToolbar" #}}
+  {{ template "MyLayout" (dict "ContentId" "my-canvas" "FlexMode" "fill") }}
+*/#}}
 -->
 
 {{ define "BorderLayout" }}
