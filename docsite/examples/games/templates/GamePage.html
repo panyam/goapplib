@@ -1,0 +1,7 @@
+{{# namespace "Goal" "BasePage.html" #}}
+
+{{ define "GameBody" }}<main><h1>{{ .Game.Name }}</h1></main>{{ end }}
+
+{{# extend "Goal:BasePage" "GameLayout" "Goal:BodySection" "GameBody" #}}
+
+{{ define "GamePage" }}{{ template "GameLayout" . }}{{ end }}

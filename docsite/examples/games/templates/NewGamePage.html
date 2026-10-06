@@ -1,0 +1,7 @@
+{{# namespace "Goal" "BasePage.html" #}}
+
+{{ define "NewGameBody" }}<main><h1>New game</h1><p>Signed in as {{ .Username }}.</p></main>{{ end }}
+
+{{# extend "Goal:BasePage" "NewGameLayout" "Goal:BodySection" "NewGameBody" #}}
+
+{{ define "NewGamePage" }}{{ template "NewGameLayout" . }}{{ end }}

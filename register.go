@@ -75,8 +75,8 @@ func WithMiddleware(mw ...func(http.Handler) http.Handler) Option {
 // Usage:
 //
 //	mux := http.NewServeMux()
-//	goapplib.Register[HomePage](app, mux, "/")
-//	goapplib.Register[GameListingPage](app, mux, "/games/")
+//	goapplib.Register[*HomePage](app, mux, "/")
+//	goapplib.Register[*GameListingPage](app, mux, "/games/")
 func Register[V View[AC], AC any](
 	app *App[AC],
 	mux *http.ServeMux,
@@ -87,56 +87,48 @@ func Register[V View[AC], AC any](
 		mux = http.NewServeMux()
 	}
 
-	// Apply options
+	mux.Handle(pattern, pageHandler(app, typeNameOf[V](), func() View[AC] { return newInstance[V]() }, opts))
+	return mux
+}
+
+// pageHandler is the handler Register and MuxBuilder.Page both serve a page with, so the two can't
+// differ: a fresh view per request from newView, its Load, then its template. The template is
+// typeName's file and block unless opts say otherwise (WithTemplate), a load error or a render
+// error answers 500, and opts' middleware wraps the result, outermost first.
+func pageHandler[AC any](app *App[AC], typeName string, newView func() View[AC], opts []Option) http.Handler {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
-
-	// Determine template file name
 	templateFileName := o.templateFileName
 	if templateFileName == "" {
-		templateFileName = typeNameOf[V]()
+		templateFileName = typeName
 	}
-
-	// Determine template block name
 	templateBlockName := o.templateBlockName
 	if templateBlockName == "" && !strings.Contains(o.templateFileName, ":") {
-		// No explicit block specified, auto-derive from base filename
 		templateBlockName = baseFileName(templateFileName)
 	}
 
-	// Create handler
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Create new instance of view
-		view := newInstance[V]()
-
-		// Load view data - pass the whole app
+		view := newView()
 		err, finished := view.Load(r, w, app)
 		if finished {
 			return
 		}
-
 		if err != nil {
 			log.Printf("View load error for %s[%s]: %v", templateFileName, templateBlockName, err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		// Render template
 		if renderErr := app.RenderTemplate(w, templateFileName, templateBlockName, view); renderErr != nil {
 			log.Printf("Render error for %s[%s]: %v", templateFileName, templateBlockName, renderErr)
 			http.Error(w, "Template render error", http.StatusInternalServerError)
 		}
 	})
-
-	// Apply middleware in reverse order
 	for i := len(o.middleware) - 1; i >= 0; i-- {
 		handler = o.middleware[i](handler)
 	}
-
-	mux.Handle(pattern, handler)
-	return mux
+	return handler
 }
 
 // RegisterGroup registers a PageGroup under the given prefix.
@@ -144,7 +136,7 @@ func Register[V View[AC], AC any](
 //
 // Usage:
 //
-//	goal.RegisterGroup[GamesGroup](app, rootMux, "/games")
+//	goal.RegisterGroup[*GamesGroup](app, rootMux, "/games")
 func RegisterGroup[G PageGroup[AC], AC any](
 	app *App[AC],
 	mux *http.ServeMux,
