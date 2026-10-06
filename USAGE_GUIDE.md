@@ -26,7 +26,7 @@ A lightweight, stdlib-native Go library for building server-rendered web applica
 
 ## Quick Start, Core Concepts, App and ViewContext
 
-These moved to the docs site, rewritten against the current API: [Getting started](https://panyam.github.io/goapplib/guide/getting-started/) builds a first app (its code is `docsite/examples/hello`, which CI compiles and renders), and [Concepts](https://panyam.github.io/goapplib/guide/concepts/) covers the app context, `Load` and loaders. In short, a page's `Load` takes `app *goapplib.App[AC]`, pages register as pointer types (`Register[*HomePage]`), and goapplib's own mixins can't go through `LoadAll` yet ([#107](https://github.com/panyam/goapplib/issues/107)). The sections below haven't moved yet and still show the older forms.
+These moved to the docs site, rewritten against the current API: [Getting started](https://panyam.github.io/goapplib/guide/getting-started/) builds a first app (its code is `docsite/examples/hello`, which CI compiles and renders), and [Concepts](https://panyam.github.io/goapplib/guide/concepts/) covers the app context, `Load` and loaders. In short, a page's `Load` takes `app *goapplib.App[AC]`, pages register as pointer types (`Register[*HomePage]`), and since 0.7.0 goapplib's own mixins chain through `LoadAll` ([#107](https://github.com/panyam/goapplib/issues/107)). The sections below haven't moved yet and still show the older forms.
 
 ---
 
@@ -252,22 +252,19 @@ func (p *WithHtmx) Load(r *http.Request, w http.ResponseWriter, vc any) (error, 
 
 ### LoadAll Helper
 
-Chain multiple mixins:
+Chain multiple mixins (0.7.0 on; before that, `LoadAll` couldn't take goapplib's own mixins, issue 107):
 
 ```go
-func LoadAll[AC any](r *http.Request, w http.ResponseWriter, vc *AC, loaders ...Loader[AC]) (error, bool) {
-    for _, loader := range loaders {
-        if err, done := loader.Load(r, w, vc); done || err != nil {
-            return err, done
-        }
-    }
-    return nil, false
+func LoadAll(r *http.Request, w http.ResponseWriter, app any, loaders ...Loader) (error, bool)
+
+// Loader: goapplib's mixins are Loaders as they are.
+type Loader interface {
+    Load(r *http.Request, w http.ResponseWriter, app any) (error, bool)
 }
 
-// Loader interface
-type Loader[AC any] interface {
-    Load(r *http.Request, w http.ResponseWriter, vc *AC) (error, bool)
-}
+// An app's own step, typed: LoaderFunc[AC] is a Loader that gets app as its *App[AC].
+goapplib.LoadAll(r, w, app, &p.BasePage, &p.WithPagination,
+    goapplib.LoaderFunc[*Site](p.loadGames))
 ```
 
 ### Custom Mixins
@@ -1262,7 +1259,7 @@ func Register[V View[AC], AC any](app *App[AC], mux *http.ServeMux, pattern stri
 func RegisterGroup[G PageGroup[AC], AC any](app *App[AC], mux *http.ServeMux, prefix string, opts ...Option) *http.ServeMux
 func RegisterFunc(mux *http.ServeMux, pattern string, handler http.HandlerFunc) *http.ServeMux
 func RegisterHandler(mux *http.ServeMux, pattern string, handler http.Handler) *http.ServeMux
-func LoadAll[AC any](r *http.Request, w http.ResponseWriter, vc *AC, loaders ...Loader[AC]) (error, bool)
+func LoadAll(r *http.Request, w http.ResponseWriter, app any, loaders ...Loader) (error, bool)
 ```
 
 ### Mixins

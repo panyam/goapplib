@@ -197,8 +197,8 @@ func (p *WithAuth) LoadWithAuth(r *http.Request, provider AuthProvider) (error, 
 	return nil, false
 }
 
-// AuthLoader returns a LoaderFunc that loads auth info.
-// Use this with LoadAll when you have an AuthProvider.
+// AuthLoader returns a LoaderFunc that loads auth info, for LoadAll when you have an
+// AuthProvider. Its app type can't be inferred, so name it: AuthLoader[*Site](&p.WithAuth, provider).
 func AuthLoader[AC any](auth *WithAuth, provider AuthProvider) LoaderFunc[AC] {
 	return func(r *http.Request, w http.ResponseWriter, app *App[AC]) (error, bool) {
 		return auth.LoadWithAuth(r, provider)

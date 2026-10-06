@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	goal "github.com/panyam/goapplib"
 )
 
 func TestHomePageRenders(t *testing.T) {
@@ -16,7 +18,7 @@ func TestHomePageRenders(t *testing.T) {
 		t.Fatalf("GET /: %d\n%s", rec.Code, body)
 	}
 	for _, want := range []string{
-		"<title>Home</title>",           // BasePage's TitleSection, from p.Title
+		"<title>Home</title>",                       // BasePage's TitleSection, from p.Title
 		`<h1 class="text-3xl font-bold">Hello</h1>`, // the page's BodySection
 		"<p>A goapplib app.</p>",
 		`id="theme-toggle-button"`, // goapplib's Header, so the layout came from goapplib
@@ -24,5 +26,17 @@ func TestHomePageRenders(t *testing.T) {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("the page has no %q", want)
 		}
+	}
+}
+
+func TestListPageChainsMixinsThroughLoadAll(t *testing.T) {
+	app := goal.NewApp(&Site{Name: "Hello"}, nil)
+	var p ListPage
+	err, done := p.Load(httptest.NewRequest("GET", "/?page=2&q=go", nil), httptest.NewRecorder(), app)
+	if err != nil || done {
+		t.Fatalf("Load: %v, %v", err, done)
+	}
+	if p.BodyClass == "" || p.CurrentPage != 2 || p.Query != "go" || p.Header.AppName != "Hello" || len(p.Items) != 1 {
+		t.Errorf("a step didn't run: %+v", p)
 	}
 }

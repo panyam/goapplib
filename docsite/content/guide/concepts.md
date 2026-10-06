@@ -44,15 +44,23 @@ app := goapplib.NewApp(site, templates)
 
 ## Loaders
 
-A page's `Load` has the same shape as the `Loader[AC]` interface:
+A page usually builds its data in steps, some from goapplib's mixins and some its own. `goapplib.LoadAll(r, w, app, loaders...)` runs them in order and stops at the first that fails or finishes, returning what it returned. Each step is a `goapplib.Loader`:
 
 ```go
-Load(r *http.Request, w http.ResponseWriter, app *goapplib.App[AC]) (err error, finished bool)
+type Loader interface {
+	Load(r *http.Request, w http.ResponseWriter, app any) (err error, finished bool)
+}
 ```
 
-`goapplib.LoadAll(r, w, app, loaders...)` runs several in order and stops at the first one that fails or finishes, which suits a page assembled from reusable pieces. `goapplib.LoaderFunc[AC]` turns a function into a loader, and `goapplib.AuthLoader(&p.WithAuth, provider)` is one, for auth.
+goapplib's mixins (`BasePage`, `WithPagination`, `WithFiltering`, `WithAuth`, `WithHtmx`) are loaders as they are, since none of them needs the app. An app's own step usually does, so it's a `goapplib.LoaderFunc[AC]`, which gets the app typed as `*App[AC]`. Here's a page from the getting-started example that chains both:
 
-One catch, as of v0.6.9. goapplib's own mixins declare `Load(r, w, vc any)`, which doesn't match `Loader[AC]`, so `LoadAll` can't take them, though older examples show it doing so. Call a mixin's `Load` directly instead, as in `p.WithPagination.Load(r, w, app)`. We found this while writing these pages, against a compiled example, and fixing it is [#107](https://github.com/panyam/goapplib/issues/107).
+```go
+{{ includeFileText "examples/hello/list.go" }}
+```
+
+`goapplib.AuthLoader[*Site](&p.WithAuth, provider)` is a `LoaderFunc` too, for auth, and its app type has to be written out, since Go can't infer it. A `LoaderFunc` handed an app of some other type doesn't run, and `LoadAll` returns an error naming both types, which renders as a 500.
+
+This shape is new in v0.7.0. Before it, `Loader` was generic over the app context (`Loader[AC]`, with `app *App[AC]`), which none of goapplib's own mixins satisfied, so `LoadAll` couldn't chain them, though the old guides showed it doing so. We found that while writing these pages against a compiled example ([#107](https://github.com/panyam/goapplib/issues/107)).
 
 ## Where next
 
