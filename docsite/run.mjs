@@ -13,7 +13,6 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const pending = {
-  "page:reference/api": "#97",
 };
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));

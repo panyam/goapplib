@@ -11,4 +11,4 @@ goapplib, `@panyam/tsappkit` and `@panyam/tsappkit-solid` share one version, so 
 | `@panyam/tsappkit` | `pnpm add @panyam/tsappkit` | [npm](https://www.npmjs.com/package/@panyam/tsappkit) |
 | `@panyam/tsappkit-solid` | `pnpm add @panyam/tsappkit-solid` | [npm](https://www.npmjs.com/package/@panyam/tsappkit-solid) |
 
-Reference pages for the API move here with [#97](https://github.com/panyam/goapplib/issues/97).
+The Go packages' API, generated from the source on `main` every time the site builds, is on [Go API](api/), and the user-profile service on [UsersService](users/). The TypeScript packages' API is in their sources, which ship in each npm package as `src/`, and the [guide]({{.Site.PathPrefix}}/guide/) covers what they do.
