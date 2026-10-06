@@ -1,0 +1,33 @@
+{{ define "page" }}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Islands: load strategies</title>
+{{ template "IslandPreloads" .Preloads }}
+<style>
+  [data-slot] { border: 2px dashed #6b7280; border-radius: 6px; padding: .4rem .7rem; margin: .4rem 0; font-size: 14px; opacity: .8; }
+  [data-slot][data-mounted] { border-style: solid; border-color: #34d399; opacity: 1; }
+  #scroller { height: 120px; overflow-y: auto; border: 1px solid #6b7280; border-radius: 6px; padding: 0 .6rem; }
+  #scroller .spacer { height: 600px; font-size: 13px; opacity: .7; padding-top: .4rem; }
+  table { border-collapse: collapse; font-size: 13px; margin: .5rem 0; width: 100%; }
+  th, td { text-align: left; padding: .2rem .5rem; border-bottom: 1px solid #374151; }
+  .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .5rem 0; }
+  ol { margin: .3rem 0; padding-left: 1.4rem; font-size: 14px; }
+</style>
+</head>
+<body>
+<ol id="steps"></ol>
+<div data-slot="top"><p data-fallback>hero (eager) hasn't mounted yet</p></div>
+<div data-slot="middle"><p data-fallback>later (idle) hasn't mounted yet</p></div>
+<div data-slot="side"><p data-fallback>narrow (media: max-width 600px) mounts only in a narrow frame</p></div>
+<div id="scroller">
+  <div class="spacer">Scroll down in this box to reach the visible island.</div>
+  <div data-slot="bottom"><p data-fallback>below (visible) hasn't mounted yet</p></div>
+</div>
+<table><thead><tr><th>Island</th><th>Load</th><th>Preloaded</th><th>Code loaded</th><th>Mounted</th></tr></thead><tbody id="table"></tbody></table>
+<div class="row"><button id="narrow" type="button">Make this frame 400 px wide</button></div>
+{{ template "PageSpecScript" .Spec }}
+<script type="module" src="{{ .Main }}"></script>
+</body>
+</html>{{ end }}

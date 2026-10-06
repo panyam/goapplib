@@ -26,17 +26,20 @@ func failDemo(name string, err error) {
 const defaultDemoHeight = 240
 
 // demoHTML is the `demo` template function: {{ demo "hello" }}, or {{ demo "hello" 320 }} for a
-// taller frame, embeds the live demo whose source is demos/hello/ (an index.html and a main.ts that
-// build.mjs bundles into static/demos/hello/). Each demo runs in its own iframe, with its own
+// taller frame, embeds the live demo whose source is demos/hello/ (a main.ts that build.mjs
+// bundles into static/demos/hello/, and an index.html, or a page/ that renders one). Each demo runs in its own iframe, with its own
 // document, globals and styles, so demos don't step on the page or each other. A demo marks itself
 // done with ready() or failed() from demos/_lib/frame.ts, which set data-demo on its <html>; run.mjs
 // waits for that.
 func demoHTML(name string, height ...int) template.HTML {
-	for _, f := range []string{"index.html", "main.ts"} {
-		if _, err := os.Stat("demos/" + name + "/" + f); err != nil {
-			failDemo(name, fmt.Errorf("no demos/%s/%s", name, f))
-			return template.HTML(`<p class="demo-error">No demo named ` + html.EscapeString(name) + `.</p>`)
-		}
+	missing := func(f string) bool {
+		_, err := os.Stat("demos/" + name + "/" + f)
+		return err != nil
+	}
+	// The page is index.html, or for an island demo the Go main in page/ that renders it.
+	if missing("main.ts") || (missing("index.html") && missing("page")) {
+		failDemo(name, fmt.Errorf("no demos/%s/main.ts, or neither index.html nor page/", name))
+		return template.HTML(`<p class="demo-error">No demo named ` + html.EscapeString(name) + `.</p>`)
 	}
 	h := defaultDemoHeight
 	if len(height) > 0 {
