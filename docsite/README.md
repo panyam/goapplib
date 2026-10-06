@@ -95,6 +95,16 @@ that builds against the goapplib checkout (`replace ../`). The page includes the
 package's tests render it. `make test` runs `go vet ./...` too, which type-checks an example's
 `main`, since a package with no tests isn't compiled by `go test`.
 
+## The Go API reference
+
+`content/reference/api.md` is generated: `{{ apiref "page" }}` (in `apiref.go`) reads that package
+of this checkout with `go/doc` at build time and writes every exported declaration with its doc
+comment, its build constraint if its file has one, and a guide link from `apiGuides`. A package is
+documented once it's in `apiPackages`. `apiref_test.go` lists each package's exported names with
+`go/ast`, separately from `go/doc`, and fails if one has no anchor on the page, so a new export
+shows up without anyone editing the page, and the reference can't drift. Point `apiGuides` at a
+guide anchor when a page starts teaching a symbol; the link test checks the anchor exists.
+
 ## The exercise
 
 `run.mjs` serves `dist/` under `/goapplib/` the way Pages does, loads every page, fails on a page
