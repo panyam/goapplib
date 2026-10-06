@@ -1,0 +1,13 @@
+{{# namespace "Goal" "BasePage.html" #}}
+
+{{ define "GamesListBody" }}
+<main>
+  <h1>Games</h1>
+  <ul>{{ range .Games }}<li><a href="/games/{{ .ID }}">{{ .Name }}</a></li>{{ end }}</ul>
+  <p>Page {{ .CurrentPage }}, {{ .TotalCount }} games.{{ if .HasNextPage }} <a href="?page={{ .NextPage }}&q={{ .Query }}">Next</a>{{ end }}</p>
+</main>
+{{ end }}
+
+{{# extend "Goal:BasePage" "GamesListLayout" "Goal:BodySection" "GamesListBody" #}}
+
+{{ define "GamesListPage" }}{{ template "GamesListLayout" . }}{{ end }}
