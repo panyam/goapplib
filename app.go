@@ -108,6 +108,10 @@ func DefaultFuncMap() template.FuncMap {
 			}
 			return template.URL(fmt.Sprintf("%v", s))
 		},
+		// add and sub are for templates' page arithmetic (Pagination shows a 0-based page as 1-based,
+		// SearchFilter finds its last view mode).
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
 		"default": func(defaultVal, val any) any {
 			if val == nil {
 				return defaultVal

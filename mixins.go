@@ -70,6 +70,15 @@ func (p *WithPagination) SetTotal(total int, hasMore bool) {
 	p.EvalPages()
 }
 
+// TotalPages is how many pages TotalCount fills at PageSize, or 0 before SetTotal. goapplib's
+// Pagination template shows it.
+func (p *WithPagination) TotalPages() int {
+	if p.TotalCount <= 0 || p.PageSize <= 0 {
+		return 0
+	}
+	return (p.TotalCount + p.PageSize - 1) / p.PageSize
+}
+
 // EvalPages calculates page numbers to display.
 func (p *WithPagination) EvalPages() {
 	p.Pages = nil
