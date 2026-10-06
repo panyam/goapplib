@@ -1,0 +1,12 @@
+{{# namespace "Goal" "BasePage.html" #}}
+
+{{ define "HomeBody" }}
+<main class="max-w-2xl mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold">{{ .Header.AppName }}</h1>
+  <p>{{ .Tagline }}</p>
+</main>
+{{ end }}
+
+{{# extend "Goal:BasePage" "HomeLayout" "Goal:BodySection" "HomeBody" #}}
+
+{{ define "HomePage" }}{{ template "HomeLayout" . }}{{ end }}

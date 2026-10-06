@@ -9,7 +9,7 @@ hideTitle: true
 <p class="hero-subtitle">A Go library for server-rendered web apps. Pages are Go views rendered through templates, the parts that need client code are islands mounted by a small TypeScript kit, and an app's own Go handlers can run in the browser as wasm when a round trip to the server is too slow.</p>
 <div class="hero-actions">
 <a href="{{.Site.PathPrefix}}/overview/" class="btn btn-primary">What goapplib is</a>
-<a href="{{.Site.PathPrefix}}/guide/" class="btn btn-secondary">The guide</a>
+<a href="{{.Site.PathPrefix}}/guide/getting-started/" class="btn btn-secondary">Getting started</a>
 <a href="https://github.com/panyam/goapplib" class="btn btn-outline">GitHub</a>
 </div>
 </div>

@@ -8,9 +8,7 @@ A lightweight, stdlib-native Go library for building server-rendered web applica
 
 ## Table of Contents
 
-1. [Quick Start](#quick-start)
-2. [Core Concepts](#core-concepts)
-3. [App and ViewContext](#app-and-viewcontext)
+1. [Quick Start, Core Concepts, App and ViewContext](#quick-start-core-concepts-app-and-viewcontext) (moved to the docs site)
 4. [Views and Pages](#views-and-pages)
 5. [Mixins](#mixins)
 6. [Route Registration](#route-registration)
@@ -20,170 +18,15 @@ A lightweight, stdlib-native Go library for building server-rendered web applica
 10. [Island Pages](#island-pages)
 11. [HTMX Integration](#htmx-integration)
 12. [Responsive Patterns](#responsive-patterns)
-13. [Template Installation](#template-installation)
+13. [Template Installation](#template-installation) (moved to the docs site)
 14. [UsersService](#usersservice)
 15. [API Reference](#api-reference)
 
 ---
 
-## Quick Start
+## Quick Start, Core Concepts, App and ViewContext
 
-```go
-package main
-
-import (
-    "net/http"
-    "github.com/panyam/goapplib"
-)
-
-// 1. Define your ViewContext (app-level shared state)
-type MyViewContext struct {
-    ClientMgr *services.ClientMgr
-    Auth      *AuthService
-}
-
-// 2. Define a page
-type HomePage struct {
-    goapplib.BasePage
-    goapplib.WithAuth
-
-    FeaturedItems []*Item
-}
-
-func (p *HomePage) Load(r *http.Request, w http.ResponseWriter, vc *MyViewContext) (error, bool) {
-    // Load mixins
-    if err, done := goapplib.LoadAll(r, w, vc, &p.BasePage, &p.WithAuth); done {
-        return err, done
-    }
-
-    // Page-specific logic
-    p.Title = "Home"
-    p.FeaturedItems = vc.ClientMgr.GetFeaturedItems()
-
-    return nil, false
-}
-
-func main() {
-    // 3. Create ViewContext and App
-    vc := &MyViewContext{
-        ClientMgr: services.NewClientMgr(),
-        Auth:      NewAuthService(),
-    }
-
-    templates := goapplib.SetupTemplates("./templates")
-    app := goapplib.NewApp(vc, templates)
-
-    // 4. Register routes
-    mux := http.NewServeMux()
-
-    goapplib.Register[HomePage](app, mux, "/")
-    goapplib.Register[LoginPage](app, mux, "/login")
-    goapplib.RegisterGroup[GamesGroup](app, mux, "/games")
-
-    // 5. Serve
-    http.ListenAndServe(":8080", mux)
-}
-```
-
----
-
-## Core Concepts
-
-### Design Principles
-
-1. **stdlib-native**: Everything uses `*http.ServeMux` and `http.Handler`
-2. **Composable mixins**: Embed behaviors, chain loading
-3. **Template inheritance**: Templar's include/define/block system
-4. **Progressive enhancement**: Works without JS, enhanced with HTMX
-5. **No magic**: Explicit registration, clear data flow
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                      http.ServeMux                       │
-├─────────────────────────────────────────────────────────┤
-│  /games/ ──► GamesGroup (sub-mux)                       │
-│     ├─ / ──────────► GameListingPage                    │
-│     ├─ /new ───────► StartGamePage                      │
-│     └─ /{id}/view ─► GameViewerPage                     │
-├─────────────────────────────────────────────────────────┤
-│  Page: GameListingPage                                   │
-│  ├─ BasePage (mixin)                                     │
-│  ├─ WithPagination (mixin)                               │
-│  ├─ WithFiltering (mixin)                                │
-│  └─ Load() ──► Template: GameListingPage.html           │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## App and ViewContext
-
-### ViewContext
-
-ViewContext holds app-level shared state. Unlike per-request context, it's created once at startup and passed to all handlers.
-
-```go
-// Your application defines its own ViewContext
-type ViewContext struct {
-    // Required services
-    ClientMgr *services.ClientMgr  // gRPC clients
-
-    // Authentication
-    AuthMiddleware *oneauth.Middleware
-    AuthService    federatedauth.AuthUserStore
-
-    // Optional: HTMX support
-    Htmx *goapplib.HtmxContext
-
-    // App-specific config
-    AppName    string
-    DebugMode  bool
-}
-```
-
-### App
-
-App wraps your ViewContext and template system:
-
-```go
-type App[AC any] struct {
-    Context   *AC
-    Templates *tmplr.TemplateGroup
-}
-
-// Create an app
-vc := &ViewContext{...}
-templates := goapplib.SetupTemplates("./templates")
-app := goapplib.NewApp(vc, templates)
-```
-
-### Template Setup
-
-```go
-func SetupTemplates(templatePaths ...string) *tmplr.TemplateGroup {
-    templates := tmplr.NewTemplateGroup()
-
-    loader := &tmplr.LoaderList{}
-    for _, path := range templatePaths {
-        loader.AddLoader(tmplr.NewFileSystemLoader(path))
-    }
-    templates.Loader = loader
-
-    // Add standard functions
-    templates.AddFuncs(goapplib.DefaultFuncMap())
-
-    return templates
-}
-
-// Usage with override precedence:
-templates := goapplib.SetupTemplates(
-    "./templates",              // Your app (highest priority)
-    "./templates/theme",        // Theme overrides
-    "./vendor/.../goapplib/templates",  // Library defaults
-)
-```
+These moved to the docs site, rewritten against the current API: [Getting started](https://panyam.github.io/goapplib/guide/getting-started/) builds a first app (its code is `docsite/examples/hello`, which CI compiles and renders), and [Concepts](https://panyam.github.io/goapplib/guide/concepts/) covers the app context, `Load` and loaders. In short, a page's `Load` takes `app *goapplib.App[AC]`, pages register as pointer types (`Register[*HomePage]`), and goapplib's own mixins can't go through `LoadAll` yet ([#107](https://github.com/panyam/goapplib/issues/107)). The sections below haven't moved yet and still show the older forms.
 
 ---
 
@@ -1157,56 +1000,7 @@ func detectLayout(r *http.Request) string {
 
 ## Template Installation
 
-Since Go modules can't directly serve static files to dependents, use one of these approaches:
-
-### Option 1: Vendor Path
-
-```bash
-# Your project structure
-myapp/
-├── go.mod
-├── vendor/
-│   └── github.com/panyam/goapplib/
-│       └── templates/
-└── templates/           # Your overrides
-```
-
-```go
-templates := goapplib.SetupTemplates(
-    "./templates",                                    // Your overrides
-    "./vendor/github.com/panyam/goapplib/templates",   // Library defaults
-)
-```
-
-### Option 2: Symlink
-
-```makefile
-# Makefile
-WEBLIB_PATH := $(shell go list -m -f '{{.Dir}}' github.com/panyam/goapplib)
-
-setup:
-    ln -sf $(WEBLIB_PATH)/templates ./templates/goapplib
-```
-
-### Option 3: Copy/Eject
-
-```bash
-# Copy templates to your project (for customization)
-go run github.com/panyam/goapplib/cmd/eject-templates ./templates/lib
-```
-
-### Option 4: Embedded (if needed)
-
-```go
-// In goapplib, if embedding is acceptable:
-//go:embed templates/*
-var EmbeddedTemplates embed.FS
-
-// Usage
-templates.Loader = (&tmplr.LoaderList{}).
-    AddLoader(tmplr.NewFileSystemLoader("./templates")).
-    AddLoader(tmplr.NewEmbedLoader(goapplib.EmbeddedTemplates, "templates"))
-```
+Moved to [Getting started, Install](https://panyam.github.io/goapplib/guide/getting-started/#install). The two ways that work are reading goapplib's `templates/` from the module cache and vendoring them with templar.
 
 ---
 
