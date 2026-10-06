@@ -1,7 +1,7 @@
 # GoAppLib
 
 ## Version
-0.7.2
+0.7.3
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)
@@ -14,7 +14,7 @@
 - border-layout: 5-region layout component (North/South/East/West/Center) with pure CSS flexbox
 - users-service: UsersService with multi-backend support (FS, GORM, Google Datastore)
 - auth-integration: Integration with oneauth for authentication
-- template-management: Template management via Templar integration
+- template-management: Template management via Templar integration; since 0.7.3 `App.RenderTemplate` renders the whole page before writing any of it, so a render error answers a clean 500 (it sent a 200 and half the page before, #108)
 - rate-limiting: Rate limiting middleware for auth vs API endpoints
 - admin-pages: Admin pages and user management
 - page-spec: A page's layout and the islands it mounts (`page.Spec`), validated and written as a JSON script by `templates/page/Islands.html` for tsappkit's island page to mount from a registry; apps extend it by embedding (#30). `Island.Load` (`eager`, `idle`, `visible`, `media:<query>`) names when an island mounts; tsappkit 0.6.0's `IslandPage` waits for it (`parseLoad`, `scheduleMount`, `mountIslands`' `defer` option, #36), and `make exercise-islands` (mission #60) checks it

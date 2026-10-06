@@ -58,4 +58,4 @@ A response can update more than the element htmx asked about. Anything in it wit
 {{`{{ define "DeleteResponse" }}`}}<p id="project-count" hx-swap-oob="true">{{`{{ .Count }}`}} projects</p>{{`{{ end }}`}}
 ```
 
-`app.RenderTemplate(w, "ProjectsPage", "DeleteResponse", data)` renders one block of a page's template with whatever data you give it, which suits small responses like this one.
+`app.RenderTemplate(w, "ProjectsPage", "DeleteResponse", data)` renders one block of a page's template with whatever data you give it, which suits small responses like this one. It writes nothing when rendering fails, so the handler can still answer with `http.Error`, though headers it set first (the `HX-Trigger` here) go out with the error.
