@@ -1,12 +1,12 @@
 # GoAppLib
 
 ## Version
-0.6.9
+0.7.0
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)
 - view-context: Generic ViewContext type system for page rendering
-- page-mixins: Composable mixins (WithPagination, WithFiltering, WithAuth, WithHtmx)
+- page-mixins: Composable mixins (BasePage, WithPagination, WithFiltering, WithAuth, WithHtmx), chained with `LoadAll(r, w, app, loaders...)`. Since 0.7.0 `Loader` is non-generic (`Load(r, w, app any)`), which the mixins already satisfy, and an app's own steps are `LoaderFunc[AC]`, typed; before that no mixin was a `Loader[AC]` (#107)
 - htmx-support: HTMX request detection and response utilities
 - responsive-ui: Built-in UI components (drawers, modals, pagination, search filters)
 - border-layout: 5-region layout component (North/South/East/West/Center) with pure CSS flexbox

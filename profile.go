@@ -20,7 +20,7 @@ type SampleProfilePage[AC any] struct {
 	VerificationError string
 }
 
-// Load implements Loader[AC] for SampleProfilePage.
+// Load implements View[AC] for SampleProfilePage.
 func (p *SampleProfilePage[AC]) Load(r *http.Request, w http.ResponseWriter, app *App[AC]) (err error, finished bool) {
 	p.Title = "Profile"
 	p.ActiveTab = "profile"

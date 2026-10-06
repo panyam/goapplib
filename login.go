@@ -22,7 +22,7 @@ type SampleLoginPage[AC any] struct {
 	Config      LoginConfig
 }
 
-// Load implements Loader[AC] for SampleLoginPage.
+// Load implements View[AC] for SampleLoginPage.
 func (p *SampleLoginPage[AC]) Load(r *http.Request, w http.ResponseWriter, app *App[AC]) (err error, finished bool) {
 	p.DisableSplashScreen = true
 	p.CallbackURL = r.URL.Query().Get("callbackURL")
@@ -42,7 +42,7 @@ type SampleRegisterPage[AC any] struct {
 	Errors         map[string]string
 }
 
-// Load implements Loader[AC] for SampleRegisterPage.
+// Load implements View[AC] for SampleRegisterPage.
 func (p *SampleRegisterPage[AC]) Load(r *http.Request, w http.ResponseWriter, app *App[AC]) (err error, finished bool) {
 	p.CallbackURL = r.URL.Query().Get("callbackURL")
 	return nil, false

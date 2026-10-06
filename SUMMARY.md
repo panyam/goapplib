@@ -82,12 +82,12 @@ Embed common behaviors in your pages:
 
 ### 4. Chain Loading
 ```go
-goal.LoadAll(r, w, vc, &p.BasePage, &p.WithPagination, &p.WithAuth)
+goal.LoadAll(r, w, app, &p.BasePage, &p.WithPagination, goal.AuthLoader[*Site](&p.WithAuth, provider))
 ```
 
 ### 5. Simple Registration
 ```go
-goal.Register[HomePage](app, mux, "/")
+goal.Register[*HomePage](app, mux, "/")
 goal.RegisterGroup[GamesGroup](app, mux, "/games")
 ```
 
@@ -215,7 +215,7 @@ app := goal.NewApp(vc, templates)
 
 // 4. Register Routes
 mux := http.NewServeMux()
-goal.Register[HomePage](app, mux, "/")
+goal.Register[*HomePage](app, mux, "/")
 
 // 5. Serve
 http.ListenAndServe(":8080", mux)
