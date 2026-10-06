@@ -3,7 +3,7 @@ title: "Guide"
 description: "How to build with goapplib, one topic per page."
 ---
 
-Running an app's Go handlers in the browser, with live demos:
+Two pages cover running an app's Go handlers in the browser, each with a live demo.
 
 1. [Go handlers in a Web Worker](wasmhost/) covers wasmhost's pieces, mounting files, and the Connect transport.
 2. [State, heavy jobs and long requests](wasmhost-state/) covers the cache, throwaway workers, lanes, streaming and aborts.

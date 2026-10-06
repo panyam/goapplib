@@ -54,7 +54,9 @@ names a demo with no source.
 
 Each demo runs in its own iframe, so it has its own document, globals and styles, and opens on its
 own as a plain page. The frame is same-origin and shares the page's main thread, so it separates a
-demo rather than sandboxing it; heavy work belongs in a worker, as it would in an app. It imports `demos/_lib/frame.ts`, which gives the frame the site's theme, and calls `ready()`
+demo rather than sandboxing it. Heavy work belongs in a worker, as it would in an app.
+
+A demo imports `demos/_lib/frame.ts`, which gives the frame the site's theme, and calls `ready()`
 once it works or `failed(why)` if it doesn't. `run.mjs` waits up to 30 seconds for one of them on
 every demo, and fails the run on an error or on silence. A demo can import goapplib's TS straight
 from the repo (`../../../tsappkit/src/...`), the way the exercises do, so it shows the code on
@@ -80,6 +82,6 @@ first guess.
 `run.mjs` serves `dist/` under `/goapplib/` the way Pages does, loads every page, fails on a page
 error or a non-200, and runs every demo. Screenshots of each demo land in `dist-screenshots/`, and
 CI keeps them as the `docsite-screenshots` artifact. It also checks for what mission #91 still
-needs (the wasmhost and islands demos, the guide pages, the old guides retired). Those sit in
-`pending` with their ticket: a pending check that fails is reported, and one that passes fails the
-run (`XPASS`), so the PR that makes it pass takes it off the list.
+needs (the islands demos, the rest of the guide's pages, and retiring the old guides). Those checks
+sit in `pending` with their ticket. A pending check that fails is reported without failing the run,
+and one that passes fails it (`XPASS`), so the PR that makes it pass takes it off the list.
