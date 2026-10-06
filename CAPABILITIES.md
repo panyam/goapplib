@@ -1,14 +1,15 @@
 # GoAppLib
 
 ## Version
-0.7.1
+0.7.2
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)
 - view-context: Generic ViewContext type system for page rendering
 - mux-builder: `app.NewMux()` builds a ServeMux fluently (`Page`, `Group`, `Handler`, `HandleFunc`, `Static`, `Use`); since 0.7.1 `Page` serves the same handler as `Register` (it panicked without `WithTemplate` before) and `Use` wraps later routes (#111)
 - page-mixins: Composable mixins (BasePage, WithPagination, WithFiltering, WithAuth, WithHtmx), chained with `LoadAll(r, w, app, loaders...)`. Since 0.7.0 `Loader` is non-generic (`Load(r, w, app any)`), which the mixins already satisfy, and an app's own steps are `LoaderFunc[AC]`, typed; before that no mixin was a `Loader[AC]` (#107)
-- htmx-support: HTMX request detection and response utilities
+- htmx-support: HTMX request detection and response utilities; `WithFragmentTemplate(spec)` (0.7.2) makes `Register` and `MuxBuilder.Page` render a fragment for an htmx request a view's `ShouldRenderFragment` accepts, and `SmartRegister` wraps it (#96)
+- template-funcs: `DefaultFuncMap` has `add` and `sub` (0.7.2), which `Pagination` and `SearchFilter` need; `WithPagination.TotalPages()` (0.7.2) for `Pagination` (#96)
 - responsive-ui: Built-in UI components (drawers, modals, pagination, search filters)
 - border-layout: 5-region layout component (North/South/East/West/Center) with pure CSS flexbox
 - users-service: UsersService with multi-backend support (FS, GORM, Google Datastore)

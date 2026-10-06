@@ -13,8 +13,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const pending = {
-  "page:guide/templates": "#96",
-  "guide-off-github": "#97",
+  "page:reference/api": "#97",
 };
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
