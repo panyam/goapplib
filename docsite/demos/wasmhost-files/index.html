@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wasmhost: files and Connect</title>
+<style>
+  .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .5rem 0; }
+  textarea { width: 100%; box-sizing: border-box; font: 14px/1.4 ui-monospace, monospace; padding: .4rem; }
+  .out { font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap; margin: .4rem 0; }
+  #drop { border: 2px dashed #6b7280; border-radius: 6px; padding: .6rem; text-align: center; opacity: .8; }
+  #drop.over { border-color: #34d399; opacity: 1; }
+  #pulse { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #34d399; animation: pulse 0.6s infinite alternate; }
+  @keyframes pulse { from { transform: scale(.4); } to { transform: scale(1.2); } }
+  ol { margin: .3rem 0; padding-left: 1.4rem; font-size: 14px; }
+</style>
+</head>
+<body>
+<ol id="steps"></ol>
+<div class="row"><label for="text"><code>docs/hello.txt</code>, which the page mounts into the worker:</label></div>
+<textarea id="text" rows="2">hello from a mounted file</textarea>
+<div class="row">
+  <button id="read" type="button" disabled>Mount it and read it back</button>
+  <button id="spin" type="button" disabled>Keep the worker busy for 2 s</button>
+  <span id="pulse" title="Animated on the page's thread"></span>
+</div>
+<div id="drop">Or drop a file or folder here, to mount it as <code>dropped/</code> and read its first file.</div>
+<div id="out" class="out"></div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

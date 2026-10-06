@@ -15,7 +15,7 @@ The Go module, `github.com/panyam/goapplib`. A page is a view: a Go type that lo
 
 ## wasmhost
 
-`wasmhost` (Go) and `@panyam/tsappkit/wasmhost` (TS) run an app's own HTTP or Connect handlers as wasm inside a Web Worker. The page pushes the files the handlers read into the worker, and its generated Connect clients talk to the worker through `workerFetch`, so they don't know whether a server or the worker answered. A cache keeps state across a reload, and lanes give long jobs their own worker.
+`wasmhost` (Go) and `@panyam/tsappkit/wasmhost` (TS) run an app's own HTTP or Connect handlers as wasm inside a Web Worker. The page pushes the files the handlers read into the worker, and its generated Connect clients talk to the worker through `workerFetch`, so they don't know whether a server or the worker answered. A cache keeps state across a reload, and lanes give long jobs their own worker. The [guide]({{.Site.PathPrefix}}/guide/wasmhost/) walks through it with live demos.
 
 ## Demos on this site
 

@@ -3,6 +3,11 @@
   "private": true,
   "description": "goapplib's documentation site: bundles its live demos, and drives them in headless Chromium (mission #91).",
   "type": "module",
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.0.0",
+    "@connectrpc/connect": "^2.0.0",
+    "@connectrpc/connect-web": "^2.0.0"
+  },
   "devDependencies": {
     "esbuild": "^0.25.0",
     "playwright-core": "1.63.0"

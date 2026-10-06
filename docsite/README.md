@@ -60,6 +60,21 @@ every demo, and fails the run on an error or on silence. A demo can import goapp
 from the repo (`../../../tsappkit/src/...`), the way the exercises do, so it shows the code on
 `main` rather than the last npm release.
 
+### Demos with Go in a worker
+
+A demo with a `wasm/` directory (a `main` package with `//go:build js && wasm`) gets three more
+files from `build.mjs`: its Go built as `app.wasm`, `wasm_exec.js` from the same Go toolchain, and
+tsappkit's wasmhost worker as `worker.js`, bundled from `tsappkit/src/wasmhost/worker.ts`. All three
+are versioned by content hash, and the demo reaches them through `assets` from `_lib/frame.ts`:
+`startWorker({ ...assets, ns: "files" })`. The Go builds in this module, which requires goapplib
+with `replace ../`, so a demo can import the exercises' services (`exercise/wasmhost/service`,
+`exercise/workerstate/service`) and runs against the goapplib on `main`. A demo that imports the
+exercises' generated Connect code gets `@bufbuild/*` and `@connectrpc/*` from this package, never
+from the exercise's own `node_modules` (the one-copy plugin in `build.mjs`).
+
+A frame sizes itself to its content (`_lib/frame.ts`), so the height a page gives `demo` is only the
+first guess.
+
 ## The exercise
 
 `run.mjs` serves `dist/` under `/goapplib/` the way Pages does, loads every page, fails on a page

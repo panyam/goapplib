@@ -13,7 +13,6 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const pending = {
-  "demo:wasmhost": "#48",
   "demo:islands": "#93",
   "page:guide/getting-started": "#94",
   "page:guide/views": "#95",
