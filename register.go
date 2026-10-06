@@ -14,6 +14,8 @@ type Option func(*options)
 type options struct {
 	templateFileName  string
 	templateBlockName string
+	fragmentFileName  string
+	fragmentBlockName string
 	middleware        []func(http.Handler) http.Handler
 }
 
@@ -59,6 +61,17 @@ func ParseTemplateSpec(spec string) (fileName, blockName string) {
 		blockName = baseFileName(spec) // Auto-derive from base filename
 	}
 	return
+}
+
+// WithFragmentTemplate sets the template a page renders for an htmx request that wants a fragment
+// rather than the whole page: when the view is HtmxAware (embedding WithHtmx makes it so, once
+// WithHtmx has loaded) and its ShouldRenderFragment is true, which it is for an htmx request that
+// isn't a boosted link. Any other request, or a view that isn't HtmxAware, gets the page's usual
+// template. spec has WithTemplate's form, "path/File" or "path/File:Block".
+func WithFragmentTemplate(spec string) Option {
+	return func(o *options) {
+		o.fragmentFileName, o.fragmentBlockName = ParseTemplateSpec(spec)
+	}
 }
 
 // WithMiddleware adds middleware to the handler.
@@ -120,8 +133,14 @@ func pageHandler[AC any](app *App[AC], typeName string, newView func() View[AC],
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if renderErr := app.RenderTemplate(w, templateFileName, templateBlockName, view); renderErr != nil {
-			log.Printf("Render error for %s[%s]: %v", templateFileName, templateBlockName, renderErr)
+		file, block := templateFileName, templateBlockName
+		if o.fragmentFileName != "" {
+			if h, ok := view.(HtmxAware); ok && h.ShouldRenderFragment() {
+				file, block = o.fragmentFileName, o.fragmentBlockName
+			}
+		}
+		if renderErr := app.RenderTemplate(w, file, block, view); renderErr != nil {
+			log.Printf("Render error for %s[%s]: %v", file, block, renderErr)
 			http.Error(w, "Template render error", http.StatusInternalServerError)
 		}
 	})
@@ -191,9 +210,10 @@ func RegisterHandler(
 	return mux
 }
 
-// SmartRegister registers a View that can render as full page or fragment.
-// Uses HTMX detection to choose the appropriate template.
-// Template specs use the same format as WithTemplate: "path/file:BlockName"
+// SmartRegister registers a View that renders fullTemplateSpec as a page and fragmentTemplateSpec
+// for an htmx request that wants a fragment. It's Register with WithTemplate(fullTemplateSpec) and
+// WithFragmentTemplate(fragmentTemplateSpec), kept for the code that calls it; new code can pass
+// WithFragmentTemplate to Register or MuxBuilder.Page directly.
 func SmartRegister[V interface {
 	View[AC]
 	HtmxAware
@@ -205,53 +225,8 @@ func SmartRegister[V interface {
 	fragmentTemplateSpec string,
 	opts ...Option,
 ) *http.ServeMux {
-	if mux == nil {
-		mux = http.NewServeMux()
-	}
-
-	// Apply options
-	o := &options{}
-	for _, opt := range opts {
-		opt(o)
-	}
-
-	// Parse template specs
-	fullFileName, fullBlockName := ParseTemplateSpec(fullTemplateSpec)
-	fragFileName, fragBlockName := ParseTemplateSpec(fragmentTemplateSpec)
-
-	// Create handler
-	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		view := newInstance[V]()
-
-		err, finished := view.Load(r, w, app)
-		if finished {
-			return
-		}
-
-		if err != nil {
-			log.Printf("View load error: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Choose template based on HTMX
-		fileName, blockName := fullFileName, fullBlockName
-		if view.ShouldRenderFragment() {
-			fileName, blockName = fragFileName, fragBlockName
-		}
-
-		if renderErr := app.RenderTemplate(w, fileName, blockName, view); renderErr != nil {
-			http.Error(w, "Template render error", http.StatusInternalServerError)
-		}
-	})
-
-	// Apply middleware
-	for i := len(o.middleware) - 1; i >= 0; i-- {
-		handler = o.middleware[i](handler)
-	}
-
-	mux.Handle(pattern, handler)
-	return mux
+	opts = append([]Option{WithTemplate(fullTemplateSpec), WithFragmentTemplate(fragmentTemplateSpec)}, opts...)
+	return Register[V](app, mux, pattern, opts...)
 }
 
 // HtmxAware is implemented by views that can detect HTMX requests.
