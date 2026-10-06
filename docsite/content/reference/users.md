@@ -30,7 +30,7 @@ All three embed `services.BaseUsersService`, which does the reads, `EnsureUser` 
 
 A new backend implements `services.UserStorageProvider` (`LoadUser`, `ListAllUsers`, `SaveUser`, `DeleteFromStorage`, `UserExists`) and embeds `BaseUsersService` for the rest. The [filesystem backend](https://github.com/panyam/goapplib/blob/main/services/backends/fs/users_service.go) is the shortest one to copy.
 
-We ran into one catch writing this page, tracked as [#114]. (https://github.com/panyam/goapplib/issues/114) With the cache on, which all three backends turn on, `GetUser` can hand back the cached `User` itself, so changing a field on what you got changes the cache, saved or not. Edit a copy (`proto.Clone`), as the example's `SetTheme` does.
+We ran into one catch writing this page, tracked as [#114](https://github.com/panyam/goapplib/issues/114). With the cache on, which all three backends turn on, `GetUser` can hand back the cached `User` itself, so changing a field on what you got changes the cache, saved or not. Edit a copy (`proto.Clone`), as the example's `SetTheme` does.
 
 ## Auth
 
