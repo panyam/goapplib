@@ -101,6 +101,63 @@ export default function counter(el: HTMLElement, island: IslandSpec, ctx: unknow
 }
 ```
 
+## One presenter, several islands
+
+Two islands that show the same thing (a tool panel and a history of what was picked in it) shouldn't each keep their own copy and sync through the EventBus. One presenter owns the state, each island implements a view interface the presenter declares, and the page builds the presenter once in `makeContext` so every island's factory gets the same one. The [presenter thesis](https://github.com/panyam/goapplib/blob/main/docs/PRESENTER_CONTRACT_THESIS.md) has the reasoning; this section is the code.
+
+A presenter keeps a `Port` per view interface. `each` sends a command to every view attached to it, and the function given to the constructor runs on each view as it attaches. That second part matters for islands, since a `visible` or `idle` island attaches long after the presenter's state has moved on, and the replay is how it catches up:
+
+```ts
+import { Port } from "@panyam/tsappkit";
+
+export class EditorPresenter {
+  private color: Color = "red";
+  private picks: Color[] = [];
+  readonly tools = new Port<ToolsView>((v) => v.setColor(this.color));
+  readonly history = new Port<HistoryView>((v) => v.setPicks(this.picks));
+
+  pick(c: Color) {
+    this.color = c;
+    this.picks = [...this.picks, c];
+    this.tools.each((v) => v.setColor(c));
+    this.history.each((v) => v.setPicks(this.picks));
+  }
+}
+```
+
+The presenter imports no framework. In a Solid island, `signalView` backs the view method with a signal, and `useView` attaches the view for as long as the island is active, so the presenter never calls into an island that has gone:
+
+```tsx
+import { SolidIsland, signalView, useView } from "@panyam/tsappkit-solid";
+
+export default function history(el: HTMLElement, island: IslandSpec, ctx: { editor: EditorPresenter }, bus: EventBus) {
+  return new SolidIsland("history", el, () => {
+    const [picks, setPicks] = signalView<readonly Color[]>([]);
+    useView(ctx.editor.history, { setPicks });
+    return <p>History: {picks().join(", ")}</p>;
+  }, bus);
+}
+```
+
+In the demo, the history island loads `visible`, below a spacer. Its check makes two picks before it mounts, scrolls to it, and expects to see them:
+
+{{ demo "islands-presenter" 300 }}
+
+The page side is an `IslandPage` whose context holds the presenter:
+
+```ts
+class EditorPage extends IslandPage<{ editor: EditorPresenter }> {
+  protected registry() {
+    return { tools, history };
+  }
+  protected makeContext() {
+    return { editor: new EditorPresenter() };
+  }
+}
+```
+
+A hand-written island attaches in `activate` and calls the function `attach` returned in `deactivate`.
+
 ## Lazy islands and preload links
 
 A registry entry wrapped in `lazy` loads its island's module only when the island mounts. With esbuild's `--splitting`, each island is its own chunk, so a page downloads only the islands its spec names, each when its `Load` says. A chunk that fails to load is logged and skipped.
