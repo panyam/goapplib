@@ -1,0 +1,25 @@
+{{ define "page" }}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Islands: one presenter, two islands</title>
+{{ template "IslandPreloads" .Preloads }}
+<style>
+  [data-slot] { border: 2px solid #34d399; border-radius: 6px; padding: .6rem .8rem; margin: .4rem 0; min-height: 3rem; }
+  [data-slot] button { margin-right: .3rem; }
+  [aria-pressed="true"] { font-weight: bold; }
+  .skeleton { height: 1rem; border-radius: 4px; background: #6b728055; margin: .4rem 0; width: 60%; }
+  .spacer { height: 480px; display: flex; align-items: center; color: #6b7280; font-size: 14px; }
+  ol { margin: .3rem 0; padding-left: 1.4rem; font-size: 14px; }
+</style>
+</head>
+<body>
+<ol id="steps"></ol>
+<section data-slot="tools"><div class="skeleton"></div><noscript>The tools need JavaScript.</noscript></section>
+<div class="spacer">The history island loads once it's scrolled into view.</div>
+<section data-slot="history"><div class="skeleton"></div><noscript>The history needs JavaScript.</noscript></section>
+{{ template "PageSpecScript" .Spec }}
+<script type="module" src="{{ .Main }}"></script>
+</body>
+</html>{{ end }}

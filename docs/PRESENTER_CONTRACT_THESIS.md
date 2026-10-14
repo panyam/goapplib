@@ -327,6 +327,11 @@ re-deriving the pieces per app.
 - `EventBus` exists for **intra-view** coordination between sibling widgets. Per Principle
   3, it is not the presenter contract. Do not route presenter commands or intents through
   it.
+- `Port<V>` holds the views a presenter drives through one view interface. A presenter keeps
+  one per interface (`readonly tools = new Port<ToolsView>(replay)`), sends commands with
+  `each`, and the replay brings a view that attaches late up to the current state. That is
+  how one presenter drives several islands that mount at different times; the islands guide
+  (https://panyam.github.io/goapplib/guide/islands/) has a live demo.
 - The core has zero framework dependencies. That invariant is what keeps every consumer
   free to pick a frontend stack.
 
@@ -339,6 +344,8 @@ re-deriving the pieces per app.
   accessor drives JSX, the returned setter is the command-down method the presenter calls.
   It always writes via the updater form (`set(() => next)`) so it stays correct even when
   the state type is itself a function, a Solid footgun a shared helper should own once.
+- `useView(port, view)` attaches a view to a presenter's `Port` while the island is active
+  and detaches it when the island is disposed.
 - `solid-js` is a **peerDependency**, so the framework is pulled only by apps that opt into
   this adapter.
 

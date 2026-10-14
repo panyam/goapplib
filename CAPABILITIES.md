@@ -1,7 +1,7 @@
 # GoAppLib
 
 ## Version
-0.7.4
+0.7.5
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)
@@ -29,6 +29,7 @@
 - worker-streaming: `wasmhost.Host.DoStream` hands each `Flush` to a callback while the handler runs, and the `http` export's chunk callback carries them to the page, so `workerFetch` (0.6.7) resolves at the first flush with a streamed body; aborting sends `cancel(id)`, which ends the handler's context. `oneShotFetch` and lanes hold their worker until a streamed body ends (#78)
 - worker-watermark: `startLane(opts, { maxMemoryBytes, onRestart })` (0.6.8) measures the worker's wasm memory when the lane goes idle and, past the limit, replaces it with a fresh worker warmed from the cache, never interrupting a request (#79)
 - worker-heap: the Go wasm exports `stats(gc?)` with the worker's Go heap (`runtime.MemStats`), and `@panyam/tsappkit/wasmhost` 0.7.4's `workerStats(worker, { gc })` returns it beside the wasm memory; a lane's `restartIf(stats)` decides on the live heap, so a worker whose state fills its memory isn't replaced for nothing; `onRestart` gets the stats (#117)
+- presenter-ports: `@panyam/tsappkit` 0.7.5's `Port<V>`, the views a presenter drives through one view interface (`attach` returns a detach, `each` sends a command, a constructor replay brings a late view up to date), so one presenter drives several islands that mount at different times; `@panyam/tsappkit-solid`'s `useView(port, view)` attaches for the island's lifetime. The islands guide's `islands-presenter` demo shows it (#41)
 
 ## Module
 github.com/panyam/goapplib

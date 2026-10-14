@@ -1,6 +1,6 @@
 {
   "name": "@panyam/tsappkit-solid",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Solid adapter for @panyam/tsappkit: mount Solid islands inside the tsappkit component lifecycle. The framework-specific reactivity lives here so tsappkit core stays framework-neutral.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -46,7 +46,7 @@
     "@solidjs/testing-library": "^0.8.10",
     "esbuild-plugin-solid": "^0.6.0",
     "jsdom": "^29.1.1",
-    "solid-js": "^1.9.14",
+    "solid-js": "^1.9.17",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vite-plugin-solid": "^2.11.12",

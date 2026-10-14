@@ -27,6 +27,9 @@ export { TemplateLoader } from './TemplateLoader';
 export { SplashScreen } from './SplashScreen';
 export { MobileBottomDrawer } from './MobileBottomDrawer';
 
+// Presenter ports (one presenter driving several views)
+export { Port } from './Port';
+
 // Island pages (islands mounted from a server-written page spec)
 export { IslandPage } from './page/IslandPage';
 export { readSpec, SPEC_ELEMENT_ID } from './page/spec';
