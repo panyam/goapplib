@@ -11,11 +11,11 @@ It's the Go module, `github.com/panyam/goapplib`. A page is a view, a Go type th
 
 ## tsappkit
 
-`@panyam/tsappkit` is the browser half. `BasePage` gives a page a component lifecycle, and `IslandPage` mounts the islands a Go page declares in its page spec, each when its load strategy says to: at once, when the browser is idle, when its slot scrolls into view, or when a media query matches. `@panyam/tsappkit-solid` adds `SolidIsland`, for islands written in Solid. The [guide]({{.Site.PathPrefix}}/guide/islands/) shows both with live demos.
+`@panyam/tsappkit` is the browser half. `BasePage` gives a page a component lifecycle, and `IslandPage` mounts the islands a Go page declares in its page spec, each when its load strategy says to: at once, when the browser is idle, when its slot scrolls into view, or when a media query matches. `@panyam/tsappkit-solid` adds `SolidIsland`, for islands written in Solid. Islands that show the same state share one presenter, which drives each through a `Port`. The [guide]({{.Site.PathPrefix}}/guide/islands/) shows both with live demos.
 
 ## wasmhost
 
-`wasmhost` (Go) and `@panyam/tsappkit/wasmhost` (TS) run an app's own HTTP or Connect handlers as wasm inside a Web Worker. The page pushes the files the handlers read into the worker, and its generated Connect clients talk to the worker through `workerFetch`, so they don't know whether a server or the worker answered. A cache keeps state across a reload, and lanes give long jobs their own worker. The [guide]({{.Site.PathPrefix}}/guide/wasmhost/) walks through it with live demos.
+`wasmhost` (Go) and `@panyam/tsappkit/wasmhost` (TS) run an app's own HTTP or Connect handlers as wasm inside a Web Worker. The page pushes the files the handlers read into the worker, and its generated Connect clients talk to the worker through `workerFetch`, so they don't know whether a server or the worker answered. A cache keeps state across a reload, lanes give long jobs their own worker, and `workerStats` reports a worker's live Go heap beside its wasm memory, so a lane replaces a worker only when a fresh one would come back smaller. The [guide]({{.Site.PathPrefix}}/guide/wasmhost/) walks through it with live demos.
 
 ## Demos on this site
 

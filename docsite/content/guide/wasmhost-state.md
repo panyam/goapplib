@@ -86,7 +86,7 @@ const serve = startLane(opts, {
 });
 ```
 
-With both set, the lane restarts when the worker is past `maxMemoryBytes` and `restartIf` agrees. `workerStats(worker, { gc: true })` gives the same figures on demand. `heap.heapAlloc` is the live heap, and `sys` is what Go has taken from the wasm memory.
+With both set, the lane restarts when the worker is past `maxMemoryBytes` and `restartIf` agrees, and it only asks for the collection once the worker is past the limit. That collection takes a while on a big heap (agni measured 187 ms on a 377 MB live heap), and a request arriving meanwhile waits for it, so set `maxMemoryBytes` whenever you set `restartIf`; on its own, `restartIf` pays a collection every time the lane goes idle. `workerStats(worker, { gc: true })` gives the same figures on demand. `heap.heapAlloc` is the live heap, and `sys` is what Go has taken from the wasm memory.
 
 ## Keeping the peak down
 

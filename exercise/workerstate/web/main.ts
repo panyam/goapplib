@@ -12,6 +12,7 @@ const JOB_MS = 2000;
 const FLAG = "workerstate-ingested";
 const WATERMARK = 96 << 20;
 const CHURN_MB = 100;
+const QUICK_QUERIES = 10;
 
 type Data = Record<string, unknown> & { phase?: string; done?: boolean; error?: string };
 const data: Data = {};
@@ -140,6 +141,15 @@ async function run() {
 
   // A request that allocates and drops 100 MB leaves the serving worker past its 96 MB limit; once
   // it's idle the lane replaces it, and the next request is answered by a warmed replacement.
+  // Under its 96 MB limit, the serving lane shouldn't make its worker collect garbage when it goes
+  // idle (issue 121): count the worker's collections across ten quick queries.
+  const gcs = async () => (await workerStats(await serve.worker())).heap?.numGC ?? -1;
+  const gcBefore = await gcs();
+  for (let i = 0; i < QUICK_QUERIES; i++) await getState();
+  await sleep(200);
+  data.idleGCs = (await gcs()) - gcBefore;
+  log(`${QUICK_QUERIES} quick queries under the limit: the serving worker collected ${data.idleGCs} times`);
+
   data.memBeforeChurn = await workerMemory(await serve.worker());
   await (await post("/churn", { mb: CHURN_MB })).json();
   // The lane measures once the churn's response is read and it's idle; wait for that, not a guess.
