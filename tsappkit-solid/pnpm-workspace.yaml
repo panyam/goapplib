@@ -2,3 +2,5 @@ allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - '@panyam/tsappkit@0.1.0'
+overrides:
+  esbuild: ^0.28.1
