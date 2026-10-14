@@ -6,7 +6,7 @@
 // It is a classic worker, built as an IIFE, because Go's wasm_exec.js is a plain script defining
 // globalThis.Go, which importScripts can load and a module worker cannot. The asset URLs and the
 // namespace come in the worker's query string (?wasm=&exec=&ns=), which startWorker writes.
-import type { Files, HostChunk, HostReply, HostRequest, HostStatus } from "./protocol";
+import type { Files, HeapStats, HostChunk, HostReply, HostRequest, HostStatus } from "./protocol";
 import { workerCache } from "./cache";
 
 interface Exports {
@@ -24,6 +24,8 @@ interface Exports {
   mount(name: string, files: Files): Promise<void>;
   add(name: string, files: Files): Promise<void>;
   unmount(name: string): Promise<void>;
+  /** Missing in a wasm built against goapplib before 0.7.4; stats then has no heap. */
+  stats?(gc: boolean): Promise<HeapStats>;
 }
 
 // The project compiles against the DOM lib, which describes a window, and the WebWorker lib can't
@@ -96,7 +98,8 @@ self.onmessage = async (ev) => {
       await host.add(req.name, req.files);
       post({ id: req.id, ok: true });
     } else if (req.kind === "stats") {
-      post({ id: req.id, ok: true, memoryBytes: memory?.buffer.byteLength ?? 0 });
+      const heap = await host.stats?.(req.gc === true);
+      post({ id: req.id, ok: true, memoryBytes: memory?.buffer.byteLength ?? 0, heap });
     } else if (req.kind === "cancel") {
       await host.cancel?.(req.target);
       post({ id: req.id, ok: true });

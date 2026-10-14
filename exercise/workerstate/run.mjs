@@ -128,14 +128,23 @@ async function drive(url) {
     );
 
     const restarts = first.restarts ?? [];
+    const heapMB = (s) => (s?.heap ? mb(s.heap.heapAlloc) : "none");
     check(
       "restart-past-watermark",
       restarts.length === 1 &&
-        restarts[0] > 96 << 20 &&
+        restarts[0].memoryBytes > 96 << 20 &&
         first.stateAfterChurn?.restored === true &&
         first.stateAfterChurn?.checksum === first.ingest?.checksum &&
         first.memAfterChurn < 96 << 20,
-      `serving worker at ${mb(first.memBeforeChurn)} before a 100 MB churn; lane restarts at [${restarts.map(mb)}]; after: ${mb(first.memAfterChurn)}, restored ${first.stateAfterChurn?.restored}, checksum ${first.stateAfterChurn?.checksum === first.ingest?.checksum ? "same" : "different"}; want one restart past 96 MB, then under it with the state restored`,
+      `serving worker at ${mb(first.memBeforeChurn)} before a 100 MB churn; lane restarts at [${restarts.map((s) => mb(s.memoryBytes))}]; after: ${mb(first.memAfterChurn)}, restored ${first.stateAfterChurn?.restored}, checksum ${first.stateAfterChurn?.checksum === first.ingest?.checksum ? "same" : "different"}; want one restart past 96 MB, then under it with the state restored`,
+    );
+
+    const live = restarts[0]?.heap?.heapAlloc;
+    const after = first.statsAfterChurn;
+    check(
+      "live-heap-below-memory",
+      live !== undefined && live * 2 < restarts[0].memoryBytes && after?.heap !== undefined && after.heap.heapAlloc <= after.memoryBytes,
+      `after the churn the serving worker held ${heapMB(restarts[0])} live in ${restarts[0] ? mb(restarts[0].memoryBytes) : "?"} of wasm memory; its replacement holds ${heapMB(after)} in ${after ? mb(after.memoryBytes) : "?"}; want the live heap under half the memory that restarted it (goapplib issue 117)`,
     );
 
     check("console", errors.length === 0, errors.length ? errors.join(" | ") : "no console errors");

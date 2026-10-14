@@ -271,3 +271,41 @@ func TestCancelEndsTheRequestsContext(t *testing.T) {
 		t.Fatalf("cancelling a finished request: %s", s.err)
 	}
 }
+
+var sink []byte
+
+func TestStatsReportsTheLiveHeapBelowWhatTheHeapReached(t *testing.T) {
+	ns := exportFresh(t, New("wasmhostTestStats"))
+	if ns.Get("stats").Type() != js.TypeFunction {
+		t.Fatal("no stats export")
+	}
+	sink = make([]byte, 64<<20)
+	for i := range sink {
+		sink[i] = byte(i)
+	}
+	sink = nil
+
+	before := await(t, ns.Call("stats"))
+	if before.err != "" {
+		t.Fatalf("stats: %s", before.err)
+	}
+	after := await(t, ns.Call("stats", true))
+	if after.err != "" {
+		t.Fatalf("stats(true): %s", after.err)
+	}
+	for _, k := range []string{"heapAlloc", "heapInuse", "totalAlloc", "sys", "numGC"} {
+		if after.value.Get(k).Type() != js.TypeNumber {
+			t.Errorf("%s is %s, want a number", k, after.value.Get(k).Type())
+		}
+	}
+	if b, a := before.value.Get("numGC").Int(), after.value.Get("numGC").Int(); a <= b {
+		t.Errorf("numGC %d then %d: stats(true) didn't collect", b, a)
+	}
+	live, sys := after.value.Get("heapAlloc").Float(), after.value.Get("sys").Float()
+	if live > 32<<20 || sys < 64<<20 {
+		t.Errorf("heapAlloc %.0f MB, sys %.0f MB: want the dropped 64 MB gone from the first and counted in the second", live/(1<<20), sys/(1<<20))
+	}
+	if total := after.value.Get("totalAlloc").Float(); total < 64<<20 {
+		t.Errorf("totalAlloc %.0f MB, want at least the 64 MB allocated", total/(1<<20))
+	}
+}

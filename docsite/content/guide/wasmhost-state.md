@@ -75,6 +75,32 @@ Aborting a request on a lane (`init.signal`) terminates the lane's worker and st
 
 `maxMemoryBytes` covers the slower problem, a worker that creeps up through many requests that each allocate and drop some memory. The lane checks its worker's memory whenever it goes idle, and past the limit replaces it with a warmed one. It never interrupts a request. Size it above what the warmed state needs, or the lane restarts after every request. The demo's last step pushes the serving worker past its 48 MB limit on purpose and watches it come back.
 
+Wasm memory is the worker's peak, though, so it can't tell a worker full of garbage from one full of state. A replacement restores the same state, so replacing a worker whose state fills its memory gives nothing back and costs a warm. `restartIf` decides from `workerStats`, which adds the Go heap measured right after a collection:
+
+```ts
+const serve = startLane(opts, {
+  warm,
+  maxMemoryBytes: 96 << 20,
+  // Past 96 MB, restart only if the live heap is under half of it.
+  restartIf: ({ memoryBytes, heap }) => heap !== undefined && heap.heapAlloc * 2 < memoryBytes,
+});
+```
+
+With both set, the lane restarts when the worker is past `maxMemoryBytes` and `restartIf` agrees. `workerStats(worker, { gc: true })` gives the same figures on demand. `heap.heapAlloc` is the live heap, and `sys` is what Go has taken from the wasm memory.
+
+## Keeping the peak down
+
+Go's collector lets the heap grow to twice what's live before it collects (`GOGC=100`), so a request that allocates a lot and keeps a little grows the wasm memory to about twice the live heap, and that memory stays. A memory limit makes the collector run harder as the heap nears it, which keeps the peak closer to the live heap, at the cost of more collections. Set it in the worker's `main` before serving:
+
+```go
+func main() {
+	debug.SetMemoryLimit(128 << 20) // runtime/debug
+	wasmhost.Serve("state", handler)
+}
+```
+
+`debug.SetGCPercent` lowers `GOGC` the same way. Neither helps when one allocation is itself the peak, like a single 100 MB buffer, and a limit below the live heap only makes the collector run constantly.
+
 ## Streaming and cancelling
 
 A handler that writes and calls `Flush` (`http.Flusher`) streams to the page as it runs. `workerFetch`'s Response resolves at the first flush, and its body delivers each flush as it happens. That works even from a loop that never yields, because sending a chunk is a synchronous call from Go into JS. The demo's "Run a 3 s job" moves its progress bar that way, from NDJSON lines the job flushes every 250 ms.

@@ -75,7 +75,7 @@ The buffers are transferred to the worker rather than copied, so each `Uint8Arra
 
 For files the user drops on the page, `filesFromDrop(event.dataTransfer)` reads dropped files and folders into the shape `mountFiles` takes, and `filesFromFileList` does the same for an `<input type="file">`. Try dropping a folder on the demo above.
 
-`workerMemory(worker)` reports how much wasm memory the worker holds. Wasm memory grows and never shrinks, so that's the peak so far, which is worth checking before handing a phone a bigger job.
+`workerMemory(worker)` reports how much wasm memory the worker holds. Wasm memory grows and never shrinks, so that's the peak so far, which is worth checking before handing a phone a bigger job. `workerStats(worker, { gc })` adds the Go heap inside it (`heap.heapAlloc` and friends, from `runtime.MemStats`), and with `gc: true` it collects first, so `heapAlloc` is what the worker holds live. The lanes guide uses it to decide whether replacing a worker gets memory back.
 
 ## Fixed handlers and rebuilt ones
 

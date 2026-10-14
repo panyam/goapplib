@@ -4,7 +4,7 @@
 // request nor an abort can reach it. A lane holds one worker it can replace: aborting a request
 // on it terminates the worker, which is the only way to stop a job that never yields, and starts
 // a fresh one, warmed from the shared Cache by the app's warm function.
-import { endWorker, startWorker, untilBodyEnds, workerFetch, workerMemory, type StartWorkerOptions } from "./client";
+import { endWorker, startWorker, untilBodyEnds, workerFetch, workerStats, type StartWorkerOptions, type WorkerStats } from "./client";
 
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -26,8 +26,17 @@ export interface LaneOptions {
    * the warmed state needs, or the lane restarts after every request.
    */
   maxMemoryBytes?: number;
-  /** Called when the lane replaces its worker for passing maxMemoryBytes, with what it held. */
-  onRestart?: (why: { memoryBytes: number }) => void;
+  /**
+   * Decides from the worker's stats whether to replace it, checked at the same idle moments as
+   * maxMemoryBytes. The stats are taken after a collection, so heap.heapAlloc is the live heap,
+   * and a worker whose live heap is near its memory would come back just as large; replacing one
+   * pays when memoryBytes is far above it. With maxMemoryBytes as well, the lane restarts only when
+   * the worker is past that limit and this returns true. heap is absent for a wasm built against
+   * goapplib before 0.7.4.
+   */
+  restartIf?: (stats: WorkerStats) => boolean;
+  /** Called when the lane replaces its worker for maxMemoryBytes or restartIf, with its stats. */
+  onRestart?: (why: WorkerStats) => void;
 }
 
 /** One replaceable worker. See startLane. */
@@ -86,17 +95,20 @@ export function startLane(opts: StartWorkerOptions, lane: LaneOptions = {}): Lan
   };
 
   let inFlight = 0;
-  // Runs when the lane goes idle. A request that starts while workerMemory is out means the lane
+  const checksMemory = lane.maxMemoryBytes !== undefined || lane.restartIf !== undefined;
+  // Runs when the lane goes idle. A request that starts while workerStats is out means the lane
   // isn't idle any more, so the restart waits for the next idle moment.
   const checkMemory = async (w: Worker, of: Promise<Worker>) => {
-    let bytes: number;
+    let stats: WorkerStats;
     try {
-      bytes = await workerMemory(w);
+      stats = await workerStats(w, { gc: lane.restartIf !== undefined });
     } catch {
       return;
     }
-    if (bytes <= lane.maxMemoryBytes! || inFlight !== 0 || current !== of || closed) return;
-    lane.onRestart?.({ memoryBytes: bytes });
+    if (lane.maxMemoryBytes !== undefined && stats.memoryBytes <= lane.maxMemoryBytes) return;
+    if (inFlight !== 0 || current !== of || closed) return;
+    if (lane.restartIf && !lane.restartIf(stats)) return;
+    lane.onRestart?.(stats);
     void replace(w, new Error("wasm host lane: restarted past its memory limit")).catch(() => {});
   };
 
@@ -117,7 +129,7 @@ export function startLane(opts: StartWorkerOptions, lane: LaneOptions = {}): Lan
         if (ended) return;
         ended = true;
         inFlight--;
-        if (inFlight === 0 && lane.maxMemoryBytes !== undefined && current === booting) void checkMemory(w, booting);
+        if (inFlight === 0 && checksMemory && current === booting) void checkMemory(w, booting);
       };
       const run = workerFetch(w)(input, init);
       if (!signal) {
