@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"runtime"
 	"strings"
 	"syscall/js"
 )
@@ -58,6 +59,11 @@ func (h *Host) ServeRebuild(build func(root fs.FS) (http.Handler, error)) {
 //	mount(name, {path: Uint8Array})   resolves when the files are mounted (and, in rebuild mode, built)
 //	add(name, {path: Uint8Array})     the same, but keeps the files the mount already holds (Host.Add)
 //	unmount(name)                     resolves when the mount is gone
+//	stats(gc?)                        resolves the Go heap from runtime.MemStats: {heapAlloc,
+//	                                  heapInuse, totalAlloc, sys, numGC}, in bytes. heapAlloc counts
+//	                                  garbage not yet collected; with gc true it runs a collection
+//	                                  first, so heapAlloc is what the worker holds live, at the cost
+//	                                  of a pause.
 //
 // Arguments are copied into Go before the call returns, so the caller may transfer or reuse its
 // buffers straight away.
@@ -74,6 +80,7 @@ func (h *Host) Export() (release func()) {
 		"add":     js.FuncOf(h.jsAdd),
 		"unmount": js.FuncOf(h.jsUnmount),
 		"cancel":  js.FuncOf(h.jsCancel),
+		"stats":   js.FuncOf(h.jsStats),
 	}
 	for name, f := range fns {
 		obj.Set(name, f)
@@ -153,6 +160,24 @@ func (h *Host) jsCancel(_ js.Value, args []js.Value) any {
 		}
 	}
 	return js.Global().Get("Promise").Call("resolve")
+}
+
+func (h *Host) jsStats(_ js.Value, args []js.Value) any {
+	gc := len(args) > 0 && args[0].Truthy()
+	return promise(func() (js.Value, error) {
+		if gc {
+			runtime.GC()
+		}
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		out := js.Global().Get("Object").New()
+		out.Set("heapAlloc", float64(m.HeapAlloc))
+		out.Set("heapInuse", float64(m.HeapInuse))
+		out.Set("totalAlloc", float64(m.TotalAlloc))
+		out.Set("sys", float64(m.Sys))
+		out.Set("numGC", m.NumGC)
+		return out, nil
+	})
 }
 
 func headersToJS(hdr http.Header) js.Value {

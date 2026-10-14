@@ -15,7 +15,8 @@ export type HostRequest =
     }
   | { id: number; kind: "mount"; name: string; files: Files }
   | { id: number; kind: "add"; name: string; files: Files }
-  | { id: number; kind: "stats" }
+  /** gc: collect garbage first, so heap.heapAlloc is the live heap (a pause in the worker). */
+  | { id: number; kind: "stats"; gc?: boolean }
   | { id: number; kind: "unmount"; name: string }
   /** Cancels the Go context of http request `target`, if it's still running. */
   | { id: number; kind: "cancel"; target: number };
@@ -32,6 +33,20 @@ export type HostChunk = {
   body: Uint8Array;
 };
 
+/** The Go heap inside a worker, in bytes, from runtime.MemStats. */
+export interface HeapStats {
+  /** Bytes of allocated heap objects. Right after a collection (stats with gc), what the worker holds live. */
+  heapAlloc: number;
+  /** Bytes in heap spans in use, which is heapAlloc plus fragmentation. */
+  heapInuse: number;
+  /** Bytes allocated over the worker's life, freed or not. */
+  totalAlloc: number;
+  /** Bytes Go has obtained from the wasm memory, which tracks its size. */
+  sys: number;
+  /** Collections completed so far. */
+  numGC: number;
+}
+
 export type HostReply =
   | {
       id: number;
@@ -41,6 +56,8 @@ export type HostReply =
       body?: Uint8Array;
       /** For stats: the wasm linear memory's size, which only grows. */
       memoryBytes?: number;
+      /** For stats: the Go heap, absent from a wasm built against goapplib before 0.7.4. */
+      heap?: HeapStats;
     }
   | { id: number; ok: false; error: string };
 

@@ -25,9 +25,13 @@ test: ## Run all tests
 	cd tsappkit && pnpm install --frozen-lockfile && pnpm test
 	cd tsappkit-solid && pnpm install --frozen-lockfile && pnpm test
 
-# The timeout matters: a wasmhost export that blocks the event loop hangs rather than failing.
+# The timeout matters: a wasmhost export that blocks the event loop hangs rather than failing. The
+# test binary runs under an empty environment because wasm_exec_node.js copies the environment into
+# the wasm's memory and refuses one over its limit ("total length of command line and environment
+# variables exceeds limit"), which a busy shell's passes.
 wasm-test: ## Run the wasmhost tests as wasm under Node
-	PATH="$(GOROOT_WASM):$$PATH" GOOS=js GOARCH=wasm go test -timeout 60s ./wasmhost/...
+	env -i PATH="$(GOROOT_WASM):$$PATH" HOME="$$(mktemp -d)" GOCACHE="$$(go env GOCACHE)" GOMODCACHE="$$(go env GOMODCACHE)" \
+		GOOS=js GOARCH=wasm go test -timeout 60s ./wasmhost/...
 
 exercise-wasmhost: ## Mission #33 exercise: a toy Connect service as wasm in a Web Worker, in headless Chromium
 	cd $(EXERCISE) && pnpm install --frozen-lockfile

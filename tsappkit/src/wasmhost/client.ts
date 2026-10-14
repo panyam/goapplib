@@ -2,7 +2,7 @@
 // a Web Worker; workerFetch is a fetch to hand a Connect transport, so the app's generated clients
 // talk to the worker exactly as they would to a server; mountFiles pushes files in before the
 // requests that read them.
-import type { Files, HostChunk, HostReply, HostRequest, HostStatus } from "./protocol";
+import type { Files, HeapStats, HostChunk, HostReply, HostRequest, HostStatus } from "./protocol";
 
 export type { Files } from "./protocol";
 
@@ -309,6 +309,29 @@ export async function workerMemory(worker: Worker): Promise<number> {
   const reply = await channel(worker).call({ kind: "stats" }, []);
   if (!reply.ok) throw new Error(reply.error);
   return reply.memoryBytes ?? 0;
+}
+
+/** What workerStats reports about a worker. */
+export interface WorkerStats {
+  /** The wasm linear memory's size, as workerMemory: the peak so far, since it never shrinks. */
+  memoryBytes: number;
+  /**
+   * The Go heap inside it, absent when the wasm was built against goapplib before 0.7.4. Far below
+   * memoryBytes means a fresh worker would come back smaller; near it means one would come back
+   * just as large.
+   */
+  heap?: HeapStats;
+}
+
+/**
+ * The worker's wasm memory and its Go heap. With `gc`, the worker collects garbage first, so
+ * heap.heapAlloc is what it holds live rather than live plus garbage, at the cost of a pause; it
+ * waits behind whatever the worker is running, like any request.
+ */
+export async function workerStats(worker: Worker, opts: { gc?: boolean } = {}): Promise<WorkerStats> {
+  const reply = await channel(worker).call({ kind: "stats", gc: opts.gc === true }, []);
+  if (!reply.ok) throw new Error(reply.error);
+  return { memoryBytes: reply.memoryBytes ?? 0, heap: reply.heap };
 }
 
 /** Removes the mount `name`. Removing a name that isn't mounted succeeds. */

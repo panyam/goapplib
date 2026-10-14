@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addFiles, mountFiles, oneShotFetch, startWorker, unmountFiles, workerFetch, workerMemory } from "./client";
+import { addFiles, mountFiles, oneShotFetch, startWorker, unmountFiles, workerFetch, workerMemory, workerStats } from "./client";
 import type { HostChunk, HostReply, HostRequest, HostStatus } from "./protocol";
 
 // FakeWorker passes each message through structuredClone with its transfer list, as postMessage
@@ -177,6 +177,23 @@ describe("workerMemory", () => {
     const w = worker();
     w.answer = (req) => ({ reply: { id: req.id, ok: false, error: "the engine did not load" } });
     await expect(workerMemory(w)).rejects.toThrow("did not load");
+  });
+});
+
+describe("workerStats", () => {
+  it("asks for a collection only when told to, and resolves with the memory and the Go heap", async () => {
+    const w = worker();
+    const heap = { heapAlloc: 14 << 20, heapInuse: 16 << 20, totalAlloc: 1100 << 20, sys: 560 << 20, numGC: 7 };
+    w.answer = (req) => ({ reply: { id: req.id, ok: true, memoryBytes: 600 << 20, heap } });
+    expect(await workerStats(w, { gc: true })).toEqual({ memoryBytes: 600 << 20, heap });
+    expect(await workerStats(w)).toEqual({ memoryBytes: 600 << 20, heap });
+    expect(w.received.map((r) => r.kind === "stats" && r.gc)).toEqual([true, false]);
+  });
+
+  it("has no heap when the worker's wasm predates the stats export", async () => {
+    const w = worker();
+    w.answer = (req) => ({ reply: { id: req.id, ok: true, memoryBytes: 64 << 20 } });
+    expect(await workerStats(w, { gc: true })).toEqual({ memoryBytes: 64 << 20, heap: undefined });
   });
 });
 

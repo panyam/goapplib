@@ -5,7 +5,7 @@
 // worker restores; then it runs three long jobs (one with a quick query beside it, one read as a stream, one
 // aborted). After a reload, /open should restore, which run.mjs tells from a rebuild by the ingest
 // count.
-import { oneShotFetch, startLane, workerMemory } from "../../../tsappkit/src/wasmhost";
+import { oneShotFetch, startLane, workerMemory, workerStats, type WorkerStats } from "../../../tsappkit/src/wasmhost";
 
 const INGEST = { peakMB: 256, resultMB: 32 };
 const JOB_MS = 2000;
@@ -26,8 +26,9 @@ async function run() {
   const opts = { worker: "worker.js", wasm: "state.wasm", exec: "wasm_exec.js", ns: "state" };
   // The serving worker is a lane too (issue 79): its warm restores the state from the cache (and
   // never ingests, so a replacement can't pull in the ingest's peak), and past 96 MB of wasm memory
-  // the lane swaps it for a fresh, warmed worker once it's idle.
-  const restarts: number[] = [];
+  // the lane swaps it for a fresh, warmed worker once it's idle, provided its live Go heap is under
+  // half that memory (issue 117), so the fresh one comes back smaller.
+  const restarts: WorkerStats[] = [];
   data.restarts = restarts;
   const serve = startLane(opts, {
     warm: async (wf) => {
@@ -36,7 +37,8 @@ async function run() {
       await r.arrayBuffer();
     },
     maxMemoryBytes: WATERMARK,
-    onRestart: ({ memoryBytes }) => restarts.push(memoryBytes),
+    restartIf: ({ memoryBytes, heap }) => heap !== undefined && heap.heapAlloc * 2 < memoryBytes,
+    onRestart: (stats) => restarts.push(stats),
   });
   await serve.worker();
   const f = serve.fetch;
@@ -144,7 +146,9 @@ async function run() {
   for (let i = 0; i < 40 && restarts.length === 0; i++) await sleep(50);
   data.stateAfterChurn = await getState();
   data.memAfterChurn = await workerMemory(await serve.worker());
-  log(`after a ${CHURN_MB} MB churn: lane restarts ${JSON.stringify(restarts.map(mb))}; state ${JSON.stringify(data.stateAfterChurn)}; worker memory ${mb(data.memAfterChurn as number)}`);
+  data.statsAfterChurn = await workerStats(await serve.worker(), { gc: true });
+  const at = (s: WorkerStats) => `memory ${mb(s.memoryBytes)}, live heap ${s.heap ? mb(s.heap.heapAlloc) : "?"}`;
+  log(`after a ${CHURN_MB} MB churn: lane restarts [${restarts.map(at).join("; ")}]; state ${JSON.stringify(data.stateAfterChurn)}; worker ${at(data.statsAfterChurn as WorkerStats)}`);
 }
 
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));

@@ -18,14 +18,19 @@ class LaneWorker extends EventTarget {
 
   // What a stats request reports, per worker number; 10 MB unless a test says otherwise.
   static memory = (_n: number) => 10 << 20;
+  // The live heap a stats request reports, per worker number; 8 MB unless a test says otherwise.
+  static heap = (_n: number) => 8 << 20;
   stats = 0;
+  gcs: boolean[] = [];
 
   postMessage(req: HostRequest) {
     if (this.terminated) return;
     if (req.kind === "stats") {
       this.stats++;
+      this.gcs.push(req.gc === true);
       const memoryBytes = LaneWorker.memory(this.n);
-      queueMicrotask(() => this.send({ id: req.id, ok: true, memoryBytes }));
+      const heap = { heapAlloc: LaneWorker.heap(this.n), heapInuse: 0, totalAlloc: 0, sys: memoryBytes, numGC: 1 };
+      queueMicrotask(() => this.send({ id: req.id, ok: true, memoryBytes, heap }));
       return;
     }
     if (req.kind !== "http") return;
@@ -51,6 +56,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   LaneWorker.all = [];
   LaneWorker.memory = () => 10 << 20;
+  LaneWorker.heap = () => 8 << 20;
 });
 
 describe("startLane", () => {
@@ -207,5 +213,58 @@ describe("startLane with maxMemoryBytes", () => {
     await settle();
     expect(LaneWorker.all[0].stats).toBe(1);
     expect(LaneWorker.all[0].terminated).toBe(true);
+  });
+});
+
+describe("startLane with restartIf", () => {
+  const settle = () => new Promise((r) => setTimeout(r, 10));
+  const peakFarAboveLive = ({ memoryBytes, heap }: { memoryBytes: number; heap?: { heapAlloc: number } }) =>
+    heap !== undefined && heap.heapAlloc * 4 < memoryBytes;
+
+  it("asks for stats after a collection and replaces the worker when restartIf says so", async () => {
+    vi.stubGlobal("Worker", LaneWorker);
+    LaneWorker.memory = (n) => (n === 1 ? 120 << 20 : 40 << 20);
+    LaneWorker.heap = () => 20 << 20;
+    const restarts: { memoryBytes: number; heapAlloc?: number }[] = [];
+    const lane = startLane(opts, {
+      restartIf: peakFarAboveLive,
+      onRestart: ({ memoryBytes, heap }) => restarts.push({ memoryBytes, heapAlloc: heap?.heapAlloc }),
+    });
+    await text(lane.fetch("http://x/churn"));
+    await settle();
+    expect(LaneWorker.all[0].gcs).toEqual([true]);
+    expect(restarts).toEqual([{ memoryBytes: 120 << 20, heapAlloc: 20 << 20 }]);
+    expect(LaneWorker.all[0].terminated).toBe(true);
+    expect(await text(lane.fetch("http://x/state"))).toBe("worker 2: /state");
+  });
+
+  it("keeps a worker whose live heap is near its memory, since a new one would come back as large", async () => {
+    vi.stubGlobal("Worker", LaneWorker);
+    LaneWorker.memory = () => 120 << 20;
+    LaneWorker.heap = () => 100 << 20;
+    const lane = startLane(opts, { restartIf: peakFarAboveLive });
+    await text(lane.fetch("http://x/a"));
+    await settle();
+    expect(LaneWorker.all[0].stats).toBe(1);
+    expect(LaneWorker.all[0].terminated).toBe(false);
+  });
+
+  it("with maxMemoryBytes too, restarts only past the limit and when restartIf agrees", async () => {
+    vi.stubGlobal("Worker", LaneWorker);
+    LaneWorker.memory = (n) => (n === 1 ? 120 << 20 : 60 << 20);
+    LaneWorker.heap = () => 1 << 20;
+    const asked: number[] = [];
+    const both = { maxMemoryBytes: 96 << 20, restartIf: (s: { memoryBytes: number }) => (asked.push(s.memoryBytes), false) };
+    const over = startLane(opts, both);
+    await text(over.fetch("http://x/a"));
+    await settle();
+    expect(asked).toEqual([120 << 20]);
+    expect(LaneWorker.all[0].terminated).toBe(false);
+
+    const under = startLane(opts, both);
+    await text(under.fetch("http://x/a"));
+    await settle();
+    expect(asked).toEqual([120 << 20]);
+    expect(LaneWorker.all[1].terminated).toBe(false);
   });
 });
