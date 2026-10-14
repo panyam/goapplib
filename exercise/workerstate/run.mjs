@@ -139,6 +139,12 @@ async function drive(url) {
       `serving worker at ${mb(first.memBeforeChurn)} before a 100 MB churn; lane restarts at [${restarts.map((s) => mb(s.memoryBytes))}]; after: ${mb(first.memAfterChurn)}, restored ${first.stateAfterChurn?.restored}, checksum ${first.stateAfterChurn?.checksum === first.ingest?.checksum ? "same" : "different"}; want one restart past 96 MB, then under it with the state restored`,
     );
 
+    check(
+      "no-gc-under-limit",
+      typeof first.idleGCs === "number" && first.idleGCs >= 0 && first.idleGCs <= 2,
+      `the serving worker collected ${first.idleGCs} times across 10 quick queries under its 96 MB limit; want at most 2, the ones Go runs on its own (goapplib issue 121)`,
+    );
+
     const live = restarts[0]?.heap?.heapAlloc;
     const after = first.statsAfterChurn;
     check(

@@ -31,8 +31,9 @@ export interface LaneOptions {
    * maxMemoryBytes. The stats are taken after a collection, so heap.heapAlloc is the live heap,
    * and a worker whose live heap is near its memory would come back just as large; replacing one
    * pays when memoryBytes is far above it. With maxMemoryBytes as well, the lane restarts only when
-   * the worker is past that limit and this returns true. heap is absent for a wasm built against
-   * goapplib before 0.7.4.
+   * the worker is past that limit and this returns true, and a worker under the limit isn't asked
+   * to collect. Without maxMemoryBytes every idle moment pays a collection (187 ms on a 377 MB
+   * live heap in agni), so set both. heap is absent for a wasm built against goapplib before 0.7.4.
    */
   restartIf?: (stats: WorkerStats) => boolean;
   /** Called when the lane replaces its worker for maxMemoryBytes or restartIf, with its stats. */
@@ -97,17 +98,25 @@ export function startLane(opts: StartWorkerOptions, lane: LaneOptions = {}): Lan
   let inFlight = 0;
   const checksMemory = lane.maxMemoryBytes !== undefined || lane.restartIf !== undefined;
   // Runs when the lane goes idle. A request that starts while workerStats is out means the lane
-  // isn't idle any more, so the restart waits for the next idle moment.
+  // isn't idle any more, so the restart waits for the next idle moment. The limit is read first
+  // without a collection, which can take a fifth of a second on a big heap (#121), so a worker
+  // under it is never asked to collect.
   const checkMemory = async (w: Worker, of: Promise<Worker>) => {
-    let stats: WorkerStats;
+    const idle = () => inFlight === 0 && current === of && !closed;
+    let stats: WorkerStats | undefined;
     try {
-      stats = await workerStats(w, { gc: lane.restartIf !== undefined });
+      if (lane.maxMemoryBytes !== undefined) {
+        stats = await workerStats(w);
+        if (stats.memoryBytes <= lane.maxMemoryBytes || !idle()) return;
+      }
+      if (lane.restartIf) {
+        stats = await workerStats(w, { gc: true });
+        if (!idle() || !lane.restartIf(stats)) return;
+      }
     } catch {
       return;
     }
-    if (lane.maxMemoryBytes !== undefined && stats.memoryBytes <= lane.maxMemoryBytes) return;
-    if (inFlight !== 0 || current !== of || closed) return;
-    if (lane.restartIf && !lane.restartIf(stats)) return;
+    if (!stats) return;
     lane.onRestart?.(stats);
     void replace(w, new Error("wasm host lane: restarted past its memory limit")).catch(() => {});
   };

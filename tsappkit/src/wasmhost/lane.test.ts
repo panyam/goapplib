@@ -249,6 +249,44 @@ describe("startLane with restartIf", () => {
     expect(LaneWorker.all[0].terminated).toBe(false);
   });
 
+  it("with maxMemoryBytes too, never asks a worker under the limit to collect", async () => {
+    vi.stubGlobal("Worker", LaneWorker);
+    LaneWorker.memory = (n) => (n === 1 ? 60 << 20 : 120 << 20);
+    const both = { maxMemoryBytes: 96 << 20, restartIf: () => false };
+    const under = startLane(opts, both);
+    await text(under.fetch("http://x/a"));
+    await text(under.fetch("http://x/b"));
+    await settle();
+    expect(LaneWorker.all[0].gcs).toEqual([false, false]);
+
+    const over = startLane(opts, both);
+    await text(over.fetch("http://x/a"));
+    await settle();
+    expect(LaneWorker.all[1].gcs).toEqual([false, true]);
+  });
+
+  it("drops the restart when a request starts while the collected stats are out", async () => {
+    vi.stubGlobal("Worker", LaneWorker);
+    LaneWorker.memory = () => 120 << 20;
+    let busy: Promise<Response> | undefined;
+    const lane = startLane(opts, { maxMemoryBytes: 96 << 20, restartIf: () => true });
+    const w = await lane.worker();
+    const worker = LaneWorker.all[0];
+    const post = worker.postMessage.bind(worker);
+    worker.postMessage = (req: HostRequest) => {
+      if (req.kind === "stats" && req.gc && !busy) {
+        busy = lane.fetch("http://x/slow");
+        void busy.catch(() => {});
+      }
+      post(req);
+    };
+    await text(lane.fetch("http://x/a"));
+    await settle();
+    expect(worker.gcs).toEqual([false, true]);
+    expect(worker.terminated).toBe(false);
+    expect(await lane.worker()).toBe(w);
+  });
+
   it("with maxMemoryBytes too, restarts only past the limit and when restartIf agrees", async () => {
     vi.stubGlobal("Worker", LaneWorker);
     LaneWorker.memory = (n) => (n === 1 ? 120 << 20 : 60 << 20);
