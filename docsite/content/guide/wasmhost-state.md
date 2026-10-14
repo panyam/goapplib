@@ -88,18 +88,22 @@ const serve = startLane(opts, {
 
 With both set, the lane restarts when the worker is past `maxMemoryBytes` and `restartIf` agrees, and it only asks for the collection once the worker is past the limit. That collection takes a while on a big heap (agni measured 187 ms on a 377 MB live heap), and a request arriving meanwhile waits for it, so set `maxMemoryBytes` whenever you set `restartIf`; on its own, `restartIf` pays a collection every time the lane goes idle. `workerStats(worker, { gc: true })` gives the same figures on demand. `heap.heapAlloc` is the live heap, and `sys` is what Go has taken from the wasm memory.
 
-## Keeping the peak down
+## Tuning the collector, and why it rarely helps
 
-Go's collector lets the heap grow to twice what's live before it collects (`GOGC=100`), so a request that allocates a lot and keeps a little grows the wasm memory to about twice the live heap, and that memory stays. A memory limit makes the collector run harder as the heap nears it, which keeps the peak closer to the live heap, at the cost of more collections. Set it in the worker's `main` before serving:
+Go's collector lets the heap grow to twice what's live before it collects (`GOGC=100`), so a request that allocates a lot and keeps a little grows the wasm memory to about twice the live heap, and that memory stays. The obvious fix is to make the collector work harder, with `debug.SetGCPercent` (a lower `GOGC`) or `debug.SetMemoryLimit` (`GOMEMLIMIT`), set in the worker's `main` before serving. Natively that trades memory for time the way you'd expect. In wasm it mostly doesn't, at least on the one large workload anyone has measured.
 
-```go
-func main() {
-	debug.SetMemoryLimit(128 << 20) // runtime/debug
-	wasmhost.Serve("state", handler)
-}
-```
+agni swept both settings on its largest design (a restore, then a check run over a live heap of about 560 MB) for [agni#988](https://github.com/panyam/agni/issues/988):
 
-`debug.SetGCPercent` lowers `GOGC` the same way. Neither helps when one allocation is itself the peak, like a single 100 MB buffer, and a limit below the live heap only makes the collector run constantly.
+| Setting | Native peak | Wasm peak | Wasm check run |
+|---|---|---|---|
+| GOGC 100 (the default) | 1171 MB | 1364 MB | 2.1 s |
+| GOGC 50 | 886 MB | 1020 MB | 2.65 s |
+| GOGC 25 | 738 MB | 1506 MB | 4.3 s |
+| GOMEMLIMIT 700 / 800 / 900 MiB | | 1738 / 1618 / 1325 MB | 4.1 / 3.0 / 3.1 s |
+
+Below GOGC 50, and with every memory limit tried, the wasm peak came out *above* the default, though the native one fell. And in Chromium, GOGC 50 saved 130 MB on a first visit's worker and nothing on a reloaded page's, for 14% more check time, so agni left the collector at its default. As far as we can tell the native intuition doesn't carry over, though nobody has pinned down why.
+
+So measure before setting either one, in the browser and on your own workload, with `workerStats` before and after; Node's figures didn't predict Chromium's here. The changes that did pay off were structural: keeping the peak out of the long-lived worker (`oneShotFetch`), replacing a worker only when its live heap is well under its memory (`restartIf`), and not holding what a worker doesn't read. Neither setting helps when one allocation is itself the peak, like a single 100 MB buffer.
 
 ## Streaming and cancelling
 
