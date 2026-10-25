@@ -3,7 +3,7 @@ title: "Reference"
 description: "The packages, their API docs, and what each version provides."
 ---
 
-goapplib, `@panyam/tsappkit` and `@panyam/tsappkit-solid` share one version, so `v0.6.8` in `go.mod`, for example, is the same release as `0.6.8` in `package.json`. [CAPABILITIES.md](https://github.com/panyam/goapplib/blob/main/CAPABILITIES.md) says what each version provides.
+goapplib, `@panyam/tsappkit` and `@panyam/tsappkit-solid` share one version, so `v0.6.8` in `go.mod`, for example, is the same release as `0.6.8` in `package.json`. Each version's [release notes](https://github.com/panyam/goapplib/releases) say what it added.
 
 | Package | Install | API docs |
 |---|---|---|

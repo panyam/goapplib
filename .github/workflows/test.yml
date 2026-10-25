@@ -36,7 +36,7 @@ jobs:
       - name: Run tests
         run: make test
 
-      # goapplib and both TS packages share CAPABILITIES.md's version.
+      # goapplib and both TS packages share the version in VERSION.
       - name: Check versions match
         run: scripts/check-versions.sh
 
