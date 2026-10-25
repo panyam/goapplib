@@ -30,6 +30,21 @@ export { MobileBottomDrawer } from './MobileBottomDrawer';
 // Presenter ports (one presenter driving several views)
 export { Port } from './Port';
 
+// Guided tours (steps that advance on app events, over a dimmed page with holes)
+export { Tour } from './tour/Tour';
+export type {
+    AppTrigger,
+    DomTrigger,
+    TourEndReason,
+    TourEventSource,
+    TourOptions,
+    TourStep,
+    TourTarget,
+    TourTrigger,
+} from './tour/Tour';
+export type { TourLabels } from './tour/overlay';
+export type { Rect as TourRect } from './tour/geometry';
+
 // Island pages (islands mounted from a server-written page spec)
 export { IslandPage } from './page/IslandPage';
 export { readSpec, SPEC_ELEMENT_ID } from './page/spec';

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tour exercise</title>
+<style>
+  body { margin: 0; padding: 16px; font: 15px/1.5 system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
+  header { display: flex; gap: 8px; margin-bottom: 16px; }
+  button { font: inherit; padding: 6px 14px; }
+  table { border-collapse: collapse; width: min(520px, 100%); background: #fff; }
+  td { border: 1px solid #cbd5e1; padding: 6px 10px; }
+  tr.selected td { background: #dbeafe; }
+  #side { display: flex; gap: 24px; align-items: flex-start; margin-top: 16px; flex-wrap: wrap; }
+  #tip { display: inline-block; width: 28px; height: 28px; border-radius: 50%; background: #64748b; color: #fff; text-align: center; line-height: 28px; position: relative; }
+  #tip .bubble { display: none; position: absolute; left: 36px; top: 0; white-space: nowrap; background: #0f172a; color: #fff; padding: 2px 8px; border-radius: 4px; }
+  #tip:hover .bubble { display: block; }
+  #log { width: 260px; height: 120px; overflow: auto; background: #fff; border: 1px solid #cbd5e1; }
+  #log p { margin: 0; padding: 4px 8px; }
+  #stage { position: relative; height: 90px; margin-top: 16px; }
+  #mover { position: absolute; left: 0; top: 0; width: 80px; height: 60px; background: #f59e0b; }
+  #spacer { height: 2000px; }
+</style>
+</head>
+<body>
+<header>
+  <button id="run" type="button">Run checks</button>
+  <button id="other" type="button">Settings</button>
+  <span id="status"></span>
+</header>
+<table id="parts"><tbody>
+  <tr><td>R1</td><td>10k</td></tr>
+  <tr><td>R2</td><td>4.7k</td></tr>
+  <tr><td>C1</td><td>100n</td></tr>
+  <tr><td>U1</td><td>LM358</td></tr>
+</tbody></table>
+<div id="side">
+  <span id="tip">?<span class="bubble">The part's footprint</span></span>
+  <div id="log"></div>
+</div>
+<div id="stage"><div id="mover"></div></div>
+<div id="spacer"></div>
+<script src="main.js"></script>
+</body>
+</html>

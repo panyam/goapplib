@@ -38,7 +38,7 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "tsc --noEmit && vitest run",
     "test:watch": "vitest"
   },
   "keywords": [

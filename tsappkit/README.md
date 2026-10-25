@@ -76,6 +76,25 @@ class MyPage extends BasePage {
 BasePage.loadAfterPageLoaded("myPage", MyPage, "MyPage");
 ```
 
+### Guided tours
+
+A `Tour` walks a reader through an app while they do each step. It dims the page, leaves a hole over each step's targets so input still reaches them, and moves to the next step when the app reports the step's event, not when a click lands on a selector:
+
+```ts
+import { Tour } from "@panyam/tsappkit";
+
+interface AppEvents { checksRun: void; findingSelected: { id: string } }
+const tour = new Tour<AppEvents>([
+  { id: "run", text: "Run the checks.", target: () => runButton, advanceOn: { event: "checksRun" } },
+  { id: "pick", text: "Click F2.", target: () => document.querySelectorAll("#findings li"),
+    advanceOn: { event: "findingSelected", where: (d) => d.id === "F2" }, offPath: { event: "findingSelected" } },
+]);
+tour.attach(bus);
+tour.start();
+```
+
+See [Guided tours](https://panyam.github.io/goapplib/guide/tour/).
+
 ### UI pieces
 
 `Modal`, `ToastManager`, `ThemeManager` (light, dark or the system's), `SplashScreen`, `MobileBottomDrawer`, `TemplateLoader`, and `KeyboardShortcutManager` for multi-key shortcuts, with `shouldIgnoreShortcut` and the other `DOMUtils` helpers.

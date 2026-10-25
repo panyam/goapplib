@@ -7,6 +7,8 @@ Start with [Getting started](getting-started/), which builds a one-page app whos
 
 [Island pages](islands/) covers a server-rendered page whose islands mount from a spec Go writes, each when its load strategy says, with live demos.
 
+[Guided tours](tour/) covers tsappkit's `Tour`, where the reader does each step and the step advances when the app reports it, with a live demo.
+
 Two pages cover running an app's Go handlers in the browser, each with a live demo.
 
 1. [Go handlers in a Web Worker](wasmhost/) covers wasmhost's pieces, mounting files, and the Connect transport.
