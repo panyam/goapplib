@@ -40,6 +40,10 @@ jobs:
       - name: Check versions match
         run: scripts/check-versions.sh
 
+      # Each TS package's README (its npm page) names every entry point, and its links resolve.
+      - name: Check READMEs
+        run: scripts/check-readmes.mjs
+
       # Fails when a package changed without a version bump (scripts/npm-publish.sh).
       - name: Check npm packages
         run: DRY_RUN=1 scripts/npm-publish.sh
