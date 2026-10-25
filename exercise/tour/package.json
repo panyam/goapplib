@@ -1,0 +1,10 @@
+{
+  "name": "goapplib-exercise-tour",
+  "private": true,
+  "description": "Browser spec for goapplib issue 128: a tsappkit Tour over a fixture app, its holes, its panel and its off-path exit, driven from headless Chromium.",
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "playwright-core": "1.63.0"
+  }
+}

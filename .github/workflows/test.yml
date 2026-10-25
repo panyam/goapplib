@@ -142,3 +142,35 @@ jobs:
           name: exercise-worker-state-screenshots
           path: exercise/workerstate/dist/screenshots/
           if-no-files-found: ignore
+
+  # Issue #128's browser spec: a tsappkit Tour over a fixture app (holes, panel, off-path exit), in
+  # headless Chromium. jsdom has no layout, so these checks can't live in the vitest suite.
+  exercise-tour:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: exercise/tour/pnpm-lock.yaml
+
+      - name: Install Chromium
+        working-directory: exercise/tour
+        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+
+      - name: Run the exercise
+        run: make exercise-tour
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exercise-tour-screenshots
+          path: exercise/tour/dist/screenshots/
+          if-no-files-found: warn

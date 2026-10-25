@@ -5,12 +5,13 @@
 #   make test     - Run all tests
 #   make help     - Show available targets
 
-.PHONY: setup test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite help
+.PHONY: setup test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite exercise-tour help
 
 GOROOT_WASM := $(shell go env GOROOT)/lib/wasm
 EXERCISE := exercise/wasmhost
 ISLANDS := exercise/islands
 WORKERSTATE := exercise/workerstate
+TOUR := exercise/tour
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -64,3 +65,10 @@ exercise-worker-state: ## Mission #74 exercise: a stateful service in a Web Work
 	cd $(WORKERSTATE) && pnpm exec esbuild web/main.ts --bundle --format=esm --outfile=dist/main.js --log-level=warning
 	cd $(WORKERSTATE) && pnpm exec esbuild ../../tsappkit/src/wasmhost/worker.ts --bundle --format=iife --outfile=dist/worker.js --log-level=warning
 	cd $(WORKERSTATE) && node run.mjs
+
+exercise-tour: ## Issue #128's browser spec: a tsappkit Tour's holes, panel and off-path exit over a fixture app, in headless Chromium
+	cd $(TOUR) && pnpm install --frozen-lockfile
+	mkdir -p $(TOUR)/dist
+	cp $(TOUR)/web/index.html $(TOUR)/dist/
+	cd $(TOUR) && pnpm exec esbuild web/main.ts --bundle --format=iife --outfile=dist/main.js --log-level=warning
+	cd $(TOUR) && node run.mjs

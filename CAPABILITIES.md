@@ -1,7 +1,7 @@
 # GoAppLib
 
 ## Version
-0.7.6
+0.7.7
 
 ## Provides
 - web-app-scaffold: Server-rendered web application framework (stdlib-native)
@@ -30,6 +30,7 @@
 - worker-watermark: `startLane(opts, { maxMemoryBytes, onRestart })` (0.6.8) measures the worker's wasm memory when the lane goes idle and, past the limit, replaces it with a fresh worker warmed from the cache, never interrupting a request (#79)
 - worker-heap: the Go wasm exports `stats(gc?)` with the worker's Go heap (`runtime.MemStats`), and `@panyam/tsappkit/wasmhost` 0.7.4's `workerStats(worker, { gc })` returns it beside the wasm memory; a lane's `restartIf(stats)` decides on the live heap, so a worker whose state fills its memory isn't replaced for nothing; `onRestart` gets the stats (#117); from 0.7.6 a lane with `maxMemoryBytes` reads the memory without a collection first and only collects past the limit (#121)
 - presenter-ports: `@panyam/tsappkit` 0.7.5's `Port<V>`, the views a presenter drives through one view interface (`attach` returns a detach, `each` sends a command, a constructor replay brings a late view up to date), so one presenter drives several islands that mount at different times; `@panyam/tsappkit-solid`'s `useView(port, view)` attaches for the island's lifetime. The islands guide's `islands-presenter` demo shows it (#41)
+- guided-tour: `@panyam/tsappkit` 0.7.7's `Tour<AppEvents>`, a walk over an app where the reader does each step: the page dims, each step's `target` (one element, several, or a rect) is cut as a hole that input reaches, and the step advances on an app event matched by `advanceOn` (`{ event, where }`, typed by the app's event map) rather than on a click; `offPath` with `onOffPath: "end" | "stay"`, a `dom` trigger for steps about the UI itself, `doItForMe` behind Show me, Esc and close always end it; events come from `attach(bus)` or `notify(type, data)`. `make exercise-tour` checks the holes and panel in headless Chromium, and the guide's `tour` demo shows it (#128)
 
 ## Module
 github.com/panyam/goapplib

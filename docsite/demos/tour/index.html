@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tour</title>
+<style>
+  .bar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .8rem; }
+  .app { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
+  ul { list-style: none; margin: 0; padding: 0; min-width: 14rem; }
+  li { padding: .35rem .6rem; border: 1px solid #33415580; cursor: pointer; }
+  li + li { border-top: none; }
+  li.selected { background: #3b82f633; }
+  #help { display: inline-block; width: 1.6rem; height: 1.6rem; line-height: 1.6rem; text-align: center; border-radius: 50%;
+    background: #475569; color: #fff; position: relative; cursor: default; }
+  #help span { display: none; position: absolute; left: 2rem; top: 0; white-space: nowrap; background: #0f172a; color: #fff;
+    padding: 0 .5rem; border-radius: 4px; }
+  #help:hover span { display: block; }
+  #events { font: 13px/1.4 ui-monospace, monospace; opacity: .8; margin: .8rem 0 0; min-height: 4.2em; white-space: pre-wrap; }
+  :root { --tsappkit-tour-panel-bg: #1e293b; --tsappkit-tour-panel-fg: #e2e8f0; --tsappkit-tour-accent: #22c55e; --tsappkit-tour-accent-fg: #052e16; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <button id="start" type="button">Start the tour</button>
+  <button id="run" type="button">Run checks</button>
+  <span id="help">?<span>Findings are sorted by severity</span></span>
+</div>
+<div class="app">
+  <ul id="findings" hidden>
+    <li data-id="F1">F1 · unconnected pin U1.3</li>
+    <li data-id="F2">F2 · net VCC has no decoupling</li>
+    <li data-id="F3">F3 · footprint missing for J2</li>
+  </ul>
+</div>
+<p id="events"></p>
+<script type="module" src="main.js"></script>
+</body>
+</html>
