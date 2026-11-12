@@ -436,7 +436,7 @@ export function createDock(opts: DockOptions): Dock {
     list.setAttribute("role", "menu");
     list.dataset.panel = id;
     const r = anchor.getBoundingClientRect();
-    Object.assign(list.style, { position: "fixed", left: `${Math.round(r.left)}px`, top: `${Math.round(r.bottom + 2)}px`, zIndex: "1000" });
+    Object.assign(list.style, { position: "fixed", left: `${Math.round(r.left)}px`, top: `${Math.round(r.bottom + 2)}px`, zIndex: "calc(var(--dv-overlay-z-index, 999) + 300)" });
     for (const [label, target] of moveItems(id)) {
       const b = doc.createElement("button");
       b.type = "button";

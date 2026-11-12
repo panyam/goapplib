@@ -24,6 +24,11 @@ interface Tab {
   button: HTMLButtonElement;
 }
 
+// dockview stacks floating groups and always-rendered panel content at --dv-overlay-z-index (999)
+// and up to 100 above it, so a drawer and its scrim go above all of that.
+const Z_SCRIM = "calc(var(--dv-overlay-z-index, 999) + 200)";
+const Z_DRAWER = "calc(var(--dv-overlay-z-index, 999) + 201)";
+
 const HORIZONTAL: Record<DrawerEdge, boolean> = { left: true, right: true, top: false, bottom: false };
 
 export class DrawerView {
@@ -51,7 +56,7 @@ export class DrawerView {
 
     this.scrim = doc.createElement("div");
     this.scrim.className = `dock-drawer-scrim dock-drawer-scrim-${edge}`;
-    Object.assign(this.scrim.style, { position: "absolute", inset: "0", background: "rgba(0,0,0,.25)", zIndex: "20", display: "none" });
+    Object.assign(this.scrim.style, { position: "absolute", inset: "0", background: "rgba(0,0,0,.25)", zIndex: Z_SCRIM, display: "none" });
     this.scrim.addEventListener("click", () => this.setOpen(false));
 
     this.root = doc.createElement("aside");
@@ -59,7 +64,7 @@ export class DrawerView {
     this.root.dataset.edge = edge;
     Object.assign(this.root.style, {
       position: "absolute",
-      zIndex: "21",
+      zIndex: Z_DRAWER,
       display: "none",
       flexDirection: "column",
       background: "var(--dv-group-view-background-color, Canvas)",
