@@ -100,4 +100,9 @@ for (const name of readdirSync("demos").filter((n) => !n.startsWith("_"))) {
   const html = readFileSync(`demos/${name}/index.html`, "utf8");
   if (!html.includes('src="main.js"')) throw new Error(`demos/${name}/index.html doesn't load main.js`);
   writeFileSync(`${dir}/index.html`, html.replace('src="main.js"', `src="${main}"`));
+  // Any other page in the demo's directory ships as is, such as the blank page dockview loads into a
+  // popout window.
+  for (const f of readdirSync(`demos/${name}`)) {
+    if (f.endsWith(".html") && f !== "index.html") copyFileSync(`demos/${name}/${f}`, `${dir}/${f}`);
+  }
 }
