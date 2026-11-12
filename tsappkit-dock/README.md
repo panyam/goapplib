@@ -6,7 +6,7 @@ A dock for IDE-like pages, built on [dockview-core](https://www.npmjs.com/packag
 npm install @panyam/tsappkit-dock dockview-core
 ```
 
-It needs `dockview-core` 4.13 or later, up to 8.x, and no UI framework. It shares one version with tsappkit and goapplib, so `@panyam/tsappkit-dock@0.7.8` goes with `@panyam/tsappkit@0.7.8` and goapplib `v0.7.8`. Import dockview's stylesheet (`dockview-core/dist/styles/dockview.css`) in your page.
+It needs `dockview-core` 4.13 or later, up to 8.x, and no UI framework. It shares one version with tsappkit and goapplib, so `@panyam/tsappkit-dock@0.7.8` goes with `@panyam/tsappkit@0.7.8` and goapplib `v0.7.8`. Load dockview's stylesheet in your page. dockview-core 4.13 to 7.x ship it as `dockview-core/dist/styles/dockview.css`. 8.x doesn't, and the same file comes in the `dockview` package as `dockview/dist/styles/dockview.css`.
 
 ## What's in it
 
@@ -44,6 +44,10 @@ dock.panelsMenu(document.getElementById("toolbar")!);
 ```
 
 `log` has `defaultOpen: false`, so a reader whose layout was saved before `log` existed finds it in the Panels menu rather than in their grid.
+
+Panel content can be anything that renders into an element: plain DOM, Solid, or another framework. With Solid, mount once into the element `hostFor` returns, and return that same element every time. The dock calls `hostFor` whenever a panel enters the grid, and Solid's `render` appends, so rendering inside `hostFor` adds a second tree on each reopen. A closed panel's tree keeps running, since it's only detached. To tear it down, call `render`'s dispose function in `release` and build a fresh host next time.
+
+A panel reopened from the Panels menu goes to its `PanelDef.position`, then to its spec in the default layout. The first panel in a default layout usually has no position, so give it one in its `PanelDef` if it should come back to the same place.
 
 Drawers on four edges, floating panels, and moving a panel between them are planned in [#133](https://github.com/panyam/goapplib/issues/133).
 
