@@ -5,10 +5,9 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- No branch threads open, no active mission, nothing at P1 or P2. The queue is P3 only: #37, #38, #40, #114, #134, and #138–#140 (three tsappkit-dock options #141 didn't take: pinned drawers, popouts, `MobileBottomDrawer` as the bottom drawer).
-- Waiting on consumers to take tsappkit-dock 0.7.9 (#133 closed): panyam/diffpp#172, panyam/agni#1549 (agni#1542's drawers are blocked by it), turnforge/lilbattle#203. lilbattle#201 (the v0.7.3 upgrade) is still open. Their porting is the most likely source of the next goapplib ticket.
-- This run: shipped v0.7.8 (tsappkit-dock, grid only, PR #136) and v0.7.9 (drawers, `place`, `resolve`, docsite dock demo, PR #141). tsappkit-dock now has npm trust, so tags publish it with no manual step. Root CLAUDE.md went from 17.7K to 3.6K characters, with subsystem detail moved into a CLAUDE.md per directory. Dropped the old notes on agni#996 and thambura#209, both closed.
-- Also this run: closed #125 (`BrowserCache.Get`'s double copy), since agni#1003 put a reloaded page's peak under a first visit's without touching it. Bumped seroval to 1.6.12 (PR #137), so no Dependabot alerts are open. Added the lifecycle guide and the tsappkit/docs reference (PR #135, #129); its leftovers are #134.
+- No branch threads open, no active mission, nothing at P1 or P2. The queue is P3 only: #37, #38, #40, #114, #134, #140 (`MobileBottomDrawer` as the dock's bottom drawer).
+- Waiting on consumers to port onto tsappkit-dock 0.7.10: panyam/diffpp#172, panyam/agni#1549 (agni#1542's drawers are blocked by it), turnforge/lilbattle#203. Both diffpp and agni have a comment saying 0.7.10 is the version to port to. lilbattle#201 (the v0.7.3 upgrade) is still open. These ports are the most likely source of the next goapplib ticket.
+- This run: the dock lab (PR #143) closed #138 (no pinned mode, pin means dock) and #139 (defer popouts, leave them to `dock.api`). PR #144 closed #142 (grid placement stays in visible grid groups, Dock from a drawer lands on its edge, `where()` knows popouts, new `moved` hook) and shipped as v0.7.10, published to npm with no manual step.
 - Waiting: content services (#6–#9, #13–#15, #17), #18, #19, #28, #29, #43, #44, #49, #56, #64, #82, #83, #118.
 
 ## Across threads
