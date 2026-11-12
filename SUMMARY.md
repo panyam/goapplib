@@ -47,7 +47,7 @@ goapplib/
 │
 ├── tsappkit/           # @panyam/tsappkit: BasePage and component lifecycle, IslandPage, wasmhost client
 ├── tsappkit-solid/     # @panyam/tsappkit-solid: SolidIsland, mounting a Solid tree as an island; signalView, useView
-├── tsappkit-dock/      # @panyam/tsappkit-dock: createDock over dockview-core, saved layout with reconcile, drawer sizing (#133)
+├── tsappkit-dock/      # @panyam/tsappkit-dock: createDock over dockview-core; grid, floats and four-edge drawers; saved layout with reconcile (#133)
 │
 └── templates/          # Base templates (copy/symlink to your app)
     ├── BasePage.html
@@ -157,7 +157,11 @@ A server-rendered page names its client-side islands in a `page.Spec`, written i
 
 `wasmhost.Serve` runs an app's HTTP/Connect handlers as wasm inside a Web Worker, over files the page pushes in before it asks anything (`mountFiles` replaces a mount, `addFiles` merges into one). The page's generated Connect clients talk to it through `workerFetch` (`@panyam/tsappkit/wasmhost`), so they don't know whether a server or the worker answered. `ServeRebuild` rebuilds the handler on every mount change for apps whose handler snapshots its files, `Host.Do` serves a request in-process for native tests, `workerMemory` reports the wasm's peak memory, and `workerStats` adds the Go heap inside the worker (live after a collection with `gc: true`). The mounts are goutils' `mountfs` over `memfs`. The design reasoning is in docs/PRESENTER_CONTRACT_THESIS.md. State a service builds for itself and could always rebuild (a parsed design, a model) goes in a `wasmhost.Cache`, keyed by a hash of its inputs (`wasmhost.CacheKey`): `BrowserCache` keeps it in the page origin's private file system, so it outlives a reload, and `DirCache` and `MemCache` do the same natively. It's a cache rather than a datastore, so a miss or a lost cache only means a rebuild. A job with a big transient peak (an ingest that parses a large input on the way to a small result) goes through `oneShotFetch`, which runs it in a fresh worker and ends that worker afterwards, since ending a worker is the only way to give wasm memory back; the job leaves its result in the cache, which every worker of the namespace shares, and the long-lived worker loads that. A Go job that never yields keeps its worker's one thread busy, so nothing else reaches that worker; lanes (`startLane`) give each kind of request its own replaceable worker, so quick queries don't wait behind long jobs, and aborting a request on a lane terminates its worker and starts a fresh one, warmed from the cache. A handler that flushes (`http.Flusher`) streams to the page as it runs, even from a loop that never yields, since sending is a synchronous call into JS; an abort also cancels the handler's context, for handlers that wait on JS or yield. A lane with `maxMemoryBytes` replaces its worker, warmed again, once it's idle past that much wasm memory, for workers that creep up through many requests rather than one big job; `restartIf` lets it decide on the live heap too, since a worker whose state fills its memory would come back just as large. Cache calls wait on the browser, so they're made from a handler, never a `js.FuncOf` callback.
 
-### 12. AuthService Integration (Deprecated)
+### 12. Docks and Drawers
+
+`@panyam/tsappkit-dock` builds an IDE-like page on dockview-core 4.13 to 8.x. An app lists its panels and a default layout, and `hostFor` hands each panel its element, so content lives outside dockview and survives moves. A panel lives in the grid, in a floating group, or in a drawer on any edge, and `dock.place` or a ⋯ menu moves it. The saved layout records the registry, so panels added in a later release open while ones the reader closed stay closed. `resolve` adds panels the registry doesn't list. It moves DOM elements and needs no UI framework, so Solid and plain-DOM panels sit side by side. diffpp, agni and lilbattle each had their own copy of this code (#133). See the docs site's [Docks and drawers](https://panyam.github.io/goapplib/guide/dock/) guide.
+
+### 13. AuthService Integration (Deprecated)
 **Deprecated**: AuthService is now a thin pass-through to oneauth. For new code, use oneauth directly.
 
 The AuthService wrapper is maintained for backwards compatibility but delegates entirely to oneauth:
