@@ -8,7 +8,7 @@ This page builds a small app with one page, rendered by Go through goapplib's la
 ## Install
 
 ```sh
-go get github.com/panyam/goapplib@v0.6.9
+go get github.com/panyam/goapplib@v0.7.11
 ```
 
 goapplib's layouts (`BasePage.html`, the header, the components) are templates, not Go, so your app needs them on disk at run time. There are two ways to get them there, and either is fine to start with.
@@ -28,7 +28,7 @@ sources:
   goapplib:
     url: github.com/panyam/goapplib
     path: templates
-    ref: v0.6.9
+    ref: v0.7.11
 
 vendor_dir: ./templar_modules
 search_paths:
