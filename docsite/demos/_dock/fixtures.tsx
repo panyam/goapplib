@@ -21,12 +21,14 @@ const tally = (id: string): Counts => {
 export const [solidCount, setSolidCount] = createSignal(0);
 const hosts = new Map<string, HTMLElement>();
 
+const redraws = new Map<string, () => void>();
+
 function canvasPanel(id: string): HTMLElement {
   const el = document.createElement("div");
   el.className = "fx-canvas";
-  const canvas = document.createElement("canvas");
-  el.appendChild(canvas);
+  el.appendChild(newCanvas(id, document));
   const draw = () => {
+    const canvas = el.querySelector("canvas")!;
     const r = el.getBoundingClientRect();
     canvas.width = Math.max(1, Math.round(r.width));
     canvas.height = Math.max(1, Math.round(r.height));
@@ -41,7 +43,7 @@ function canvasPanel(id: string): HTMLElement {
     g.font = "13px system-ui";
     g.fillText(`canvas ${canvas.width} × ${canvas.height}`, 12, 20);
   };
-  canvas.addEventListener("pointerdown", () => tally(id).pointer++);
+  redraws.set(id, draw);
   // Drawing in the observer callback resizes the canvas inside it, which the browser reports as a
   // ResizeObserver loop, so the redraw waits a frame.
   new ResizeObserver(() => {
@@ -82,6 +84,25 @@ function listPanel(): HTMLElement {
     .map((t) => `<li>${t}</li>`)
     .join("")}</ul>`;
   return el;
+}
+
+function newCanvas(id: string, doc: Document): HTMLCanvasElement {
+  const canvas = doc.createElement("canvas");
+  canvas.addEventListener("pointerdown", () => tally(id).pointer++);
+  return canvas;
+}
+
+/**
+ * Swaps a canvas panel's <canvas> for a new one made in the panel's current document, and draws it.
+ * A canvas that has been in a popout window can't draw once the window closes, so the lab calls this
+ * from the dock's moved hook when documentChanged is true.
+ */
+export function rebuildCanvas(id: string): void {
+  const el = hosts.get(id);
+  const old = el?.querySelector("canvas");
+  if (!el || !old) return;
+  old.replaceWith(newCanvas(id, el.ownerDocument));
+  redraws.get(id)?.();
 }
 
 /** The dock's hostFor for the experiments: the same element every time, built on first use. */

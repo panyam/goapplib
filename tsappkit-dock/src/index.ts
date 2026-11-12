@@ -1,4 +1,4 @@
-export { createDock, type Dock, type DockOptions } from "./dock.js";
+export { createDock, type Dock, type DockOptions, type MoveInfo, type PanelLocation } from "./dock.js";
 export {
   documentTheme,
   loadLayout,

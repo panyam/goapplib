@@ -326,3 +326,72 @@ describe("move menus", () => {
     host.remove();
   });
 });
+
+describe("grid placement (#142)", () => {
+  const solo: PanelDef[] = [
+    { id: "a", title: "A" },
+    { id: "b", title: "B" },
+    { id: "c", title: "C" },
+  ];
+  const twoUp: PanelSpec[] = [{ id: "a" }, { id: "b", position: { direction: "right", referencePanel: "a" } }];
+
+  it("show opens a closed panel in the grid even when a float is the active group", () => {
+    const dock = make({ panels: solo, defaultLayout: twoUp });
+    dock.place("b", { kind: "float" });
+    dock.api.getPanel("b")!.api.setActive();
+    dock.show("c");
+    expect(dock.where("c")).toEqual({ kind: "grid" });
+    dock.toggle("a");
+    dock.show("a");
+    expect(dock.where("a")).toEqual({ kind: "grid" });
+  });
+
+  it("skips a position whose reference panel is floating", () => {
+    const dock = make({ panels: [...solo.slice(0, 2), { id: "c", title: "C", position: { direction: "below", referencePanel: "b" } }], defaultLayout: twoUp });
+    dock.place("b", { kind: "float" });
+    dock.show("c");
+    expect(dock.where("c")).toEqual({ kind: "grid" });
+  });
+
+  it("puts a panel at the grid's edge when the grid is empty", () => {
+    const dock = make({ panels: solo, defaultLayout: [{ id: "a" }] });
+    dock.place("a", { kind: "float" });
+    dock.show("b");
+    expect(dock.where("b")).toEqual({ kind: "grid" });
+    expect(dock.where("a")).toEqual({ kind: "float" });
+  });
+
+  it("docks a drawer panel on the drawer's edge at the drawer's size", () => {
+    const grid = (d: Dock) => {
+      const j = d.api.toJSON() as unknown as { grid: { orientation: string; root: Node } };
+      type Node = { type: string; data: Node[] | { views: string[] } };
+      const walk = (n: Node): unknown => (n.type === "leaf" ? (n.data as { views: string[] }).views : (n.data as Node[]).map(walk));
+      return { orientation: j.grid.orientation, tree: walk(j.grid.root) };
+    };
+    const sizes: unknown[] = [];
+    const watchSizes = (d: Dock) => {
+      const add = d.api.addPanel.bind(d.api);
+      d.api.addPanel = ((o: Parameters<typeof add>[0]) => {
+        const p = add(o);
+        const set = p.api.setSize.bind(p.api);
+        p.api.setSize = (s) => (sizes.push(s), set(s));
+        return p;
+      }) as typeof add;
+    };
+
+    const right = make({ drawers: { right: { size: 333 } } });
+    watchSizes(right);
+    right.place("log", { kind: "drawer", edge: "right" });
+    right.place("log", { kind: "grid" });
+    expect(grid(right)).toEqual({ orientation: "HORIZONTAL", tree: [["files"], ["diff"], ["log"]] });
+    expect(sizes).toEqual([{ width: 333 }]);
+    right.dispose();
+
+    sizes.length = 0;
+    const bottom = make({ drawers: { bottom: { size: 150 } } });
+    watchSizes(bottom);
+    bottom.place("log", { kind: "grid" });
+    expect(grid(bottom)).toEqual({ orientation: "VERTICAL", tree: [[["files"], ["diff"]], ["log"]] });
+    expect(sizes).toEqual([{ height: 150 }]);
+  });
+});
