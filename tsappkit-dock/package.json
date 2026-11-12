@@ -1,6 +1,6 @@
 {
   "name": "@panyam/tsappkit-dock",
-  "version": "0.7.11",
+  "version": "0.7.12",
   "description": "A dock for IDE-like pages on dockview-core: a panel registry, a default layout, a saved layout that picks up new panels, theme switching, and drawer sizing. It moves DOM elements and needs no UI framework.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -16,7 +16,8 @@
     "dist",
     "src",
     "!src/**/*.test.ts",
-    "!src/**/*.test.tsx"
+    "!src/**/*.test.tsx",
+    "!src/testenv.ts"
   ],
   "scripts": {
     "build": "tsup",

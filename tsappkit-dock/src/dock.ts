@@ -146,7 +146,8 @@ export interface Dock {
   /**
    * Saves the layout, stops watching the theme, removes the menus and drawers, and disposes of
    * dockview. Panels in drawers are released. Changes are otherwise saved a microtask after
-   * dockview reports them. A second call does nothing.
+   * dockview reports them. A dock whose container never had a size saves nothing, here or before,
+   * since its grid has no real size to save. A second call does nothing.
    */
   dispose(): void;
 }
@@ -159,8 +160,9 @@ const TOWARD_EDGE: Record<DrawerEdge, PanelPosition["direction"]> = { left: "lef
 /**
  * Builds a dockview dock from a panel registry. It restores the saved layout when there is one,
  * drawers included, opens the panels added to the registry since it was saved, and closes the
- * ones nothing knows any more. A save that dockview rejects is removed and the default layout
- * applied. Every change after that is saved.
+ * ones nothing knows any more. Drawers come back with their panels, tab and size, but closed,
+ * unless their `DrawerConfig.restoreOpen` is set. A save that dockview rejects is removed and the
+ * default layout applied. Every change after that is saved, once the container has a size.
  *
  * Content lives outside dockview. `hostFor` hands an element to a panel when it arrives somewhere,
  * and `release` hands it back when it leaves, so an app can keep a panel's content alive while the
@@ -402,7 +404,8 @@ export function createDock(opts: DockOptions): Dock {
         if (def && !where(id)) d.add(id, def.title, hostFor(id));
       }
       if (s.active) d.activate(s.active, false);
-      if (s.open) d.setOpen(true, false);
+      // A drawer is somewhere a reader visits and leaves, so a fresh page starts with it closed.
+      if (s.open && opts.drawers?.[edge]?.restoreOpen) d.setOpen(true, false);
     }
   };
 
@@ -429,7 +432,7 @@ export function createDock(opts: DockOptions): Dock {
   };
 
   const save = (): void => {
-    if (quiet || disposed || !storage) return;
+    if (quiet || disposed || !storage || !laidOut) return;
     saveLayout(storage, key, panels, api.toJSON(), drawerStates());
   };
 
@@ -481,6 +484,29 @@ export function createDock(opts: DockOptions): Dock {
     }
     changed();
   };
+
+  // dockview sizes its grid from a ResizeObserver a frame after it's built, and reports 100 by 100
+  // until then. A save in that window writes the groups squashed into 100 px, and the next visit
+  // restores an even split (#148). So the dock lays dockview out from the container before
+  // restoring, and while the container has no size (hidden, say) it holds every save until it has.
+  const layOut = (): boolean => {
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    if (w <= 0 || h <= 0) return false;
+    api.layout(w, h);
+    return true;
+  };
+  let laidOut = layOut();
+  if (!laidOut) {
+    const ro = new ResizeObserver(() => {
+      if (disposed || !layOut()) return;
+      laidOut = true;
+      ro.disconnect();
+      save();
+    });
+    ro.observe(container);
+    cleanups.push(() => ro.disconnect());
+  }
 
   quiet++;
   try {

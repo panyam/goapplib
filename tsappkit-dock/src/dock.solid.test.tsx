@@ -5,6 +5,7 @@ import { createSignal, onCleanup } from "solid-js";
 import { render } from "solid-js/web";
 import { createDock, type Dock } from "./dock.js";
 import type { DockStorage, PanelDef, PanelSpec } from "./layout.js";
+import { sized } from "./testenv.js";
 
 const KEY = "solid-dock";
 const PANELS: PanelDef[] = [
@@ -90,6 +91,7 @@ const q = <T extends Element>(sel: string) => container.querySelectorAll<T>(sel)
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
+  sized(container);
   hosts = new Map();
   mounts = {};
   cleanups = {};

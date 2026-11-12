@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDock, type Dock, type DockOptions } from "./dock.js";
 import type { DockStorage, PanelDef, PanelSpec } from "./layout.js";
+import { resizeObserved, sized } from "./testenv.js";
 
 const KEY = "drawer-dock";
 const REGISTRY: PanelDef[] = [
@@ -64,6 +65,7 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
+  sized(container);
   hosts = new Map();
   calls = [];
 });
@@ -208,7 +210,7 @@ describe("drawers", () => {
 });
 
 describe("saved drawers", () => {
-  it("restores each drawer's panels, active tab, size and open state", () => {
+  it("restores each drawer's panels and active tab, with every drawer closed", () => {
     const storage = fakeStorage();
     const first = make({ storage, key: KEY });
     first.show("log");
@@ -221,10 +223,25 @@ describe("saved drawers", () => {
     expect(tabs("bottom")).toEqual(["log", "files"]);
     expect(hosts.get("files")!.style.display).toBe("");
     expect(hosts.get("log")!.style.display).toBe("none");
-    expect(drawerEl("bottom")!.style.display).toBe("flex");
+    expect(drawerEl("bottom")!.style.display).toBe("none");
+    expect(scrimEl("bottom")!.style.display).toBe("none");
     expect(tabs("right")).toEqual(["page:guide"]);
     expect(drawerEl("right")!.style.display).toBe("none");
     expect(second.where("diff")).toEqual({ kind: "grid" });
+    second.toggleDrawer("bottom", true);
+    expect(hosts.get("files")!.style.display).toBe("");
+  });
+
+  it("reopens a drawer saved open when its config sets restoreOpen", () => {
+    const storage = fakeStorage();
+    const drawers = { bottom: { restoreOpen: true } };
+    const first = make({ storage, key: KEY, drawers });
+    first.show("log");
+    first.place("page:guide", { kind: "drawer", edge: "right" });
+    first.dispose();
+    const second = make({ storage, key: KEY, drawers });
+    expect(drawerEl("bottom")!.style.display).toBe("flex");
+    expect(drawerEl("right")!.style.display).toBe("none");
   });
 
   it("restores a saved drawer size", () => {
@@ -494,5 +511,36 @@ describe("phone sheets (#140)", () => {
     dock.toggleDrawer("bottom", false);
     dock.place("files", { kind: "grid" });
     expect(seen).toEqual(["bottom true log", "bottom true files", "bottom false files", "bottom false log"]);
+  });
+});
+
+describe("saving before the first layout", () => {
+  const savedGrid = (storage: { data: Record<string, string> }) => JSON.parse(storage.data[KEY]).layout.grid;
+
+  it("saves the container's size at boot, not dockview's 100 by 100", () => {
+    const storage = fakeStorage();
+    make({ storage, key: KEY });
+    expect(savedGrid(storage)).toMatchObject({ width: 1000, height: 800 });
+  });
+
+  it("holds every save while the container has no size, then saves once it has one", async () => {
+    const storage = fakeStorage();
+    sized(container, 0, 0);
+    const dock = make({ storage, key: KEY });
+    dock.show("log");
+    await settle();
+    expect(storage.data[KEY]).toBeUndefined();
+    sized(container, 1200, 700);
+    resizeObserved(container);
+    expect(savedGrid(storage)).toMatchObject({ width: 1200, height: 700 });
+    expect(JSON.parse(storage.data[KEY]).drawers.bottom.open).toBe(true);
+  });
+
+  it("doesn't save on dispose if the container never had a size", () => {
+    const storage = fakeStorage();
+    storage.data[KEY] = "untouched";
+    sized(container, 0, 0);
+    make({ storage, key: KEY }).dispose();
+    expect(storage.data[KEY]).toBe("untouched");
   });
 });
