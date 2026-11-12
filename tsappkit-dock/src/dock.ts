@@ -1,5 +1,5 @@
 import { DockviewComponent, themeDark, themeLight } from "dockview-core";
-import type { DockviewApi, IContentRenderer, IHeaderActionsRenderer } from "dockview-core";
+import type { DockviewApi, DockviewGroupPanel, IContentRenderer, IHeaderActionsRenderer } from "dockview-core";
 import { DRAWER_DEFAULT, type DrawerEdge } from "./drawer.js";
 import { DrawerView, type DrawerConfig } from "./drawerView.js";
 import {
@@ -16,6 +16,23 @@ import {
 } from "./layout.js";
 
 const EDGES: readonly DrawerEdge[] = ["left", "right", "top", "bottom"];
+
+/**
+ * Where a panel is: a `Placement`, or a dockview popout window. Popouts come from `dock.api`, since
+ * the dock doesn't place panels there itself (see the dock experiments page for why).
+ */
+export type PanelLocation = Placement | { kind: "popout" };
+
+/** What `moved` gets besides the panel and its old and new place. */
+export interface MoveInfo {
+  /**
+   * True when the panel's element is in a different document from the last time the dock saw it,
+   * which happens on the way into a popout window and on the way back. A canvas can't draw again
+   * once the window it was in has closed, so rebuild canvases (and WebGL contexts) when this is
+   * true. Moves within one document leave canvases working.
+   */
+  documentChanged: boolean;
+}
 
 /** What `createDock` needs. */
 export interface DockOptions {
@@ -50,6 +67,14 @@ export interface DockOptions {
    * keeps the element. Clearing the layout, as `reset` does, calls it for every open panel.
    */
   release?: (id: string, el: HTMLElement) => void;
+  /**
+   * Called after a panel ends up somewhere new, with its element already in place. `to` and
+   * `from` are where it is and where it was, and null means closed. It covers every way a panel
+   * moves: `place`, `show`, `toggle`, Reset layout, the reader dragging a tab into a float, a popout
+   * made through `dock.api`, and a popout window closing. It isn't called for the layout the dock
+   * starts with. See `MoveInfo.documentChanged` for the one move that breaks a canvas.
+   */
+  moved?: (id: string, el: HTMLElement, to: PanelLocation | null, from: PanelLocation | null, info: MoveInfo) => void;
   /** Where the layout is saved, usually `localStorage`. Null or absent: nothing is saved. */
   storage?: DockStorage | null;
   /** The storage key. Required with `storage`. */
@@ -88,8 +113,8 @@ export interface Dock {
    * unknown id.
    */
   place(id: string, target: Placement): boolean;
-  /** Where a panel is now, or null when it's closed. */
-  where(id: string): Placement | null;
+  /** Where a panel is now, or null when it's closed. A panel in a dockview popout reports `popout`. */
+  where(id: string): PanelLocation | null;
   /** Opens a closed panel or closes an open one. False for an unknown id. */
   toggle(id: string): boolean;
   /**
@@ -119,8 +144,10 @@ export interface Dock {
   dispose(): void;
 }
 
-const placementLabel = (p: Placement | null): string =>
-  !p || p.kind === "grid" ? "" : p.kind === "float" ? " · float" : ` · ${p.edge} drawer`;
+const placementLabel = (p: PanelLocation | null): string =>
+  !p || p.kind === "grid" ? "" : p.kind === "drawer" ? ` · ${p.edge} drawer` : ` · ${p.kind}`;
+
+const TOWARD_EDGE: Record<DrawerEdge, PanelPosition["direction"]> = { left: "left", right: "right", top: "above", bottom: "below" };
 
 /**
  * Builds a dockview dock from a panel registry. It restores the saved layout when there is one,
@@ -177,15 +204,19 @@ export function createDock(opts: DockOptions): Dock {
 
   const drawerWith = (id: string): DrawerView | undefined => [...drawers.values()].find((d) => d.has(id));
 
-  const where = (id: string): Placement | null => {
+  const where = (id: string): PanelLocation | null => {
     const d = drawerWith(id);
     if (d) return { kind: "drawer", edge: d.edge };
     const panel = api.getPanel(id);
     if (!panel) return null;
-    return panel.group.api.location.type === "floating" ? { kind: "float" } : { kind: "grid" };
+    const type = panel.group.api.location.type;
+    return type === "floating" ? { kind: "float" } : type === "popout" ? { kind: "popout" } : { kind: "grid" };
   };
 
-  const same = (a: Placement | null, b: Placement): boolean =>
+  const elementOf = (id: string): HTMLElement | undefined =>
+    drawerWith(id)?.elementOf(id) ?? (api.getPanel(id)?.view.content.element as HTMLElement | undefined);
+
+  const same = (a: PanelLocation | null, b: Placement): boolean =>
     !!a && a.kind === b.kind && (a.kind !== "drawer" || (b.kind === "drawer" && a.edge === b.edge));
 
   // ---- drawers ----
@@ -194,7 +225,7 @@ export function createDock(opts: DockOptions): Dock {
     let d = drawers.get(edge);
     if (!d) {
       if (doc.defaultView?.getComputedStyle(drawerHost).position === "static") drawerHost.style.position = "relative";
-      d = new DrawerView(edge, drawerHost, opts.drawers?.[edge] ?? {}, { changed: () => save(), menu: (anchor, id) => moveMenu(anchor, id) });
+      d = new DrawerView(edge, drawerHost, opts.drawers?.[edge] ?? {}, { changed: () => changed(), menu: (anchor, id) => moveMenu(anchor, id) });
       drawers.set(edge, d);
     }
     return d;
@@ -210,12 +241,31 @@ export function createDock(opts: DockOptions): Dock {
   // ---- moving panels ----
 
   const usable = (p?: PanelPosition): p is PanelPosition => !!p && (!p.referencePanel || !!api.getPanel(p.referencePanel));
+  const inGrid = (p?: PanelPosition): p is PanelPosition =>
+    !!p && (!p.referencePanel || (api.getPanel(p.referencePanel)?.group.api.location.type === "grid" && api.getPanel(p.referencePanel)!.group.api.isVisible));
 
-  const addToGrid = (id: string): void => {
+  // Puts a panel in the grid, never in a float, a popout, or a popout's hidden placeholder. A position
+  // counts only if its reference panel is in the grid. Without one the panel tabs into the active group, or the first grid group
+  // when the active one is a float or a popout, and goes to the grid's edge when the grid is empty.
+  const addToGrid = (id: string, prefer?: PanelPosition): void => {
     const def = defOf(id)!;
     const spec = specs?.find((s) => s.id === id);
-    const position = [def.position, spec?.position].find(usable);
-    api.addPanel({ id, component: id, title: def.title, ...(position ? { position } : {}) });
+    const position = [prefer, def.position, spec?.position].find(inGrid);
+    if (position) {
+      api.addPanel({ id, component: id, title: def.title, position });
+      return;
+    }
+    // While a group is popped out, dockview keeps a hidden placeholder for it in the grid, and a
+    // panel tabbed into that would be invisible.
+    const showing = (g?: DockviewGroupPanel) => !!g && g.api.location.type === "grid" && g.api.isVisible;
+    const active = api.activeGroup;
+    const group = showing(active) ? active : api.groups.find(showing);
+    api.addPanel({
+      id,
+      component: id,
+      title: def.title,
+      position: group ? { referenceGroup: group, direction: "within" } : { direction: "right" },
+    });
   };
 
   const enter = (id: string, target: Placement): void => {
@@ -249,37 +299,59 @@ export function createDock(opts: DockOptions): Dock {
     api.getPanel(id)?.api.setActive();
   };
 
+  // Runs a move with saving and moved held back, then does both once, so a move that passes through
+  // a closed state on its way (leave, then enter) reports only where it ended up.
+  const batch = (fn: () => void): void => {
+    quiet++;
+    try {
+      fn();
+    } finally {
+      quiet--;
+    }
+    changed();
+  };
+
   const place = (id: string, target: Placement): boolean => {
     if (!defOf(id)) return false;
+    batch(() => placeNow(id, target));
+    return true;
+  };
+
+  const placeNow = (id: string, target: Placement): void => {
     const now = where(id);
     if (!same(now, target)) {
-      // Grid to float stays inside dockview, which moves the group and keeps the element. Every
-      // other move goes out through release and back in through hostFor.
-      if (!(now?.kind === "grid" && target.kind === "float")) leave(id);
-      enter(id, target);
+      if (now?.kind === "drawer" && target.kind === "grid") {
+        // Docking from a drawer puts the panel where the drawer was: on its edge, at its size.
+        const size = drawer(now.edge).size;
+        leave(id);
+        addToGrid(id, { direction: TOWARD_EDGE[now.edge] });
+        const horizontal = now.edge === "left" || now.edge === "right";
+        api.getPanel(id)?.api.setSize(horizontal ? { width: size } : { height: size });
+      } else {
+        // Grid to float stays inside dockview, which moves the group and keeps the element. Every
+        // other move goes out through release and back in through hostFor.
+        if (!(now?.kind === "grid" && target.kind === "float")) leave(id);
+        enter(id, target);
+      }
     }
     reveal(id);
-    save();
-    return true;
   };
 
   const show = (id: string): boolean => {
     const def = defOf(id);
     if (!def) return false;
-    if (!where(id)) enter(id, def.defaultPlacement ?? { kind: "grid" });
-    reveal(id);
-    save();
+    batch(() => {
+      if (!where(id)) enter(id, def.defaultPlacement ?? { kind: "grid" });
+      reveal(id);
+    });
     return true;
   };
 
   const toggle = (id: string): boolean => {
     if (!defOf(id)) return false;
-    if (where(id)) {
-      leave(id);
-      save();
-      return true;
-    }
-    return show(id);
+    if (!where(id)) return show(id);
+    batch(() => leave(id));
+    return true;
   };
 
   // ---- default layout, restore, reset ----
@@ -354,6 +426,34 @@ export function createDock(opts: DockOptions): Dock {
     saveLayout(storage, key, panels, api.toJSON(), drawerStates());
   };
 
+  // What `moved` compares against: each panel's last place, element and document.
+  const seen = new Map<string, { at: PanelLocation | null; el?: HTMLElement; doc?: Document }>();
+  const key0 = (p: PanelLocation | null) => JSON.stringify(p);
+
+  // Compares every panel's place and document with the last ones seen, and calls `moved` for each
+  // that differs. Running it after every change, whatever made it, catches moves made through
+  // dock.api and by dockview itself as well as the dock's own.
+  const sync = (notify = true): void => {
+    if (disposed || quiet) return;
+    const ids = new Set([...panels.map((p) => p.id), ...api.panels.map((p) => p.id), ...[...drawers.values()].flatMap((d) => d.ids), ...seen.keys()]);
+    for (const id of ids) {
+      if (!defOf(id)) continue;
+      const at = where(id);
+      const prev = seen.get(id);
+      const el = at ? elementOf(id) : prev?.el;
+      const doc = at && el ? el.ownerDocument : prev?.doc;
+      seen.set(id, { at, el, doc });
+      if (!notify || !opts.moved || !el) continue;
+      if (key0(at) === key0(prev?.at ?? null) && doc === prev?.doc) continue;
+      opts.moved(id, el, at, prev?.at ?? null, { documentChanged: !!prev?.doc && doc !== prev.doc });
+    }
+  };
+
+  const changed = (): void => {
+    save();
+    sync();
+  };
+
   const reset = (): void => {
     quiet++;
     try {
@@ -364,7 +464,7 @@ export function createDock(opts: DockOptions): Dock {
     } finally {
       quiet--;
     }
-    save();
+    changed();
   };
 
   quiet++;
@@ -373,12 +473,12 @@ export function createDock(opts: DockOptions): Dock {
   } finally {
     quiet--;
   }
-  if (storage) {
-    // Save what restore built, so the save names today's registry and a rejected save is replaced.
-    save();
-    const sub = api.onDidLayoutChange(() => save());
-    cleanups.push(() => sub.dispose());
-  }
+  // Save what restore built, so the save names today's registry and a rejected save is replaced,
+  // and note where everything starts without calling moved for it.
+  save();
+  sync(false);
+  const sub = api.onDidLayoutChange(() => changed());
+  cleanups.push(() => sub.dispose());
 
   // ---- theme ----
 

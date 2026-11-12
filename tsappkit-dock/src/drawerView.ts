@@ -115,6 +115,11 @@ export class DrawerView {
     return this.px;
   }
 
+  /** The element a panel in this drawer shows, or undefined if it isn't here. */
+  elementOf(id: string): HTMLElement | undefined {
+    return this.tabs.find((t) => t.id === id)?.el;
+  }
+
   has(id: string): boolean {
     return this.tabs.some((t) => t.id === id);
   }
