@@ -7,7 +7,7 @@ import { themeDark, themeLight } from "dockview-core";
 import { delegateEvents } from "solid-js/web";
 import { createDock, saveLayout, type Dock, type DockStorage, type PanelDef } from "../../../tsappkit-dock/src";
 import { failed, ready } from "../_lib/frame";
-import { counts, host, hostFor, release, results, setSolidCount, sleep, solidCount } from "../_dock/fixtures";
+import { counts, host, hostFor, rebuildCanvas, release, results, setSolidCount, sleep, solidCount } from "../_dock/fixtures";
 
 const popoutUrl = new URL("popout.html", location.href).pathname;
 const panels: PanelDef[] = [
@@ -33,10 +33,30 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "k") shortcutHits++;
 });
 
+// What the dock's moved hook reported, per panel. A canvas whose document changed gets a new <canvas>,
+// since one that has been in a closed popout can't draw.
+const moves = new Map<string, string[]>();
 const make = (storage: DockStorage | null = null): Dock =>
-  createDock({ container, panels, defaultLayout: layout, hostFor, release, storage, key: "dock-popout-lab", theme: () => "dark" });
+  createDock({
+    container,
+    panels,
+    defaultLayout: layout,
+    hostFor,
+    release,
+    storage,
+    key: "dock-popout-lab",
+    theme: () => "dark",
+    moved: (id, _el, to, from, { documentChanged }) => {
+      moves.set(id, [...(moves.get(id) ?? []), `${from?.kind ?? "closed"}→${to?.kind ?? "closed"}${documentChanged ? " (new document)" : ""}`]);
+      if (documentChanged && id === "canvas") rebuildCanvas(id);
+    },
+  });
+const movesOf = (id: string) => {
+  const m = moves.get(id) ?? [];
+  moves.delete(id);
+  return m.join(", ") || "nothing";
+};
 let dock = make();
-(window as unknown as { lab: unknown }).lab = { get dock() { return dock; }, host, windowOf: (id: string) => windowOf(id) };
 
 const windowOf = (id: string): Window | null => {
   const loc = dock.api.getPanel(id)?.group.api.location;
@@ -50,6 +70,16 @@ async function popOut(id: string): Promise<Window | null> {
   const win = windowOf(id);
   for (let i = 0; i < 40 && win && host(id)!.ownerDocument !== win.document; i++) await sleep(50);
   return win;
+}
+
+// A throwaway popout of the notes panel for the canvas-death check. Closing its window sends the
+// panel home, and the run pops notes out again afterwards for the rows that need it.
+async function popOutProbe(): Promise<Window | null> {
+  if (!windowOf("notes")) await dock.api.addPopoutGroup(dock.api.getPanel("notes")!, { popoutUrl });
+  for (let i = 0; i < 40 && !windowOf("notes"); i++) await sleep(50);
+  const w = windowOf("notes");
+  for (let i = 0; i < 40 && w && host("notes")!.ownerDocument !== w.document; i++) await sleep(50);
+  return w;
 }
 
 async function run(): Promise<void> {
@@ -69,16 +99,25 @@ async function run(): Promise<void> {
   answer("solid-click-delegated", "Solid: … after delegateEvents(['click'], popout.document)", solidCount() > n1);
 
   // ---- Canvas: pointer, resize ----
+  moves.clear();
   const canvasWin = await popOut("canvas");
+  await sleep(100);
+  answer("moved-out", "moved: what the dock reported for the canvas popping out", movesOf("canvas"));
   const c0 = before("canvas");
   const canvas = host("canvas")!.querySelector("canvas")!;
   canvas.dispatchEvent(new (canvasWin as unknown as typeof globalThis).PointerEvent("pointerdown", { bubbles: true }));
   answer("canvas-pointer", "Canvas: its own pointerdown listener fires in the popout", counts.get("canvas")!.pointer > c0.pointer);
   const cv = host("canvas")!.querySelector("canvas")!;
   answer("canvas-ctx-out", "Canvas: it can still draw in the popout", drawable(cv));
+  const size = () => {
+    const r = host("canvas")!.getBoundingClientRect();
+    return `${Math.round(r.width)}×${Math.round(r.height)}`;
+  };
+  const s0 = size();
+  const r0 = counts.get("canvas")!.resize;
   canvasWin?.resizeTo(520, 380);
   await sleep(400);
-  answer("canvas-resize", "Canvas: a ResizeObserver from the page sees the popout resize", counts.get("canvas")!.resize > c0.resize);
+  answer("canvas-resize", "Canvas: resizeTo on the popout, panel size before → after / ResizeObserver calls", `${s0} → ${size()} / ${counts.get("canvas")!.resize - r0}`);
 
   // ---- Keyboard ----
   const notesWin = await popOut("notes");
@@ -96,6 +135,28 @@ async function run(): Promise<void> {
   await sleep(200);
   answer("theme", "Styles: a theme switch, page / popout (before → after)", `${t0} → ${themeIn(document)} / ${themeIn(notesWin?.document)}`);
   dock.api.updateOptions({ theme: themeDark });
+
+  // ---- When does a canvas die? ----
+  // Two probe canvases made in the notes popout, each drawn there. One is taken out before the window
+  // closes, and one is still inside when it does.
+  const probeWin = await popOutProbe();
+  if (probeWin) {
+    const taken = probeWin.document.createElement("canvas");
+    const left = probeWin.document.createElement("canvas");
+    host("notes")!.append(taken, left);
+    const outFirst = drawable(taken) && drawable(left);
+    document.body.appendChild(taken);
+    probeWin.close();
+    for (let i = 0; i < 40 && !probeWin.closed; i++) await sleep(50);
+    await sleep(300);
+    document.body.appendChild(left);
+    answer("die-out", "Canvas made in a popout and taken out before it closes: draws afterwards", outFirst && drawable(taken));
+    answer("die-in", "Canvas still inside the popout when it closes: draws afterwards", drawable(left));
+    taken.remove();
+    left.remove();
+  }
+
+  if (!windowOf("notes")) await popOut("notes");
 
   // ---- tsappkit-dock's view of it ----
   answer("where", "tsappkit-dock: where('notes') while it's popped out", JSON.stringify(dock.where("notes")));
@@ -117,40 +178,32 @@ async function run(): Promise<void> {
   answer("restore-content", "Reload: Solid count and notes text survived", `${solidCount()} / ${JSON.stringify(host("notes")!.querySelector<HTMLTextAreaElement>(".notes")!.value)}`);
 
   // ---- Back into the grid ----
-  // tsappkit-dock's where() reports a popout as grid. So toggle closes the panel, and show re-adds it
-  // at its position, or with none to dockview's active group, either of which can be a popout.
-  dock.toggle("notes");
-  dock.show("notes");
-  await sleep(300);
-  answer("back-dock", "Back: tsappkit-dock toggle + show put notes in", windowOf("notes") ? "a popout" : dock.where("notes")?.kind ?? "nowhere");
-
-  // Removing the panel and adding it with a position that names no panel puts it at the grid's edge,
-  // whether or not anything is still in the grid. moveTo into a new grid group lost a panel after
-  // a restore, when every group was a popout.
-  for (const p of panels) {
-    const panel = dock.api.getPanel(p.id);
-    if (!panel || !windowOf(p.id)) continue;
-    dock.api.removePanel(panel);
-    dock.api.addPanel({ id: p.id, component: p.id, title: p.title, position: { direction: "right" } });
-  }
+  // The canvas came back from the restore in a popout, so the <canvas> in it now was made there.
+  const old = host("canvas")!.querySelector("canvas")!;
+  let restored = false;
+  old.addEventListener("contextrestored", () => (restored = true), { once: true });
+  moves.clear();
+  for (const p of panels) if (dock.where(p.id)?.kind === "popout") dock.place(p.id, { kind: "grid" });
   await sleep(300);
   answer(
     "back",
-    "Back: after removePanel + addPanel at the grid's edge, each panel's place / document",
-    panels.map((p) => `${p.id}:${windowOf(p.id) ? "popout" : dock.where(p.id)?.kind ?? "closed"}/${host(p.id)!.ownerDocument === document ? "page" : "popout"}`).join(" "),
+    "Back: after dock.place(id, grid), each panel's place / document",
+    panels.map((p) => `${p.id}:${dock.where(p.id)?.kind ?? "closed"}/${host(p.id)!.ownerDocument === document ? "page" : "popout"}`).join(" "),
   );
-  // The canvas went through a popout that has since closed.
-  const back = host("canvas")!.querySelector("canvas")!;
-  let restored = false;
-  back.addEventListener("contextrestored", () => (restored = true), { once: true });
-  answer("canvas-ctx-back", "Canvas: back in the page, it can still draw", drawable(back));
+  answer(
+    "back-size",
+    "Back: each panel's group size in the grid",
+    panels.map((p) => {
+      const r = dock.api.getPanel(p.id)?.group.element.getBoundingClientRect();
+      return `${p.id}:${r ? `${Math.round(r.width)}×${Math.round(r.height)}` : "none"}`;
+    }).join(" "),
+  );
+  answer("moved-back", "moved: what the dock reported for the canvas coming home", movesOf("canvas"));
+  answer("canvas-old", "Canvas: the <canvas> made in the popout can draw at home", drawable(old));
+  const now = host("canvas")!.querySelector("canvas")!;
+  answer("canvas-rebuilt", "Canvas: the <canvas> moved rebuilt can draw at home", now !== old && drawable(now));
   await sleep(2000);
-  answer("canvas-ctx-restored", "Canvas: 2 s later, contextrestored fired / it can draw", `${restored} / ${drawable(back) ? "yes" : "no"}`);
-  const fresh = document.createElement("canvas");
-  back.replaceWith(fresh);
-  fresh.width = fresh.height = 4;
-  answer("canvas-new", "Canvas: a new <canvas> element in its place can draw", drawable(fresh));
-  fresh.replaceWith(back);
+  answer("canvas-ctx-restored", "Canvas: 2 s later, contextrestored fired on the old one", restored);
   const n2 = solidCount();
   host("solid")!.querySelector<HTMLButtonElement>(".count")!.click();
   answer("back-click", "Back in the grid: Solid's click works again", solidCount() > n2);
@@ -182,5 +235,21 @@ const start = () => {
 document.getElementById("run")!.addEventListener("click", () => {
   start().catch((err: Error) => answer("error", "The run stopped", err.message));
 });
-if (navigator.webdriver) start().then(ready, (err: Error) => failed(err.message));
+// What tsappkit-dock promises about popouts (#142). The other rows describe the browser and dockview,
+// which the dock doesn't control, so they're reported, not checked.
+const promised: [string, (answer: string) => boolean][] = [
+  ["moved-out", (a) => a.includes("grid→popout (new document)")],
+  ["moved-back", (a) => a.includes("popout→grid (new document)")],
+  ["canvas-rebuilt", (a) => a === "yes"],
+  ["where", (a) => a === '{"kind":"popout"}'],
+  ["back", (a) => a === "canvas:grid/page solid:grid/page notes:grid/page"],
+  ["back-size", (a) => !/:0×|:\d+×0|none/.test(a)],
+];
+function check(): void {
+  for (const [key, ok] of promised) {
+    const a = document.querySelector<HTMLTableRowElement>(`#results tr[data-key="${key}"]`)?.dataset.answer ?? "(no answer)";
+    if (!ok(a)) throw new Error(`${key}: ${a}`);
+  }
+}
+if (navigator.webdriver) start().then(check).then(ready, (err: Error) => failed(err.message));
 else ready();

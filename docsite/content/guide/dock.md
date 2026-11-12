@@ -62,6 +62,21 @@ resolve: (id) => id.startsWith("page:") ? { id, title: titleOf(id), position: { 
 
 `dock.show("page:/guide/islands/")` opens one, it can be placed anywhere, and a saved layout brings it back as long as `resolve` still knows it. The Panels menu lists the open ones under the registry's.
 
+## Canvases and `moved`
+
+A canvas keeps drawing when its panel moves between the grid, a float and a drawer, since its element stays in the page's document. A dockview popout window is a different document. A canvas that has been through one may not draw again once the window closes, and which canvases survive differs between Chromium and WebKit ([Dock experiments](../dock-lab/) has the details). `moved` tells the app when to rebuild:
+
+```ts
+createDock({
+  ...,
+  moved: (id, el, to, from, { documentChanged }) => {
+    if (documentChanged) rebuildCanvases(el);   // a new <canvas>, or a new WebGL context
+  },
+});
+```
+
+`moved` runs after a panel ends up somewhere new, with its element already there. `to` and `from` are each a placement, `{kind: "popout"}`, or null for closed. It covers `place`, `show`, `toggle` and Reset layout, a tab the reader drags into a float, and popouts made or closed through `dock.api`. It isn't called for the layout the dock starts with, and a move that passes through closed on its way, such as a drawer to a float, reports only where it ended up.
+
 ## Solid panels
 
 Mount the Solid tree once into the element `hostFor` returns, and return that element every time. Solid's `render` appends, so rendering inside `hostFor` adds a second tree on each move. A closed panel's tree keeps running, since it's only detached. To tear it down, call `render`'s dispose function in `release` and build a fresh host next time. Solid listens for events on the document, so a click on a closed panel's element, which isn't in the document, does nothing.
@@ -72,5 +87,6 @@ Mount the Solid tree once into the element `hostFor` returns, and return that el
 
 - **An iframe reloads when it moves into or out of a drawer.** The browser reloads an iframe whose element gets a new parent, and a drawer is a new parent. dockview keeps panel content in a layer of its own, so moving between groups or into a float doesn't reload it. The demo fetches each page and moves its article into the panel rather than using an iframe for that reason. The live demos inside a page panel are iframes, so they restart when their page moves into a drawer.
 - **dockview-core 8.x ships no stylesheet.** Take `dockview/dist/styles/dockview.css` from the `dockview` package. 4.13 to 7.x have it at `dockview-core/dist/styles/dockview.css`.
-- **A panel reopened from the Panels menu goes to its `position`, then to its spec in the default layout.** The first panel in a default layout usually has neither, so dockview adds it to the active group. Give it a `position` if it should come back to the same place.
+- **A panel reopened from the Panels menu goes to its `position`, then to its spec in the default layout.** A position counts only if its reference panel is in the grid. Without one, the panel tabs into the active group, or into a grid group when the active group is a float or a popout, and goes to the grid's edge when the grid is empty. Give a panel a `position` if it should come back to the same place. Dock from a drawer is different: it puts the panel on that drawer's edge, at the drawer's size.
+- **Rebuild canvases when `documentChanged` is true.** A canvas that has been in a closed popout window may not draw again. See [Canvases and `moved`](#canvases-and-moved).
 - **The page's own scripts don't run in a fetched page panel.** The demo moves the article's HTML, so code blocks have no copy buttons and Mermaid diagrams show as text.
