@@ -146,6 +146,22 @@ describe("Solid and vanilla panels", () => {
     expect(mounts.log).toBe(2);
   });
 
+  it("keeps a Solid panel's tree, state and handlers through a drawer and a float", () => {
+    const dock = make();
+    q<HTMLButtonElement>(".count")[0].click();
+    const button = q(".count")[0];
+    dock.place("counter", { kind: "drawer", edge: "bottom" });
+    expect(container.querySelector(".dock-drawer-bottom")!.contains(button)).toBe(true);
+    (button as HTMLButtonElement).click();
+    expect(button.textContent).toBe("clicked 2 (idle)");
+    dock.place("counter", { kind: "float" });
+    dock.place("counter", { kind: "grid" });
+    expect(q(".count")).toHaveLength(1);
+    expect(q(".count")[0]).toBe(button);
+    expect(button.textContent).toBe("clicked 2 (idle)");
+    expect(mounts.counter).toBe(1);
+  });
+
   it("keeps Solid state through Reset layout without a second tree", () => {
     const dock = make(fakeStorage());
     q<HTMLButtonElement>(".count")[0].click();

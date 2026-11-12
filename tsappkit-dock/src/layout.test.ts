@@ -36,7 +36,7 @@ describe("saved layout", () => {
   it("round-trips a layout blob through the versioned wrapper", () => {
     const s = fakeStorage();
     saveLayout(s, KEY, REGISTRY, { grid: { root: 1 } });
-    expect(loadLayout(s, KEY)).toEqual({ layout: { grid: { root: 1 } }, savedPanels: IDS });
+    expect(loadLayout(s, KEY)).toEqual({ layout: { grid: { root: 1 } }, savedPanels: IDS, drawers: {} });
   });
 
   it("stamps the save with a version and the current registry", () => {
@@ -48,7 +48,23 @@ describe("saved layout", () => {
   it("loads a bare pre-versioning blob with an empty registry", () => {
     const s = fakeStorage();
     s.data[KEY] = JSON.stringify({ grid: { root: 2 } });
-    expect(loadLayout(s, KEY)).toEqual({ layout: { grid: { root: 2 } }, savedPanels: [] });
+    expect(loadLayout(s, KEY)).toEqual({ layout: { grid: { root: 2 } }, savedPanels: [], drawers: {} });
+  });
+
+  it("saves drawers as version 2 and loads them back", () => {
+    const s = fakeStorage();
+    const drawers = { bottom: { panels: ["ask"], active: "ask", size: 300, open: true } };
+    saveLayout(s, KEY, REGISTRY, { grid: 1 }, drawers);
+    expect(JSON.parse(s.data[KEY])).toEqual({ v: 2, panels: IDS, layout: { grid: 1 }, drawers });
+    expect(loadLayout(s, KEY)).toEqual({ layout: { grid: 1 }, savedPanels: IDS, drawers });
+  });
+
+  it("loads a version 1 save, or a version 2 save with junk drawers, as grid only", () => {
+    const s = fakeStorage();
+    s.data[KEY] = JSON.stringify({ v: 1, panels: IDS, layout: {}, drawers: { left: { panels: ["ask"] } } });
+    expect(loadLayout(s, KEY)!.drawers).toEqual({});
+    s.data[KEY] = JSON.stringify({ v: 2, panels: IDS, layout: {}, drawers: "nope" });
+    expect(loadLayout(s, KEY)!.drawers).toEqual({});
   });
 
   it("returns null when absent", () => {

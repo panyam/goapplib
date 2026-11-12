@@ -11,7 +11,11 @@ export {
   type PanelDef,
   type PanelPosition,
   type PanelSpec,
+  type Placement,
+  type SavedDrawer,
+  type SavedDrawers,
 } from "./layout.js";
+export type { DrawerConfig } from "./drawerView.js";
 export {
   clampSize,
   drawerSize,

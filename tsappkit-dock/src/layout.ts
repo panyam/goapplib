@@ -1,3 +1,5 @@
+import type { DrawerEdge } from "./drawer.js";
+
 // The DOM-free half of the dock: the panel registry's types, the saved layout, reconcile and prune,
 // and theme resolution. It needs neither dockview nor a browser, so it unit-tests on its own.
 // dock.ts feeds these to dockview-core.
@@ -24,7 +26,30 @@ export interface PanelDef {
    * layout is tried next, and then the grid root.
    */
   position?: PanelPosition;
+  /**
+   * Where the panel goes when it opens on its own: on first run, on reconcile, from `show`, and on
+   * Reset layout. Default `{kind: "grid"}`. A panel in the default layout's specs starts in the grid
+   * unless this says a drawer or float.
+   */
+  defaultPlacement?: Placement;
 }
+
+/**
+ * Where a panel lives. `grid` is dockview's grid, `float` a dockview floating group over it, and
+ * `drawer` the drawer on that edge.
+ */
+export type Placement = { kind: "grid" } | { kind: "float" } | { kind: "drawer"; edge: DrawerEdge };
+
+/** One drawer's saved state: its panels in tab order, the active one, its size, and whether it's open. */
+export interface SavedDrawer {
+  panels: string[];
+  active?: string;
+  size?: number;
+  open?: boolean;
+}
+
+/** The saved drawers, by edge. An edge with no drawer is absent. */
+export type SavedDrawers = Partial<Record<DrawerEdge, SavedDrawer>>;
 
 /** A dockview `addPanel` position: a direction from a panel that is already open. */
 export interface PanelPosition {
@@ -51,9 +76,10 @@ export interface DockStorage {
 }
 
 interface SavedLayout {
-  v: 1;
+  v: 1 | 2;
   panels: string[];
   layout: unknown;
+  drawers?: SavedDrawers;
 }
 
 /**
@@ -63,16 +89,19 @@ interface SavedLayout {
 export interface LoadedLayout {
   layout: unknown;
   savedPanels: string[];
+  /** The drawers from a version 2 save. A version 1 or bare save has none, so it loads as grid only. */
+  drawers: SavedDrawers;
 }
 
 /**
  * Saves dockview's `toJSON()` blob as `{v: 1, panels, layout}`, where `panels` is the registry's
- * ids. A storage that throws (quota, private mode) is ignored, so the page keeps working and the
- * layout just isn't saved.
+ * ids. With `drawers` it saves `{v: 2, panels, layout, drawers}`. A storage that throws (quota,
+ * private mode) is ignored, so the page keeps working and the layout just isn't saved.
  */
-export function saveLayout(storage: DockStorage, key: string, registry: readonly PanelDef[], layout: unknown): void {
+export function saveLayout(storage: DockStorage, key: string, registry: readonly PanelDef[], layout: unknown, drawers?: SavedDrawers): void {
   try {
-    const saved: SavedLayout = { v: 1, panels: registry.map((p) => p.id), layout };
+    const panels = registry.map((p) => p.id);
+    const saved: SavedLayout = drawers ? { v: 2, panels, layout, drawers } : { v: 1, panels, layout };
     storage.setItem(key, JSON.stringify(saved));
   } catch {
     // best effort
@@ -96,9 +125,10 @@ export function loadLayout(storage: DockStorage, key: string): LoadedLayout | nu
     const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && "v" in parsed && "layout" in parsed) {
       const s = parsed as SavedLayout;
-      return { layout: s.layout, savedPanels: Array.isArray(s.panels) ? s.panels : [] };
+      const drawers = s.v === 2 && s.drawers && typeof s.drawers === "object" ? s.drawers : {};
+      return { layout: s.layout, savedPanels: Array.isArray(s.panels) ? s.panels : [], drawers };
     }
-    return { layout: parsed, savedPanels: [] };
+    return { layout: parsed, savedPanels: [], drawers: {} };
   } catch {
     return null;
   }
