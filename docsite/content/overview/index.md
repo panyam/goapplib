@@ -3,7 +3,7 @@ title: "Overview"
 description: "What goapplib is, the three packages it ships, and how this site's demos run."
 ---
 
-goapplib is for web apps whose pages are rendered on the server, in Go, and that need client code only in places. It ships as three packages that share one version (the [Reference]({{.Site.PathPrefix}}/reference/) lists them). We built it for our own apps, and thambura, agni and lilbattle all run on it.
+goapplib is for web apps whose pages are rendered on the server, in Go, and that need client code only in places. It ships as a Go module and three npm packages, all sharing one version (the [Reference]({{.Site.PathPrefix}}/reference/) lists them). We built it for our own apps, and thambura, agni and lilbattle all run on it.
 
 ## goapplib
 
@@ -12,6 +12,10 @@ It's the Go module, `github.com/panyam/goapplib`. A page is a view, a Go type th
 ## tsappkit
 
 `@panyam/tsappkit` is the browser half. `BasePage` gives a page a component lifecycle, and `IslandPage` mounts the islands a Go page declares in its page spec, each when its load strategy says to: at once, when the browser is idle, when its slot scrolls into view, or when a media query matches. `@panyam/tsappkit-solid` adds `SolidIsland`, for islands written in Solid. Islands that show the same state share one presenter, which drives each through a `Port`. The [guide]({{.Site.PathPrefix}}/guide/islands/) shows both with live demos.
+
+## tsappkit-dock
+
+`@panyam/tsappkit-dock` builds an IDE-like page on [dockview-core](https://dockview.dev). You list the panels and a default arrangement. Each panel then sits in the grid, floats over it, or slides out of a drawer on any edge, and the reader moves it from its ⋯ menu. A bottom drawer works as a phone sheet. The layout is saved, and a saved layout picks up panels added since. The dock moves DOM elements, so it needs no UI framework. The [guide]({{.Site.PathPrefix}}/guide/dock/) has a live dock whose panels are this site's pages, and [Dock experiments]({{.Site.PathPrefix}}/guide/dock-lab/) tries pinned drawers and popout windows.
 
 ## wasmhost
 

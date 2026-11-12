@@ -30,4 +30,9 @@ hideTitle: true
 <p>wasmhost runs an app's HTTP or Connect handlers as wasm in a Web Worker, over files the page hands it, and the page's clients can't tell it from a server.</p>
 <a href="{{.Site.PathPrefix}}/overview/#wasmhost">The worker host &rarr;</a>
 </div>
+<div class="feature-card">
+<h3>Docks and drawers</h3>
+<p>tsappkit-dock lays out an IDE-like page: panels in a grid, floating, or in drawers on any edge. A bottom drawer doubles as a phone sheet, and the saved layout picks up new panels.</p>
+<a href="{{.Site.PathPrefix}}/guide/dock/">The dock, live &rarr;</a>
+</div>
 </div>
