@@ -4,11 +4,10 @@ goapplib, `@panyam/tsappkit`, `@panyam/tsappkit-solid` and `@panyam/tsappkit-doc
 
 ## Cutting a release
 
-1. If the versions need setting, commit "Release vX.Y.Z" on main. Bumps are patches by default; ask before a minor.
-2. `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`. Push the tag before `gh release create`, or gh makes a lightweight tag at `main`'s head.
-3. `gh release create vX.Y.Z --notes-file <notes> --verify-tag`. The release body is the notes; there's no CHANGELOG.
-4. The tag runs `.github/workflows/publish.yml`, which runs `npm-publish.sh`. Watch it with `gh run watch`.
-5. File an upgrade ticket in each consumer that needs the release: `panyam/thambura`, `panyam/agni`, `panyam/diffpp`, `turnforge/lilbattle`.
+1. Run `scripts/release.sh X.Y.Z [notes.md]` on a clean main. Bumps are patches by default; ask before a minor. The script sets `VERSION` and the package.json versions, and runs `pin-docs.sh`. It commits "Release vX.Y.Z" if anything changed, then tags, pushes main and the tag, and runs `gh release create --verify-tag` when given notes. The release body is the notes; there's no CHANGELOG.
+2. `pin-docs.sh` moves the docs' version pins: `go get ...@vX.Y.Z` in README.md and getting-started, templar's `ref:`, and the version example in each package README. A new pin in the docs needs a pattern there. Don't pin the package READMEs between releases. They're npm pages, so a README change at a version already on npm fails `npm-publish.sh`'s same-contents check.
+3. The tag runs `.github/workflows/publish.yml`, which runs `npm-publish.sh`. Watch it with `gh run watch`.
+4. File an upgrade ticket in each consumer that needs the release: `panyam/thambura`, `panyam/agni`, `panyam/diffpp`, `turnforge/lilbattle`.
 
 ## How publishing works
 
