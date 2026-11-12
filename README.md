@@ -30,7 +30,7 @@ All four share one version, in `VERSION`. The [Overview](https://panyam.github.i
 ## Install
 
 ```sh
-go get github.com/panyam/goapplib@v0.7.11
+go get github.com/panyam/goapplib@v0.7.12
 ```
 
 ```sh

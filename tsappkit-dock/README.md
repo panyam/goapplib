@@ -6,7 +6,7 @@ A dock for IDE-like pages, built on [dockview-core](https://www.npmjs.com/packag
 npm install @panyam/tsappkit-dock dockview-core
 ```
 
-It needs `dockview-core` 4.13 or later, up to 8.x, and no UI framework. It shares one version with tsappkit and goapplib, so `@panyam/tsappkit-dock@0.7.10` goes with `@panyam/tsappkit@0.7.10` and goapplib `v0.7.10`. Load dockview's stylesheet in your page. dockview-core 4.13 to 7.x ship it as `dockview-core/dist/styles/dockview.css`. 8.x doesn't, and the same file comes in the `dockview` package as `dockview/dist/styles/dockview.css`.
+It needs `dockview-core` 4.13 or later, up to 8.x, and no UI framework. It shares one version with tsappkit and goapplib, so `@panyam/tsappkit-dock@0.7.12` goes with `@panyam/tsappkit@0.7.12` and goapplib `v0.7.12`. Load dockview's stylesheet in your page. dockview-core 4.13 to 7.x ship it as `dockview-core/dist/styles/dockview.css`. 8.x doesn't, and the same file comes in the `dockview` package as `dockview/dist/styles/dockview.css`.
 
 ## What's in it
 
