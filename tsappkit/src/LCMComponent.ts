@@ -1,100 +1,47 @@
 /**
- * LCMComponent Interface - Defines multi-phase component initialization
+ * A LifeCycle Managed Component: one that a LifecycleController starts in
+ * phases, so a component can rely on every other component being set up
+ * before it activates.
  *
- * This interface implements a breadth-first lifecycle pattern that eliminates
- * initialization order dependencies and race conditions through synchronization barriers.
- *
- * Lifecycle Phases:
- * 1. Construction - Components are created but not initialized
- * 2. bindToDOM() - Basic DOM setup, discover child components
- * 3. injectDependencies() - Receive references to other components
- * 4. activate() - Final setup when all dependencies are ready
- *
- * Key Benefits:
- * - Order Independence: Components can be created in any sequence
- * - Async Safety: Each phase waits for all components before proceeding
- * - Clear Dependencies: Explicit injection points prevent race conditions
- * - Error Isolation: Component failures don't cascade to others
- */
-
-/**
- * LCM Component - Short for LifeCycle Managed Component
- * enable components to be declared first and their loading be managed by a
- * LifecycleController so that we have layered creation, dependency injection and setup
- * in a breadth first way.
- *
- * A key constraint on LCMComponents are that they should not perform any initialization
- * in the constructor.  This is because a LifecycleController should be used to load/setup
- * these components and they will follow a layered approach.  Performing these actions in
- * the constructor could violate the idempotency guarantees.
+ * Keep the constructor to storing its arguments. The controller decides when
+ * the real work happens, phase by phase over the whole tree:
+ * performLocalInit, then setupDependencies, then activate. deactivate runs
+ * when the controller is torn down, leaves first.
+ * See https://panyam.github.io/goapplib/guide/components/.
  */
 export interface LCMComponent {
     /**
-     * Phase 1: The "local" initialization of the component.
+     * Phase 1: set the component itself up, and return its children.
      *
-     * In this phase the component initializes itself and returns any children it might
-     * want initialized as part of the lifecycled loading.
-     *
-     * This phase should:
-     * - Set up basic DOM elements and event listeners
-     * - Create child components (but don't initialize them) and return them
-     * - Return array of child components for lifecycle controller discovery
-     *
-     * This phase must be synchronous and should not:
-     * - Access other components or external dependencies
-     * - Perform async operations
-     * - Emit events or notifications
-     *
-     * @returns Array of child components to be managed by lifecycle controller
+     * Bind to the DOM and create child components here, without starting
+     * them. The children returned become the next level of the tree. Other
+     * components may not be set up yet, so don't reach for them. A Promise is
+     * awaited before the next component in the level starts.
      */
     performLocalInit(): Promise<LCMComponent[]> | LCMComponent[];
 
     /**
-     * Phase 2: Inject dependencies from parent/siblings
+     * Phase 2: take references to other components.
      *
-     * This phase should:
-     * - Receive and store references to required dependencies
-     * - Validate that required dependencies are provided
-     * - Set up internal state based on dependencies
-     *
-     * This phase can be async and may:
-     * - Load external data or resources
-     * - Perform validation or setup operations
-     * - Initialize internal components that depend on injected references
-     *
-     * @param deps Record of dependency name to dependency instance
-     * @returns Promise<void> or void - can be async
+     * Every component in the tree has finished performLocalInit by now, so a
+     * parent can hand its children their siblings, or itself. The controller
+     * doesn't await a Promise returned here: activate can start before it
+     * resolves, so do async work in activate instead.
      */
     setupDependencies(): Promise<void> | void;
 
     /**
-     * Phase 3: Activate component when all dependencies are ready
+     * Phase 3: start working. Subscribe to events, load data, render.
      *
-     * This phase should:
-     * - Complete final initialization
-     * - Enable component functionality
-     * - Start listening for external events
-     * - Begin normal operation
-     *
-     * This phase can be async and may:
-     * - Connect to external services
-     * - Load initial data
-     * - Emit ready notifications
-     *
-     * @returns Promise<void> or void - can be async
+     * Every component has finished setupDependencies. A level's activate
+     * calls run together, and the next level starts once all of them resolve.
      */
     activate(): Promise<void> | void;
 
     /**
-     * Cleanup phase: Deactivate component and clean up resources
-     *
-     * This should:
-     * - Stop all ongoing operations
-     * - Remove event listeners
-     * - Clean up external connections
-     * - Dispose of child components
-     *
-     * @returns Promise<void> or void - can be async
+     * Stop working and release what activate took: subscriptions, listeners,
+     * connections. LifecycleController.deactivateAll calls it on the children
+     * before the parent, so a component doesn't deactivate its children itself.
      */
     deactivate(): Promise<void> | void;
 }
