@@ -25,12 +25,13 @@ const version = (file) => createHash("sha256").update(readFileSync(file)).digest
 // tsappkit-solid's source), whose imports would otherwise resolve from that directory's
 // node_modules, if it has one, and bundle a second copy. tsappkit-solid's own node_modules holds
 // tsappkit from npm and another solid-js, and two copies of Solid don't share effects. So
-// @panyam/tsappkit is the repo's source, and the rest resolve from this package.
+// @panyam/tsappkit is the repo's source, and the rest resolve from this package. dockview-core is in
+// the list for the dock demo, which imports tsappkit-dock's source and its devDependency's dockview.
 const oneCopy = {
   name: "one-copy",
   setup(b) {
     b.onResolve({ filter: /^@panyam\/tsappkit$/ }, () => ({ path: here("../tsappkit/src/index.ts") }));
-    b.onResolve({ filter: /^(@(bufbuild|connectrpc)\/|solid-js(\/|$))/ }, (args) => {
+    b.onResolve({ filter: /^(@(bufbuild|connectrpc)\/|solid-js(\/|$)|dockview-core(\/|$))/ }, (args) => {
       if (args.pluginData?.oneCopy) return undefined;
       return b.resolve(args.path, { kind: args.kind, resolveDir: here("."), pluginData: { oneCopy: true } });
     });

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dock</title>
+<link rel="stylesheet" href="../../css/main.css">
+<link rel="stylesheet" href="main.css">
+<style>
+  body { padding: .5rem; }
+  .bar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .5rem; position: relative; }
+  .bar .hint { opacity: .7; font-size: 13px; margin-right: auto; }
+  #dock { height: 560px; border: 1px solid #33415580; }
+  .standalone #dock { height: calc(100vh - 4rem); }
+  .dock-panels-list, .dock-menu { position: absolute; right: 0; top: 2.2rem; z-index: 50; min-width: 12rem; padding: .25rem 0;
+    background: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 6px; box-shadow: 0 6px 18px #0008; }
+  .dock-menu { position: fixed; right: auto; top: auto; }
+  .dock-panels-item, .dock-menu-item { display: block; width: 100%; text-align: left; border: 0; background: none; color: inherit;
+    padding: .3rem .9rem; font: 13px system-ui, sans-serif; white-space: pre; cursor: pointer; }
+  .dock-panels-item:hover, .dock-menu-item:hover { background: #334155; }
+  .dock-panels-reset { border-top: 1px solid #475569; }
+  .dock-move-btn { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 .6rem; font-size: 16px; opacity: .7; }
+  .dock-drawer-tabs { padding: .25rem .25rem 0; border-bottom: 1px solid #47556980; }
+  .dock-drawer-tab { border: 0; background: none; color: inherit; padding: .3rem .7rem; font: 13px system-ui, sans-serif; opacity: .65; cursor: pointer; }
+  .dock-drawer-tab-active { opacity: 1; border-bottom: 2px solid #22c55e; }
+  .dock-drawer-tab-menu { padding: 0 .2rem; }
+  .pad { padding: .6rem .9rem; font-size: 14px; height: 100%; overflow: auto; box-sizing: border-box; }
+  .tag { margin: 0 0 .4rem; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
+  .pages h4 { margin: .6rem 0 .2rem; font-size: 12px; text-transform: uppercase; opacity: .7; }
+  .pages ul { list-style: none; margin: 0; padding: 0; }
+  .pages a { display: block; padding: .15rem .3rem; text-decoration: none; }
+  .pages a:hover { background: #33415580; }
+  .page-panel { height: 100%; overflow: auto; }
+  .page-panel .content { padding: .8rem 1.2rem; max-width: none; }
+  .page-panel h1 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 .4rem; }
+  .page-panel .lead { font-size: 15px; }
+  .page-panel .demo-elided { opacity: .7; font-style: italic; }
+  textarea { width: 95%; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <span class="hint">Open pages from the Pages panel. Move any panel with its ⋯ menu.</span>
+  <span id="menu"></span>
+</div>
+<div id="dock"></div>
+<script type="module" src="main.js"></script>
+</body>
+</html>
