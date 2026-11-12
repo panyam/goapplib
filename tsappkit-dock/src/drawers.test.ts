@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDock, type Dock, type DockOptions } from "./dock.js";
 import type { DockStorage, PanelDef, PanelSpec } from "./layout.js";
 
@@ -393,5 +393,104 @@ describe("grid placement (#142)", () => {
     bottom.place("log", { kind: "grid" });
     expect(grid(bottom)).toEqual({ orientation: "VERTICAL", tree: [[["files"], ["diff"]], ["log"]] });
     expect(sizes).toEqual([{ height: 150 }]);
+  });
+});
+
+describe("phone sheets (#140)", () => {
+  // jsdom lays nothing out, so the dock gets a 390×800 box to measure drawers against.
+  const box = () =>
+    vi.spyOn(container, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 390, height: 800, right: 390, bottom: 800, x: 0, y: 0, toJSON: () => ({}) });
+  const sheet = (over: Partial<DockOptions> = {}) => {
+    box();
+    const dock = make({ drawers: { bottom: { size: 0.5, min: 200 } }, ...over });
+    dock.show("log");
+    return dock;
+  };
+  const handle = () => drawerEl("bottom")!.querySelector<HTMLElement>(".dock-drawer-handle")!;
+  const fire = (el: EventTarget, type: string, y: number, t: number, pointerType = "touch") => {
+    const ev = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: 10, clientY: y });
+    Object.defineProperty(ev, "pointerType", { value: pointerType });
+    Object.defineProperty(ev, "timeStamp", { value: t });
+    el.dispatchEvent(ev);
+  };
+  // A drag from the drawer's top edge at y=400, through each [y, t] stop, released at the last one.
+  const drag = (from: EventTarget, stops: [number, number][], pointerType = "touch") => {
+    fire(from, "pointerdown", 400, 0, pointerType);
+    for (const [y, t] of stops) fire(document, "pointermove", y, t, pointerType);
+    const [y, t] = stops[stops.length - 1];
+    fire(document, "pointerup", y, t + 10, pointerType);
+  };
+
+  it("sizes a drawer from a share of the dock", () => {
+    sheet();
+    expect(drawerEl("bottom")!.style.height).toBe("400px");
+  });
+
+  it("closes when dragged past half its minimum, and keeps the size it had", () => {
+    const dock = sheet();
+    drag(handle(), [[600, 500], [720, 1000]]);
+    expect(dock.toggleDrawer("bottom", true)).toBe(true);
+    expect(drawerEl("bottom")!.style.height).toBe("400px");
+    dock.toggleDrawer("bottom", false);
+    drag(handle(), [[600, 500], [720, 1000]]);
+    expect(drawerEl("bottom")!.style.display).toBe("none");
+  });
+
+  it("resizes and stays open when the drag ends above that", () => {
+    sheet();
+    drag(handle(), [[450, 500], [500, 1000]]);
+    expect(drawerEl("bottom")!.style.display).toBe("flex");
+    expect(drawerEl("bottom")!.style.height).toBe("300px");
+  });
+
+  it("follows the finger below its minimum, and springs back when let go above half of it", () => {
+    sheet();
+    fire(handle(), "pointerdown", 400, 0);
+    fire(document, "pointermove", 700, 500);
+    expect(drawerEl("bottom")!.style.height).toBe("200px");
+    expect(drawerEl("bottom")!.style.transform).toBe("translateY(100px)");
+    fire(document, "pointermove", 650, 1000);
+    fire(document, "pointerup", 650, 1010);
+    expect(drawerEl("bottom")!.style.display).toBe("flex");
+    expect(drawerEl("bottom")!.style.transform).toBe("");
+  });
+
+  it("closes on a touch flick toward the edge, but not on a mouse one", () => {
+    sheet();
+    drag(handle(), [[450, 1000], [500, 1050]], "mouse");
+    expect(drawerEl("bottom")!.style.display).toBe("flex");
+    drag(handle(), [[450, 1000], [500, 1050]]);
+    expect(drawerEl("bottom")!.style.display).toBe("none");
+  });
+
+  it("drags from a bottom drawer's tab strip, and a drag there doesn't also pick a tab", () => {
+    const dock = sheet();
+    dock.place("files", { kind: "drawer", edge: "bottom" });
+    dock.show("log");
+    const files = drawerEl("bottom")!.querySelector<HTMLElement>('.dock-drawer-tab[data-panel="files"]')!;
+    drag(files, [[450, 500], [500, 1000]]);
+    files.click();
+    expect(drawerEl("bottom")!.style.height).toBe("300px");
+    expect(files.getAttribute("aria-selected")).toBe("false");
+    files.click();
+    expect(files.getAttribute("aria-selected")).toBe("true");
+    drag(files, [[600, 500], [720, 1000]]);
+    expect(drawerEl("bottom")!.style.display).toBe("none");
+  });
+
+  it("hides the tab strip with tabs: false", () => {
+    sheet({ drawers: { bottom: { size: 0.5, tabs: false } } });
+    expect(drawerEl("bottom")!.querySelector<HTMLElement>(".dock-drawer-tabs")!.style.display).toBe("none");
+  });
+
+  it("reports a drawer opening, closing and changing tab through drawerChanged", () => {
+    const seen: string[] = [];
+    const dock = make({ drawerChanged: (edge, open, active) => seen.push(`${edge} ${open} ${active}`) });
+    expect(seen).toEqual([]);
+    dock.show("log");
+    dock.place("files", { kind: "drawer", edge: "bottom" });
+    dock.toggleDrawer("bottom", false);
+    dock.place("files", { kind: "grid" });
+    expect(seen).toEqual(["bottom true log", "bottom true files", "bottom false files", "bottom false log"]);
   });
 });

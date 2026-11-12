@@ -50,7 +50,40 @@ dock.show("log");             // brings it to the front, opening its drawer if i
 dock.toggleDrawer("bottom");
 ```
 
-Drawers lie over the dock with a scrim behind them. A drawer that holds several panels shows them as tabs. Escape or a click on the scrim closes it, and a drag on its inner edge resizes it, clamped to `min` and to `maxFrac` of the dock on that axis. `drawers: { bottom: { size: 220, min: 120 } }` sets one edge's numbers.
+Drawers lie over the dock with a scrim behind them. A drawer that holds several panels shows them as tabs. Escape or a click on the scrim closes it, and a drag on its inner edge resizes it, clamped to `min` and to `maxFrac` of the dock on that axis. Drag the edge below `min` and the drawer slides toward its edge under the pointer. Let go past half of `min` and it closes, keeping the size it had before the drag. A finger flicked toward the edge closes it from anywhere, and a mouse never flicks, so a quick resize on a desktop doesn't close anything. A bottom drawer also drags from its tab strip. `drawers: { bottom: { size: 220, min: 120 } }` sets one edge's numbers, and a `size` up to 1 is a share of the dock, so `0.65` is 65 percent of its height.
+
+## Phone pages
+
+On a phone the main view gets the whole screen, and every other panel slides up in a sheet from the bottom. A dock does this with one panel in the grid and the rest in the bottom drawer. A bar of buttons below the dock replaces the drawer's tabs, so the drawer hides its tab strip. Tap Checks below, then Notes, then Notes again. Drag the sheet's handle down to close it, or flick it.
+
+{{ demo "dock-phone" 820 }}
+
+```ts
+const dock = createDock({
+  container: document.getElementById("dock")!,
+  panels: [
+    { id: "map", title: "Map" },
+    { id: "units", title: "Units", defaultPlacement: { kind: "drawer", edge: "bottom" } },
+    { id: "log", title: "Log", defaultPlacement: { kind: "drawer", edge: "bottom" } },
+  ],
+  defaultLayout: (api) => {
+    api.addPanel({ id: "map", component: "map", title: "Map" });
+    api.groups[0].header.hidden = true;     // no tab header over the map
+  },
+  hostFor,
+  moveMenu: false,
+  drawers: { bottom: { size: 0.65, min: 160, tabs: false } },
+  drawerChanged: (edge, open, active) => highlightButton(open ? active : undefined),
+});
+
+// A button opens its panel, and a second tap on it closes the sheet.
+onBarButton((id) => {
+  if (sheetShows(id)) dock.toggleDrawer("bottom", false);
+  else dock.show(id);
+});
+```
+
+`drawerChanged` runs whenever a drawer opens, closes or changes tab, whatever made it change, so the bar's highlight follows a swipe and a tap on the scrim as well as the buttons. tsappkit's `MobileBottomDrawer` is deprecated in favour of this setup. It made one drawer per panel and left the app to close the others.
 
 ## Panels opened at runtime
 

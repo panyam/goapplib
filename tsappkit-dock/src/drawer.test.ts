@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { clampSize, drawerSize, loadDrawerSize, saveDrawerSize, DRAWER_MIN, DRAWER_DEFAULT, type DrawerStorage } from "./drawer.js";
+import { clampSize, closesOnRelease, drawerPixels, drawerSize, loadDrawerSize, saveDrawerSize, DRAWER_FLICK, DRAWER_MIN, DRAWER_DEFAULT, type DrawerStorage } from "./drawer.js";
 
 function fakeStorage(seed: Record<string, string> = {}): DrawerStorage & { data: Record<string, string> } {
   const data = { ...seed };
@@ -67,5 +67,32 @@ describe("drawer size persistence", () => {
   it("tolerates a null storage", () => {
     expect(loadDrawerSize(null, "k")).toBe(DRAWER_DEFAULT);
     expect(() => saveDrawerSize(null, "k", 400)).not.toThrow();
+  });
+});
+
+describe("drawerPixels", () => {
+  it("reads a size up to 1 as a share of the viewport", () => {
+    expect(drawerPixels(0.65, 844)).toBe(549);
+  });
+  it("reads a size over 1 as px", () => {
+    expect(drawerPixels(420, 1000)).toBe(420);
+  });
+  it("clamps a share like a px size", () => {
+    expect(drawerPixels(0.1, 1000)).toBe(DRAWER_MIN);
+    expect(drawerPixels(1, 1000)).toBe(900);
+  });
+});
+
+describe("closesOnRelease", () => {
+  it("closes when the edge ends past half the minimum", () => {
+    expect(closesOnRelease(139, 280, 0)).toBe(true);
+    expect(closesOnRelease(141, 280, 0)).toBe(false);
+  });
+  it("closes on a flick toward the edge, wherever it ends", () => {
+    expect(closesOnRelease(400, 280, DRAWER_FLICK + 0.01)).toBe(true);
+    expect(closesOnRelease(400, 280, DRAWER_FLICK - 0.01)).toBe(false);
+  });
+  it("ignores a flick away from the edge", () => {
+    expect(closesOnRelease(400, 280, -2)).toBe(false);
   });
 });

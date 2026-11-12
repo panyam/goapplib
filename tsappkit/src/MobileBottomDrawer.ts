@@ -12,6 +12,12 @@ import { EventBus } from './EventBus';
  * - Swipe down to close gesture
  * - Smooth slide-up/down animations
  * - Holds any panel content
+ *
+ * @deprecated Use a bottom drawer from `@panyam/tsappkit-dock` instead. Put the page's main view in a
+ * one-panel grid and the other panels in the bottom drawer, with `drawers: { bottom: { size: 0.65,
+ * tabs: false } }`. Open a panel with `dock.show(id)`, and highlight its button from
+ * `drawerChanged`. A drag or a touch flick toward the edge closes the drawer, as a swipe closes this
+ * one. See https://panyam.github.io/goapplib/guide/dock/#phone-pages
  */
 export class MobileBottomDrawer extends BaseComponent implements LCMComponent {
     private backdropElement: HTMLElement;

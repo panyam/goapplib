@@ -2,7 +2,7 @@
 // placed in it as tabs, and dock.ts moves their elements in and out. Styles are inline and minimal
 // (position, size, the scrim), so a drawer works with no CSS; everything else hangs off the
 // dock-drawer-* classes for the app to style.
-import { clampSize, drawerSize, DRAWER_DEFAULT, type DrawerBounds, type DrawerEdge } from "./drawer.js";
+import { closesOnRelease, drawerPixels, DRAWER_DEFAULT, DRAWER_MIN, type DrawerBounds, type DrawerEdge } from "./drawer.js";
 
 /** What one drawer saves: its panels in tab order, the active one, its size, and whether it's open. */
 export interface DrawerState {
@@ -14,8 +14,18 @@ export interface DrawerState {
 
 /** Per-edge drawer settings for `createDock`. */
 export interface DrawerConfig extends DrawerBounds {
-  /** The size, in px, when nothing is saved. Default `DRAWER_DEFAULT`. */
+  /**
+   * The size when nothing is saved. Over 1 it's px. Up to 1 it's a share of the drawer host on
+   * the drawer's axis, so `0.65` makes a bottom sheet 65 percent of the dock's height. Default
+   * `DRAWER_DEFAULT`.
+   */
   size?: number;
+  /**
+   * Whether the drawer shows its tab strip. Default true. Turn it off when the app picks the panel
+   * with its own buttons, such as a phone page's bottom bar calling `dock.show(id)`. The panels are
+   * still tabs underneath, and the drawer still drags from its edge.
+   */
+  tabs?: boolean;
 }
 
 interface Tab {
@@ -30,6 +40,13 @@ const Z_SCRIM = "calc(var(--dv-overlay-z-index, 999) + 200)";
 const Z_DRAWER = "calc(var(--dv-overlay-z-index, 999) + 201)";
 
 const HORIZONTAL: Record<DrawerEdge, boolean> = { left: true, right: true, top: false, bottom: false };
+// +1 when the anchored edge is at the far end of its axis (right, bottom), so a pointer moving
+// toward it moves in the positive direction.
+const TOWARD: Record<DrawerEdge, 1 | -1> = { left: -1, right: 1, top: -1, bottom: 1 };
+// A tab-strip press becomes a drag once it has moved this far, so a tap still picks a tab.
+const DRAG_SLOP = 6;
+// Only the last move counts toward a flick, and only if it came this recently before the release.
+const FLICK_WINDOW_MS = 100;
 
 export class DrawerView {
   readonly root: HTMLElement;
@@ -77,7 +94,7 @@ export class DrawerView {
     this.tabStrip = doc.createElement("div");
     this.tabStrip.className = "dock-drawer-tabs";
     this.tabStrip.setAttribute("role", "tablist");
-    Object.assign(this.tabStrip.style, { display: "flex", gap: "2px", alignItems: "center", flex: "none" });
+    Object.assign(this.tabStrip.style, { display: config.tabs === false ? "none" : "flex", gap: "2px", alignItems: "center", flex: "none" });
 
     this.body = doc.createElement("div");
     this.body.className = "dock-drawer-body";
@@ -86,13 +103,21 @@ export class DrawerView {
     this.handle = doc.createElement("div");
     this.handle.className = "dock-drawer-handle";
     const inner = { left: "right", right: "left", top: "bottom", bottom: "top" }[edge];
+    // A finger needs more than the 6px a mouse gets.
+    const thick = doc.defaultView?.matchMedia?.("(pointer: coarse)").matches ? 24 : 6;
     Object.assign(this.handle.style, {
       position: "absolute",
-      [inner]: "-3px",
-      ...(HORIZONTAL[edge] ? { top: "0", bottom: "0", width: "6px", cursor: "col-resize" } : { left: "0", right: "0", height: "6px", cursor: "row-resize" }),
+      [inner]: `-${thick / 2}px`,
+      ...(HORIZONTAL[edge] ? { top: "0", bottom: "0", width: `${thick}px`, cursor: "col-resize" } : { left: "0", right: "0", height: `${thick}px`, cursor: "row-resize" }),
       touchAction: "none",
     });
-    this.handle.addEventListener("pointerdown", (e) => this.drag(e));
+    this.handle.addEventListener("pointerdown", (e) => this.drag(e, 0));
+    // A bottom drawer's tab strip runs along its inner edge, so it drags like the handle, the way a
+    // phone sheet drags from its header.
+    if (edge === "bottom") {
+      this.tabStrip.style.touchAction = "none";
+      this.tabStrip.addEventListener("pointerdown", (e) => this.drag(e, DRAG_SLOP));
+    }
 
     this.root.append(this.tabStrip, this.body, this.handle);
     host.append(this.scrim, this.root);
@@ -111,8 +136,15 @@ export class DrawerView {
     return this.isOpen;
   }
 
+  /** The size as configured, saved or dragged: px, or a share of the host when it's up to 1. */
   get size(): number {
     return this.px;
+  }
+
+  /** The size in px against the host as it is now, or unclamped while the host has no size. */
+  get pixels(): number {
+    const span = this.span();
+    return span > 0 ? drawerPixels(this.px, span, this.config) : this.px;
   }
 
   /** The element a panel in this drawer shows, or undefined if it isn't here. */
@@ -193,8 +225,8 @@ export class DrawerView {
     if (notify) this.hooks.changed();
   }
 
-  setSize(px: number, notify = true): void {
-    this.px = Math.round(px);
+  setSize(size: number, notify = true): void {
+    this.px = size > 1 ? Math.round(size) : size;
     this.applySize();
     if (notify) this.hooks.changed();
   }
@@ -208,31 +240,91 @@ export class DrawerView {
     this.root.remove();
   }
 
-  // Clamps against the host as it is now, so a drawer saved on a big window still fits a small one.
-  private applySize(): void {
+  private span(): number {
     const rect = this.host.getBoundingClientRect();
-    const span = HORIZONTAL[this.edge] ? rect.width : rect.height;
-    const px = span > 0 ? clampSize(this.px, span, this.config) : this.px;
-    this.root.style[HORIZONTAL[this.edge] ? "width" : "height"] = `${px}px`;
+    return HORIZONTAL[this.edge] ? rect.width : rect.height;
   }
 
-  private drag(e: PointerEvent): void {
-    e.preventDefault();
-    const move = (ev: PointerEvent): void => {
-      const rect = this.host.getBoundingClientRect();
-      const horizontal = HORIZONTAL[this.edge];
-      const pointer = horizontal ? ev.clientX - rect.left : ev.clientY - rect.top;
-      const span = horizontal ? rect.width : rect.height;
-      this.setSize(drawerSize(this.edge, pointer, span, this.config), false);
+  // Clamps against the host as it is now, so a drawer saved on a big window still fits a small one.
+  // A host with no size yet (not laid out) gets a share as a percentage and px unclamped.
+  private applySize(): void {
+    const span = this.span();
+    const css = span > 0 ? `${drawerPixels(this.px, span, this.config)}px` : this.px <= 1 ? `${this.px * 100}%` : `${this.px}px`;
+    this.root.style[HORIZONTAL[this.edge] ? "width" : "height"] = css;
+  }
+
+  // A drag on the inner edge. It resizes while the edge is above `min`. Below it the drawer slides
+  // toward its edge under the pointer, and letting go there, or flicking a finger toward the edge,
+  // closes it at the size it had before the drag. `slop` is how far the pointer moves before this
+  // counts as a drag, so a tap on a tab in the strip still picks the tab.
+  private drag(e: PointerEvent, slop: number): void {
+    if (e.button > 0) return;
+    const doc = this.host.ownerDocument;
+    const horizontal = HORIZONTAL[this.edge];
+    const toward = TOWARD[this.edge];
+    const touch = e.pointerType !== "mouse";
+    const min = this.config.min ?? DRAWER_MIN;
+    const at = (ev: PointerEvent) => (horizontal ? ev.clientX : ev.clientY);
+    const start = at(e);
+    const before = this.px;
+    let dragging = false;
+    let fromEdge = Number.NaN;
+    let last = { pos: start, t: e.timeStamp };
+    let speed = 0;
+
+    const begin = (): void => {
+      dragging = true;
+      this.root.classList.add("dock-drawer-resizing");
     };
-    const up = (): void => {
-      this.handle.ownerDocument.removeEventListener("pointermove", move);
-      this.handle.ownerDocument.removeEventListener("pointerup", up);
+    if (slop === 0) {
+      e.preventDefault();
+      begin();
+    }
+    const move = (ev: PointerEvent): void => {
+      const pos = at(ev);
+      if (!dragging) {
+        if (Math.abs(pos - start) < slop) return;
+        begin();
+      }
+      ev.preventDefault();
+      const rect = this.host.getBoundingClientRect();
+      const span = horizontal ? rect.width : rect.height;
+      const pointer = pos - (horizontal ? rect.left : rect.top);
+      fromEdge = toward > 0 ? span - pointer : pointer;
+      const dt = ev.timeStamp - last.t;
+      if (dt > 0) speed = (toward * (pos - last.pos)) / dt;
+      last = { pos, t: ev.timeStamp };
+      const px = drawerPixels(fromEdge, span, this.config);
+      this.setSize(px, false);
+      const slide = Math.max(0, px - fromEdge);
+      this.root.style.transform = slide > 0 ? `translate${horizontal ? "X" : "Y"}(${toward * slide}px)` : "";
+    };
+    const end = (ev: PointerEvent): void => {
+      doc.removeEventListener("pointermove", move);
+      doc.removeEventListener("pointerup", end);
+      doc.removeEventListener("pointercancel", end);
+      if (!dragging) return;
       this.root.classList.remove("dock-drawer-resizing");
+      this.root.style.transform = "";
+      // The click that follows a drag on the tab strip would otherwise pick a tab.
+      if (slop > 0) {
+        const swallow = (c: Event): void => {
+          c.stopPropagation();
+          c.preventDefault();
+        };
+        this.tabStrip.addEventListener("click", swallow, { capture: true, once: true });
+        setTimeout(() => this.tabStrip.removeEventListener("click", swallow, { capture: true }), 0);
+      }
+      const fresh = ev.timeStamp - last.t <= FLICK_WINDOW_MS;
+      if (ev.type === "pointerup" && Number.isFinite(fromEdge) && closesOnRelease(fromEdge, min, touch && fresh ? speed : 0)) {
+        this.setSize(before, false);
+        this.setOpen(false);
+        return;
+      }
       this.hooks.changed();
     };
-    this.root.classList.add("dock-drawer-resizing");
-    this.handle.ownerDocument.addEventListener("pointermove", move);
-    this.handle.ownerDocument.addEventListener("pointerup", up);
+    doc.addEventListener("pointermove", move);
+    doc.addEventListener("pointerup", end);
+    doc.addEventListener("pointercancel", end);
   }
 }
