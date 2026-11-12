@@ -101,6 +101,8 @@ See [Guided tours](https://panyam.github.io/goapplib/guide/tour/).
 
 `Modal`, `ToastManager`, `ThemeManager` (light, dark or the system's), `SplashScreen`, `MobileBottomDrawer`, `TemplateLoader`, and `KeyboardShortcutManager` for multi-key shortcuts, with `shouldIgnoreShortcut` and the other `DOMUtils` helpers.
 
+`MobileBottomDrawer` is deprecated. A bottom drawer from `@panyam/tsappkit-dock` covers it, with swipe to close, tabs, and a size as a share of the screen. The [dock guide's phone section](https://panyam.github.io/goapplib/guide/dock/#phone-pages) shows the setup. It stays here until lilbattle moves off it.
+
 ## `@panyam/tsappkit/wasmhost`
 
 The page side of wasmhost. The Go side builds an app's own HTTP or Connect handler to wasm with `goapplib/wasmhost`, and the page talks to it through a fetch that never reaches the network:

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dock-phone</title>
+<link rel="stylesheet" href="main.css">
+<style>
+  #phone { width: 390px; max-width: 100%; height: 640px; margin: 0 auto; display: flex; flex-direction: column; border: 1px solid #33415580; border-radius: 18px; overflow: hidden; }
+  #dock { position: relative; flex: 1; min-height: 0; }
+  #bar { display: flex; flex: none; border-top: 1px solid #47556980; }
+  #bar button { flex: 1; border: 0; background: none; color: inherit; padding: .7rem 0; font: 13px system-ui, sans-serif; cursor: pointer; opacity: .7; }
+  #bar button[aria-pressed="true"] { opacity: 1; box-shadow: inset 0 2px #22c55e; }
+  .dock-drawer-bottom { border-radius: 14px 14px 0 0; }
+  .dock-drawer-bottom .dock-drawer-handle::after { content: ""; position: absolute; left: 50%; top: 50%; width: 36px; height: 4px; margin: -2px 0 0 -18px; border-radius: 2px; background: #94a3b8; }
+</style>
+</head>
+<body>
+<div id="phone">
+  <div id="dock"></div>
+  <div id="bar">
+    <button type="button" data-panel="checks" aria-pressed="false">Checks</button>
+    <button type="button" data-panel="notes" aria-pressed="false">Notes</button>
+    <button type="button" data-panel="solid" aria-pressed="false">Solid</button>
+  </div>
+</div>
+<table class="results" id="results"></table>
+<script type="module" src="main.js"></script>
+</body>
+</html>

@@ -75,6 +75,13 @@ export interface DockOptions {
    * starts with. See `MoveInfo.documentChanged` for the one move that breaks a canvas.
    */
   moved?: (id: string, el: HTMLElement, to: PanelLocation | null, from: PanelLocation | null, info: MoveInfo) => void;
+  /**
+   * Called when a drawer opens, closes, or shows a different tab, with whether it's open and its
+   * active panel afterwards. A phone page uses it to highlight the button for the panel on show.
+   * It covers the reader's taps, drags and Escape as well as `show`, `place`, `toggleDrawer` and
+   * Reset layout, and isn't called for the drawers the dock starts with.
+   */
+  drawerChanged?: (edge: DrawerEdge, open: boolean, active: string | undefined) => void;
   /** Where the layout is saved, usually `localStorage`. Null or absent: nothing is saved. */
   storage?: DockStorage | null;
   /** The storage key. Required with `storage`. */
@@ -322,7 +329,7 @@ export function createDock(opts: DockOptions): Dock {
     if (!same(now, target)) {
       if (now?.kind === "drawer" && target.kind === "grid") {
         // Docking from a drawer puts the panel where the drawer was: on its edge, at its size.
-        const size = drawer(now.edge).size;
+        const size = drawer(now.edge).pixels;
         leave(id);
         addToGrid(id, { direction: TOWARD_EDGE[now.edge] });
         const horizontal = now.edge === "left" || now.edge === "right";
@@ -429,6 +436,8 @@ export function createDock(opts: DockOptions): Dock {
   // What `moved` compares against: each panel's last place, element and document.
   const seen = new Map<string, { at: PanelLocation | null; el?: HTMLElement; doc?: Document }>();
   const key0 = (p: PanelLocation | null) => JSON.stringify(p);
+  // What `drawerChanged` compares against: each drawer's last "open active".
+  const drawerSeen = new Map<DrawerEdge, string>();
 
   // Compares every panel's place and document with the last ones seen, and calls `moved` for each
   // that differs. Running it after every change, whatever made it, catches moves made through
@@ -446,6 +455,12 @@ export function createDock(opts: DockOptions): Dock {
       if (!notify || !opts.moved || !el) continue;
       if (key0(at) === key0(prev?.at ?? null) && doc === prev?.doc) continue;
       opts.moved(id, el, at, prev?.at ?? null, { documentChanged: !!prev?.doc && doc !== prev.doc });
+    }
+    for (const [edge, d] of drawers) {
+      const now = `${d.open} ${d.active ?? ""}`;
+      const before = drawerSeen.get(edge) ?? "false ";
+      drawerSeen.set(edge, now);
+      if (notify && now !== before) opts.drawerChanged?.(edge, d.open, d.active);
     }
   };
 

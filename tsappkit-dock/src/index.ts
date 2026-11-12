@@ -18,10 +18,13 @@ export {
 export type { DrawerConfig } from "./drawerView.js";
 export {
   clampSize,
+  closesOnRelease,
+  drawerPixels,
   drawerSize,
   loadDrawerSize,
   saveDrawerSize,
   DRAWER_DEFAULT,
+  DRAWER_FLICK,
   DRAWER_MAX_FRAC,
   DRAWER_MIN,
   type DrawerBounds,
