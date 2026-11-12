@@ -50,5 +50,11 @@ export function failed(why: unknown): void {
   document.body.prepend(p);
 }
 
-addEventListener("error", (e) => failed(e.error ?? e.message));
+// "ResizeObserver loop completed with undelivered notifications" means an observer's callback resized
+// something it observes, so the browser deferred the rest to the next frame. Browsers report it as an
+// error but nothing broke, and dockview triggers it while windows open and close (the dock lab).
+addEventListener("error", (e) => {
+  if (!e.error && /^ResizeObserver loop/.test(e.message)) return;
+  failed(e.error ?? e.message);
+});
 addEventListener("unhandledrejection", (e) => failed(e.reason));

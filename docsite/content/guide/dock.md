@@ -66,6 +66,8 @@ resolve: (id) => id.startsWith("page:") ? { id, title: titleOf(id), position: { 
 
 Mount the Solid tree once into the element `hostFor` returns, and return that element every time. Solid's `render` appends, so rendering inside `hostFor` adds a second tree on each move. A closed panel's tree keeps running, since it's only detached. To tear it down, call `render`'s dispose function in `release` and build a fresh host next time. Solid listens for events on the document, so a click on a closed panel's element, which isn't in the document, does nothing.
 
+[Dock experiments](../dock-lab/) tries two things the dock doesn't do, pinned drawers and popout windows, and says why it doesn't.
+
 ## Gotchas
 
 - **An iframe reloads when it moves into or out of a drawer.** The browser reloads an iframe whose element gets a new parent, and a drawer is a new parent. dockview keeps panel content in a layer of its own, so moving between groups or into a float doesn't reload it. The demo fetches each page and moves its article into the panel rather than using an iframe for that reason. The live demos inside a page panel are iframes, so they restart when their page moves into a drawer.

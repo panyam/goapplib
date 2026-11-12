@@ -11,7 +11,7 @@ Start with [Getting started](getting-started/), which builds a one-page app whos
 
 [Guided tours](tour/) covers tsappkit's `Tour`, where the reader does each step and the step advances when the app reports it, with a live demo.
 
-[Docks and drawers](dock/) covers `@panyam/tsappkit-dock`: panels in a dockview grid, floating, or in drawers on any edge, with a live demo whose panels are this site's pages.
+[Docks and drawers](dock/) covers `@panyam/tsappkit-dock`: panels in a dockview grid, floating, or in drawers on any edge, with a live demo whose panels are this site's pages. [Dock experiments](dock-lab/) tries pinned drawers and popout windows, live in your browser.
 
 Two pages cover running an app's Go handlers in the browser, each with a live demo.
 
