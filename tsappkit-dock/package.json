@@ -1,0 +1,57 @@
+{
+  "name": "@panyam/tsappkit-dock",
+  "version": "0.7.8",
+  "description": "A dock for IDE-like pages on dockview-core: a panel registry, a default layout, a saved layout that picks up new panels, theme switching, and drawer sizing. It moves DOM elements and needs no UI framework.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc --noEmit && vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "dockview",
+    "dock",
+    "drawer",
+    "panels",
+    "layout",
+    "tsappkit"
+  ],
+  "author": "panyam",
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "dockview-core": ">=4.13.0 <9.0.0"
+  },
+  "devDependencies": {
+    "dockview-core": "8.8.3",
+    "jsdom": "^29.1.1",
+    "solid-js": "^1.9.19",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vite-plugin-solid": "^2.11.16",
+    "vitest": "^5.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/panyam/goapplib.git",
+    "directory": "tsappkit-dock"
+  }
+}

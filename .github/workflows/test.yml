@@ -30,13 +30,14 @@ jobs:
           cache-dependency-path: |
             tsappkit/pnpm-lock.yaml
             tsappkit-solid/pnpm-lock.yaml
+            tsappkit-dock/pnpm-lock.yaml
             exercise/wasmhost/pnpm-lock.yaml
             exercise/islands/pnpm-lock.yaml
 
       - name: Run tests
         run: make test
 
-      # goapplib and both TS packages share the version in VERSION.
+      # goapplib and the TS packages share the version in VERSION.
       - name: Check versions match
         run: scripts/check-versions.sh
 
