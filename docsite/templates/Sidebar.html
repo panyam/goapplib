@@ -1,5 +1,6 @@
 {{# include "nav/OverviewNav.html" #}}
 {{# include "nav/GuideNav.html" #}}
+{{# include "nav/DemosNav.html" #}}
 {{# include "nav/ReferenceNav.html" #}}
 
 {{ define "Sidebar" }}
@@ -18,6 +19,8 @@
                 {{ template "OverviewNav" . }}
             {{ else if (Contains $currentPath "/guide/") }}
                 {{ template "GuideNav" . }}
+            {{ else if (Contains $currentPath "/demos/") }}
+                {{ template "DemosNav" . }}
             {{ else if (Contains $currentPath "/reference/") }}
                 {{ template "ReferenceNav" . }}
             {{ else }}
@@ -26,6 +29,7 @@
                     <ul>
                         <li><a href="{{.Site.PathPrefix}}/overview/">Overview</a></li>
                         <li><a href="{{.Site.PathPrefix}}/guide/">Guide</a></li>
+                        <li><a href="{{.Site.PathPrefix}}/demos/">Demos</a></li>
                         <li><a href="{{.Site.PathPrefix}}/reference/">Reference</a></li>
                     </ul>
                 </div>

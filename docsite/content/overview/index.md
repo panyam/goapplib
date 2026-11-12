@@ -23,6 +23,6 @@ It's the Go module, `github.com/panyam/goapplib`. A page is a view, a Go type th
 
 ## Demos on this site
 
-Pages here embed live demos that run in your browser. Each runs in its own frame, built from the source in [`docsite/demos/`](https://github.com/panyam/goapplib/tree/main/docsite/demos) against the goapplib on `main`, and `make exercise-docsite` drives every one in headless Chromium before the site deploys. This one only checks that the frame works:
+Pages here embed live demos that run in your browser. Each runs in its own frame, built from the source in [`docsite/demos/`](https://github.com/panyam/goapplib/tree/main/docsite/demos) against the goapplib on `main`, and `make exercise-docsite` drives every one in headless Chromium before the site deploys. The [Demos]({{.Site.PathPrefix}}/demos/) page lists every one. This one only checks that the frame works:
 
 {{ demo "hello" 120 }}

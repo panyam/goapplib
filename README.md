@@ -13,7 +13,7 @@
 
 A Go library for server-rendered web apps. Go renders each page through templates. The parts that need client code are islands, and a small TypeScript kit mounts them. An app's own Go handlers can also run in the browser as wasm, for when a round trip to the server is too slow.
 
-**Docs: https://panyam.github.io/goapplib/** has a getting-started guide, a guide for each part with live demos, and the Go API read from `main`.
+**Docs: https://panyam.github.io/goapplib/** has a getting-started guide, a guide for each part with live demos, and the Go API read from `main`. [Demos](https://panyam.github.io/goapplib/demos/) lists every live demo in one place.
 
 ## What's in it
 
