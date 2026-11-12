@@ -3,7 +3,7 @@ title: "Docks and drawers"
 description: "An IDE-like page from @panyam/tsappkit-dock: panels in a dockview grid, floating, or in drawers on any edge, with a saved layout that picks up new panels."
 ---
 
-`@panyam/tsappkit-dock` builds an IDE-like page on [dockview-core](https://dockview.dev). You list your panels and a default arrangement. Each panel then lives in the grid, in a floating group over it, or in a drawer on one of the four edges, and the reader moves it with the ⋯ menu on its group or its drawer tab. The layout is saved, drawers included, so a reload brings back what the reader arranged.
+`@panyam/tsappkit-dock` builds an IDE-like page on [dockview-core](https://dockview.dev). You list your panels and a default arrangement. Each panel then lives in the grid, in a floating group over it, or in a drawer on one of the four edges, and the reader moves it with the ⋯ menu on its group or its drawer tab. The layout is saved, drawers included, so a reload brings back what the reader arranged. Drawers come back closed.
 
 The demo below is a dock whose panels are this site's own pages. Open one from the Pages panel, and a link inside it opens its page as another panel. Move any panel with its ⋯ menu, type into Notes in the bottom drawer, and click the Solid counter, then move them around and see that both keep their state. Reload and the layout comes back, open pages included. Panels ▾ lists every panel and where it is, and Reset layout puts everything back.
 
@@ -51,6 +51,8 @@ dock.toggleDrawer("bottom");
 ```
 
 Drawers lie over the dock with a scrim behind them. A drawer that holds several panels shows them as tabs. Escape or a click on the scrim closes it, and a drag on its inner edge resizes it, clamped to `min` and to `maxFrac` of the dock on that axis. Drag the edge below `min` and the drawer slides toward its edge under the pointer. Let go past half of `min` and it closes, keeping the size it had before the drag. A finger flicked toward the edge closes it from anywhere, and a mouse never flicks, so a quick resize on a desktop doesn't close anything. A bottom drawer also drags from its tab strip. `drawers: { bottom: { size: 220, min: 120 } }` sets one edge's numbers, and a `size` up to 1 is a share of the dock, so `0.65` is 65 percent of its height.
+
+A reload brings each drawer back with its panels, its tab and its size, but closed. A reader opens a drawer to visit it, and a drawer left open would put its scrim over the page on every later visit. `drawers: { right: { restoreOpen: true } }` reopens a drawer that was open when the page was saved.
 
 ## Phone pages
 

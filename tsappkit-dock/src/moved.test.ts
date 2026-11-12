@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDock, type Dock, type DockOptions } from "./dock.js";
 import type { PanelDef, PanelSpec } from "./layout.js";
+import { sized } from "./testenv.js";
 
 const REGISTRY: PanelDef[] = [
   { id: "files", title: "Files" },
@@ -37,6 +38,7 @@ function make(over: Partial<DockOptions> = {}): Dock {
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
+  sized(container);
   hosts = new Map();
   moves = [];
 });

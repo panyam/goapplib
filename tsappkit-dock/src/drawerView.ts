@@ -26,6 +26,12 @@ export interface DrawerConfig extends DrawerBounds {
    * still tabs underneath, and the drawer still drags from its edge.
    */
   tabs?: boolean;
+  /**
+   * Whether a drawer saved open opens again on the next load. Default false: it comes back closed,
+   * with its panels, active tab and size, since a reader opens a drawer to visit it and an open one
+   * puts its scrim over the page. Set it for a drawer the page treats as part of its layout.
+   */
+  restoreOpen?: boolean;
 }
 
 interface Tab {

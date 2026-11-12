@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDock, type Dock, type DockOptions } from "./dock.js";
 import type { DockStorage, PanelDef, PanelSpec } from "./layout.js";
+import { sized } from "./testenv.js";
 
 const KEY = "test-dock";
 const REGISTRY: PanelDef[] = [
@@ -62,6 +63,7 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
+  sized(container);
   hosts = new Map();
   released = [];
 });
