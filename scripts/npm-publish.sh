@@ -11,12 +11,12 @@
 # version (v0.6.8's tsappkit-solid took 29), so the script waits up to 2 minutes to say it's visible
 # and otherwise warns and carries on, rather than failing a release npm has already taken.
 #
-#   scripts/npm-publish.sh [package-dir...]   (default: tsappkit tsappkit-solid)
+#   scripts/npm-publish.sh [package-dir...]   (default: tsappkit tsappkit-solid tsappkit-dock)
 #   DRY_RUN=1 scripts/npm-publish.sh          builds, tests and compares, publishes nothing
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-[ $# -gt 0 ] || set -- tsappkit tsappkit-solid
+[ $# -gt 0 ] || set -- tsappkit tsappkit-solid tsappkit-dock
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 

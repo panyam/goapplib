@@ -47,6 +47,7 @@ goapplib/
 │
 ├── tsappkit/           # @panyam/tsappkit: BasePage and component lifecycle, IslandPage, wasmhost client
 ├── tsappkit-solid/     # @panyam/tsappkit-solid: SolidIsland, mounting a Solid tree as an island; signalView, useView
+├── tsappkit-dock/      # @panyam/tsappkit-dock: createDock over dockview-core, saved layout with reconcile, drawer sizing (#133)
 │
 └── templates/          # Base templates (copy/symlink to your app)
     ├── BasePage.html

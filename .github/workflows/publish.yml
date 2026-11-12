@@ -1,6 +1,6 @@
 name: Publish to npm
 
-# Publishes @panyam/tsappkit and @panyam/tsappkit-solid when a release tag
+# Publishes @panyam/tsappkit, @panyam/tsappkit-solid and @panyam/tsappkit-dock when a release tag
 # carries a version npm doesn't have yet (scripts/npm-publish.sh). Auth is npm
 # trusted publishing: each package names this repo and this file as its
 # publisher on npmjs.com, so there is no token to store or rotate.

@@ -24,7 +24,7 @@ function sitePage(path) {
 }
 
 const problems = [];
-for (const dir of ["tsappkit", "tsappkit-solid"]) {
+for (const dir of ["tsappkit", "tsappkit-solid", "tsappkit-dock"]) {
   const pkg = JSON.parse(readFileSync(join(root, dir, "package.json"), "utf8"));
   const file = join(root, dir, "README.md");
   if (!existsSync(file)) {

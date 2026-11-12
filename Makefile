@@ -25,6 +25,7 @@ test: ## Run all tests
 	$(MAKE) wasm-test
 	cd tsappkit && pnpm install --frozen-lockfile && pnpm test
 	cd tsappkit-solid && pnpm install --frozen-lockfile && pnpm test
+	cd tsappkit-dock && pnpm install --frozen-lockfile && pnpm test
 
 # The timeout matters: a wasmhost export that blocks the event loop hangs rather than failing. The
 # test binary runs under an empty environment because wasm_exec_node.js copies the environment into
