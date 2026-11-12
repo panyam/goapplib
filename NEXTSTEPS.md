@@ -5,10 +5,10 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- No branch threads open, no active mission, nothing at P1 or P2. The queue is P3 only: #37, #38, #40, #114, #134, #140 (`MobileBottomDrawer` as the dock's bottom drawer).
-- Waiting on consumers to port onto tsappkit-dock 0.7.10: panyam/diffpp#172, panyam/agni#1549 (agni#1542's drawers are blocked by it), turnforge/lilbattle#203. Both diffpp and agni have a comment saying 0.7.10 is the version to port to. lilbattle#201 (the v0.7.3 upgrade) is still open. These ports are the most likely source of the next goapplib ticket.
-- This run: the dock lab (PR #143) closed #138 (no pinned mode, pin means dock) and #139 (defer popouts, leave them to `dock.api`). PR #144 closed #142 (grid placement stays in visible grid groups, Dock from a drawer lands on its edge, `where()` knows popouts, new `moved` hook) and shipped as v0.7.10, published to npm with no manual step.
-- Waiting: content services (#6–#9, #13–#15, #17), #18, #19, #28, #29, #43, #44, #49, #56, #64, #82, #83, #118.
+- No branch threads open, no active mission, nothing at P1 or P2. The queue is P3 only: #37, #38, #40, #114, #134.
+- Waiting on consumers to port onto tsappkit-dock 0.7.11: panyam/diffpp#172, panyam/agni#1549 (agni#1542's drawers are blocked by it), turnforge/lilbattle#203. lilbattle#203 also carries the mobile viewer's move off the deprecated `MobileBottomDrawer`, and it needs lilbattle's dockview 1.17 upgraded to 4.13+ first. lilbattle#201 (the v0.7.3 upgrade) is still open. These ports are the most likely source of the next goapplib ticket.
+- This run: PR #145 closed #140 (the dock's bottom drawer works as a phone sheet, and `MobileBottomDrawer` is deprecated). It shipped as v0.7.11, and all three npm packages published. #146 waits on lilbattle's mobile port for a side-by-side on a phone.
+- Waiting: content services (#6–#9, #13–#15, #17), #18, #19, #28, #29, #43, #44, #49, #56, #64, #82, #83, #118, #146.
 
 ## Across threads
 
