@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dock-pinned</title>
+<link rel="stylesheet" href="main.css">
+<style>
+  #stage { position: relative; height: 420px; border: 1px solid #33415580; overflow: hidden; }
+  #dock { position: absolute; inset: 0; }
+  .pin-btn { margin-left: auto; border: 1px solid #47556980; background: none; color: inherit; font: 12px system-ui, sans-serif; padding: .1rem .5rem; cursor: pointer; }
+  .pin-btn[aria-pressed="true"] { background: #22c55e33; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <span class="hint">Open a drawer from Panels ▾ or the buttons, then Pin it. A pinned drawer pushes the grid aside instead of covering it.</span>
+  <button type="button" data-edge="left">Left</button>
+  <button type="button" data-edge="right">Right</button>
+  <button type="button" data-edge="bottom">Bottom</button>
+  <label>Corner: <select id="corner"><option value="sides">left / right take it</option><option value="ends">top / bottom take it</option></select></label>
+  <button id="run" type="button">Run the pinned checks</button>
+</div>
+<div id="stage"><div id="dock"></div></div>
+<table class="results" id="results"></table>
+<script type="module" src="main.js"></script>
+</body>
+</html>
