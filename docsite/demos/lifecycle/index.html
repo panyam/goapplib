@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lifecycle</title>
+<style>
+  .app { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: .8rem; }
+  #counter output { display: inline-block; min-width: 2ch; font-weight: 600; }
+  #badge { padding: .15rem .6rem; border-radius: 999px; background: #3b82f633; }
+  #badge:empty { display: none; }
+  ol { font: 13px/1.5 ui-monospace, monospace; margin: 0; padding-left: 2.2rem; columns: 2 17rem; }
+  li b { font-weight: 600; }
+  li[data-call="performLocalInit"] { color: #a78bfa; }
+  li[data-call="setupDependencies"] { color: #38bdf8; }
+  li[data-call="activate"] { color: #4ade80; }
+  li[data-call="--"] { opacity: .7; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="store" hidden></div>
+  <div id="counter">Count: <output>…</output> <button id="bump" type="button">+1</button></div>
+  <span id="badge"></span>
+</div>
+<ol id="log"></ol>
+<script type="module" src="main.js"></script>
+</body>
+</html>

@@ -58,7 +58,7 @@ See [One presenter, several islands](https://panyam.github.io/goapplib/guide/isl
 
 ### Components and events
 
-- **`LifecycleController`** runs components through their phases breadth-first: `performLocalInit` (which returns child components), `setupDependencies`, then `activate`. Every component is set up before any activates, so startup order stops mattering.
+- **`LifecycleController`** starts a tree of components in phases: `performLocalInit` (which returns child components) breadth-first, then `setupDependencies`, then `activate` level by level. Each phase finishes for every component before the next one starts, so the order of the constructor calls doesn't matter.
 - **`BaseComponent`** is a base class for components that use the `EventBus`.
 - **`EventBus`** delivers events to subscribers, and an error in one subscriber doesn't stop the rest.
 - **`BasePage`** is a page built from components. `IslandPage` extends it.
@@ -75,6 +75,8 @@ class MyPage extends BasePage {
 
 BasePage.loadAfterPageLoaded("myPage", MyPage, "MyPage");
 ```
+
+See [Components and the page lifecycle](https://panyam.github.io/goapplib/guide/components/).
 
 ### Guided tours
 
@@ -118,7 +120,7 @@ For state that survives a reload, a job with a big memory peak (`oneShotFetch`),
 
 ## `@panyam/tsappkit/docs`
 
-Pieces for documentation sites built with s3gen: `initCodeBlocks` and `CodeBlock` add a copy button to code blocks, `initPageSetup` and `highlightActiveSidebarLink` handle the sidebar, and `ActionCompiler` compiles and runs code typed into an Ace editor (`ace-builds` is an optional peer dependency, needed only for this). The SCSS is in `@panyam/tsappkit/styles/docs/`, and the package ships it compiled as `dist/docs/DocsPage.css`. See [Documentation site best practices](https://github.com/panyam/goapplib/blob/main/tsappkit/docs/BESTPRACTICES.md).
+Pieces for documentation sites built with s3gen: `initCodeBlocks` and `CodeBlock` add a copy button to code blocks, `initPageSetup` and `highlightActiveSidebarLink` handle the sidebar, and `ActionCompiler` compiles and runs code typed into an Ace editor (`ace-builds` is an optional peer dependency, needed only for this). The SCSS is in `@panyam/tsappkit/styles/docs/`, and the package ships it compiled as `dist/docs/DocsPage.css`. Load the CSS with a `<link>` rather than a script import. See [tsappkit/docs](https://panyam.github.io/goapplib/reference/docs-kit/).
 
 ## License
 

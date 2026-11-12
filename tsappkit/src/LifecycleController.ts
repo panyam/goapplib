@@ -8,19 +8,22 @@ import { EventBus, LifecycleEventTypes, LifecycleEventType } from './EventBus';
 import { ComponentLifecycleEvent } from './events';
 
 /**
- * LifecycleController - Orchestrates breadth-first component initialization
+ * Starts a tree of LCMComponents, one phase at a time over the whole tree.
  *
- * This controller implements a breadth-first traversal of the component tree
- * followed by phase-wise initialization with synchronization barriers.
+ * initializeFromRoot runs three phases, and each one finishes for every
+ * component before the next one starts:
+ * 1. performLocalInit, breadth-first from the root. Each component returns its
+ *    children, which become the next level. Within a level, one component's
+ *    call finishes (its Promise included) before the next one's starts.
+ * 2. setupDependencies, in the same order. A Promise it returns isn't awaited.
+ * 3. activate, level by level. A level's calls run together, and the next
+ *    level starts once all of them have resolved.
  *
- * Process:
- * 1. Discovery Phase: Traverse component tree to find all components
- * 2. DOM Binding Phase: All components bind to DOM simultaneously
- * 3. Dependency Injection Phase: All components receive dependencies
- * 4. Activation Phase: All components complete initialization
- *
- * Each phase acts as a synchronization barrier - no component can proceed
- * to the next phase until ALL components have completed the current phase.
+ * deactivateAll runs deactivate the other way, leaves first. A component
+ * returned by two parents is an error, and so is a second initializeFromRoot
+ * on the same controller. A phase that throws or rejects rejects
+ * initializeFromRoot, and the phases after it don't run.
+ * See https://panyam.github.io/goapplib/guide/components/.
  */
 export class LifecycleController {
     private allComponents: LCMComponent[];
@@ -47,8 +50,7 @@ export class LifecycleController {
      * Initialize component tree starting from root component
      *
      * @param rootComponent The root component to start initialization from
-     * @param rootName Optional name for the root component (for debugging)
-     * @returns Promise that resolves when all components are fully initialized
+     * @returns Promise that resolves when every component has activated
      */
     public async initializeFromRoot(rootComponent: LCMComponent): Promise<void> {
         // Phase 1 - Performance post-load setup where each parent will have the change
@@ -87,6 +89,7 @@ export class LifecycleController {
                         `Component hierarchies must form a tree structure where each component has exactly one parent.`
                     );
                 }
+                visited.add(component);
 
                 this.emitEvent(LifecycleEventTypes.LOCAL_INIT_STARTED, component, level)
                 const result = component.performLocalInit()
