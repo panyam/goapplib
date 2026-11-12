@@ -7,6 +7,8 @@
     "@bufbuild/protobuf": "^2.0.0",
     "@connectrpc/connect": "^2.0.0",
     "@connectrpc/connect-web": "^2.0.0",
+    "dockview": "8.8.3",
+    "dockview-core": "8.8.3",
     "solid-js": "^1.9.17"
   },
   "devDependencies": {
