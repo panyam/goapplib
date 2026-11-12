@@ -455,9 +455,11 @@ describe("phone sheets (#140)", () => {
     expect(drawerEl("bottom")!.style.transform).toBe("");
   });
 
-  it("closes on a touch flick toward the edge, but not on a mouse one", () => {
+  it("closes on a touch flick toward the edge, but not on a mouse one or an unknown pointer", () => {
     sheet();
     drag(handle(), [[450, 1000], [500, 1050]], "mouse");
+    expect(drawerEl("bottom")!.style.display).toBe("flex");
+    drag(handle(), [[450, 1000], [500, 1050]], "");
     expect(drawerEl("bottom")!.style.display).toBe("flex");
     drag(handle(), [[450, 1000], [500, 1050]]);
     expect(drawerEl("bottom")!.style.display).toBe("none");

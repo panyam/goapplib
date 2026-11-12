@@ -262,7 +262,8 @@ export class DrawerView {
     const doc = this.host.ownerDocument;
     const horizontal = HORIZONTAL[this.edge];
     const toward = TOWARD[this.edge];
-    const touch = e.pointerType !== "mouse";
+    // Only a finger or a pen flicks. A synthetic or unknown pointer counts as a mouse.
+    const touch = e.pointerType === "touch" || e.pointerType === "pen";
     const min = this.config.min ?? DRAWER_MIN;
     const at = (ev: PointerEvent) => (horizontal ? ev.clientX : ev.clientY);
     const start = at(e);
