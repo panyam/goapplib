@@ -1,9 +1,10 @@
 #!/bin/sh
-# Pre-push hook: run all Go tests before pushing
-# Activate with: git config core.hooksPath .githooks
+# Pre-push hook: runs the Go tests in the root module and each nested module before pushing.
+# Activate with: make setup (git config core.hooksPath .githooks)
 
 set -e
 
-echo "Running tests before push..."
-cd main && go test ./...
+cd "$(git rev-parse --show-toplevel)"
+echo "Running Go tests before push..."
+make -s go-test
 echo "All tests passed."

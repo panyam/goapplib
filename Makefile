@@ -5,7 +5,7 @@
 #   make test     - Run all tests
 #   make help     - Show available targets
 
-.PHONY: setup test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite exercise-tour help
+.PHONY: setup test go-test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite exercise-tour help
 
 GOROOT_WASM := $(shell go env GOROOT)/lib/wasm
 EXERCISE := exercise/wasmhost
@@ -20,13 +20,15 @@ setup: ## Configure git hooks and local dev environment
 	git config core.hooksPath .githooks
 	@echo "Pre-push hook activated (.githooks/pre-push)"
 
-test: ## Run all tests
-	go test ./...
-	for m in $$(scripts/go-modules.sh); do (cd $$m && go vet ./... && go test ./...) || exit 1; done
+test: go-test ## Run all tests
 	$(MAKE) wasm-test
 	cd tsappkit && pnpm install --frozen-lockfile && pnpm test
 	cd tsappkit-solid && pnpm install --frozen-lockfile && pnpm test
 	cd tsappkit-dock && pnpm install --frozen-lockfile && pnpm test
+
+go-test: ## Run the Go tests in the root module and each nested module (scripts/go-modules.sh)
+	go test ./...
+	for m in $$(scripts/go-modules.sh); do (cd $$m && go vet ./... && go test ./...) || exit 1; done
 
 # The timeout matters: a wasmhost export that blocks the event loop hangs rather than failing. The
 # test binary runs under an empty environment because wasm_exec_node.js copies the environment into
