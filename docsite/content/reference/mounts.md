@@ -35,9 +35,11 @@ A file is `mount://<name>/<path>`. `ParseURI` takes agni's rules:
 
 - The path is relative. A leading `/` is refused, `\` becomes `/`, and `path.Clean` runs before any check.
 - A path that climbs out with `..` is refused, so resolving a URI against a mount's root can't reach outside it.
-- The empty path is the mount's root.
+- The empty path is the mount's root, and `String` writes it as `mount://<name>`.
 
-A name is 1 to 64 characters, a-z and 0-9 first, then also `-`, `_` and `.`. That is agni's rule, and it keeps a name safe as a folder name, a URL path element and a YAML file name on any OS. goutils' `mountfs` takes any single path element, which is looser, and the registry only ever hands it names that pass `ValidName`.
+`Resolve(ref)` reads a reference against a URI the way a browser reads an href against its page, which is how agni's readers find a schematic's child sheets and a design's libraries (#175). A full `mount://` URI replaces the whole thing, `/x` names `x` from the mount's root, and anything else resolves against the URI's folder. A result that climbs out of the mount is `ErrInvalidPath`. RFC 3986 would drop a leading `..` on `/../x` and read `/x`, and `Resolve` refuses it instead, since quietly fixing a traversal attempt hides it. `Dir`, `Base` and `IsZero` round the type out.
+
+A runtime mount's name, the one a record store keeps, is 1 to 64 characters, a-z and 0-9 first, then also `-`, `_` and `.`. `ValidName` checks it, and it keeps a name safe as a folder name, a URL path element and a YAML file name on any OS. A URI takes any name that isn't empty, `.` or `..` and holds no separator. An app names a fixed mount after a folder, such as agni's `--mount-root`, and a folder can have capitals or spaces in its name.
 
 ## Drivers
 
@@ -48,7 +50,7 @@ A `Driver` serves one kind. It resolves a ref to a version, and opens a mount as
 - `Preparer` adds `Prepare`, which the registry calls when a mount is made, after `Resolve`. A GitHub snapshot downloads its files there and sets the mount's `Manifest`. If `Prepare` fails, no record is written.
 - `VersionReader` reads a mount's source at any version, not only the one a snapshot pins (#172). Say agni links a design's schematic to a repo at a commit, then moves the link to a newer commit. It needs that commit's files, and it shouldn't download the sheets that didn't change. `Moves` says whether a ref moves: a branch or the default does, and a tag or a commit doesn't. `ListAt` lists the regular files at a version under a path, each with a content ID, the git blob id on GitHub. `FetchAt` puts one file in the blob store and says whether it had to download it.
 
-The folder driver is `storage/mounts/folder`. Its mounts are live, writable and local, and it refuses a link anywhere in a path, so a link inside the folder can't reach outside it. A file's version is the SHA-256 of its contents. A write goes through a temp file and a rename, under a lock per file. So its `IfMatch` check holds between writers in one process, sharing one `folder.Driver`. Two processes writing one file can both pass the check, and the second rename wins. It's a `VersionReader` too, once `folder.WithBlobs` gives it a blob store. A folder has no history, so every ref moves, and `ListAt` reads the folder as it is now.
+The folder driver is `storage/mounts/folder`. Its mounts are live, writable and local, and it refuses a link anywhere in a path, so a link inside the folder can't reach outside it. A file's version is the SHA-256 of its contents. A write goes through a temp file and a rename, under a lock per file. So its `IfMatch` check holds between writers in one process, sharing one `folder.Driver`. Two processes writing one file can both pass the check, and the second rename wins. By default the folder driver refuses every link. `folder.WithLinksInside()` lets reads follow a link whose target stays inside the folder, in listings, `Open`, `HostPath`, `ListAt` and `FetchAt`, so a folder whose libraries are links still reads (#175). A link that leads out, directly or through another link, is still refused and left out of listings, and writes never go through a link. Go's `os.Root` decides what stays inside, and it counts a link with an absolute target as leading out, even when the target is inside the folder. A walk in `ListAt` visits each real folder once, so two links that make a loop don't repeat it. It's a `VersionReader` too, once `folder.WithBlobs` gives it a blob store. A folder has no history, so every ref moves, and `ListAt` reads the folder as it is now.
 
 The GitHub driver is `storage/mounts/github`, built with a blob store and options for the API root, the HTTP client, the limits and the views folder:
 
@@ -67,7 +69,7 @@ gh := github.New(blobStore, github.WithViews(filepath.Join(storeDir, "views")))
 
 ## The registry
 
-`Registry` joins the fixed mounts from the server's configuration, the runtime mounts from a `RecordStore`, and the drivers, and an app goes through it for everything:
+`Registry` joins the fixed mounts from the server's configuration, the runtime mounts from a `RecordStore`, and the drivers, and an app goes through it for everything. A nil store serves the fixed mounts alone, for an app with no store of its own, such as agni's CLI, and `Create` and `Delete` then return `ErrInvalidArgument`:
 
 ```go
 store, _ := fsstore.New(filepath.Join(storeDir, "mounts"))
@@ -124,7 +126,7 @@ Each error wraps one of the package's sentinels, and an app maps them with `erro
 
 ## What agni deletes when it moves over
 
-- `mounts/mounts.go`'s `Mount`, `Kind`, `SafeResolve` and `Resolve`, and `artifact/uri.go`. `ParseURI` and `Registry.HostPath` replace them.
+- `mounts/mounts.go`'s `Mount`, `Kind`, `SafeResolve` and `Resolve`, and `artifact/uri.go`. `ParseURI`, `URI.Resolve`, `Dir` and `Base`, and `Registry.HostPath` replace them. A registry with no store covers agni's CLI, and `folder.WithLinksInside` keeps its `--mount` folders with links working.
 - `mounts/table.go`: `mounts.Registry` and `fsstore` replace it. agni's records gain `version` and `mode`, and its `commit` key becomes `version`.
 - `cmd/agni/mountmaker.go`'s GitHub code: `resolveRef`, `snapshot`, `tarPath` and the HTTP error mapping. The GitHub driver replaces them. agni keeps `CreateMount` and `DeleteMount` as thin calls into the registry.
 - `cmd/agni/linkreaders.go`, from agni's linked artifacts: `Registry.ResolveAt`, `ListAt` and `FetchAt` replace its GitHub and folder readers, its tree cache and its git blob id index.

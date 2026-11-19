@@ -38,6 +38,9 @@ type Driver struct {
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex
 	blobs blobs.Store
+	// follow lets reads go through a link whose target stays inside the folder. WithLinksInside
+	// sets it.
+	follow bool
 }
 
 // Option configures a Driver.
@@ -46,6 +49,12 @@ type Option func(*Driver)
 // WithBlobs sets the blob store FetchAt keeps files in. Without it, FetchAt returns
 // ErrInvalidArgument.
 func WithBlobs(store blobs.Store) Option { return func(d *Driver) { d.blobs = store } }
+
+// WithLinksInside lets reads follow a link whose target stays inside the mount's folder: listings,
+// Open, HostPath, ListAt and FetchAt. A link that leads outside, directly or through another link,
+// is still refused with ErrInvalidPath and left out of listings. Writes never go through a link.
+// Without it, every link is refused, which is the default.
+func WithLinksInside() Option { return func(d *Driver) { d.follow = true } }
 
 // New returns a folder driver.
 func New(opts ...Option) *Driver {
@@ -89,7 +98,7 @@ func (d *Driver) Resolve(ctx context.Context, source, ref string, ts oauth2.Toke
 // error wrapping ErrInvalidPath, and its listings leave links out, so fs.WalkDir sees only regular
 // files and folders.
 func (d *Driver) Open(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource) (fs.FS, error) {
-	return linkFree{dir: m.Source}, nil
+	return linkFree{dir: m.Source, follow: d.follow}, nil
 }
 
 // Stat returns the file's version, "sha256:" and the hex SHA-256 of its contents. Content hashes,
@@ -200,7 +209,7 @@ func (d *Driver) HostPath(m mounts.Mount, p string) (string, error) {
 		return "", err
 	}
 	defer root.Close()
-	if _, err := check(root, p); err != nil {
+	if _, err := check(root, p, d.follow); err != nil {
 		return "", err
 	}
 	return filepath.Join(m.Source, filepath.FromSlash(p)), nil
@@ -235,7 +244,7 @@ func filePath(p string) (string, error) {
 
 // check walks p's components and refuses a link, or anything but a folder or a regular file, at
 // any of them. It returns the last component's info, or nil when some component doesn't exist.
-func check(root *os.Root, p string) (fs.FileInfo, error) {
+func check(root *os.Root, p string, follow bool) (fs.FileInfo, error) {
 	parts := strings.Split(p, "/")
 	var info fs.FileInfo
 	for i := range parts {
@@ -249,7 +258,16 @@ func check(root *os.Root, p string) (fs.FileInfo, error) {
 			return nil, err
 		}
 		if info.Mode()&fs.ModeSymlink != 0 {
-			return nil, fmt.Errorf("%w: %q is a link", mounts.ErrInvalidPath, prefix)
+			if !follow {
+				return nil, fmt.Errorf("%w: %q is a link", mounts.ErrInvalidPath, prefix)
+			}
+			// os.Root follows a link only while it stays inside the root, and fails one that
+			// leads out, so Stat through it decides.
+			if info, err = root.Stat(prefix); errors.Is(err, fs.ErrNotExist) {
+				return nil, nil
+			} else if err != nil {
+				return nil, fmt.Errorf("%w: %q is a link that leads outside the folder", mounts.ErrInvalidPath, prefix)
+			}
 		}
 		if !info.Mode().IsRegular() && !info.IsDir() {
 			return nil, fmt.Errorf("%w: %q isn't a file or a folder", mounts.ErrInvalidPath, prefix)
@@ -263,7 +281,7 @@ func check(root *os.Root, p string) (fs.FileInfo, error) {
 
 // current returns the version of the file at p, or "" when it doesn't exist.
 func current(root *os.Root, p string) (mounts.FileVersion, fs.FileInfo, error) {
-	info, err := check(root, p)
+	info, err := check(root, p, false)
 	if err != nil || info == nil {
 		return "", nil, err
 	}
@@ -279,7 +297,10 @@ func current(root *os.Root, p string) (mounts.FileVersion, fs.FileInfo, error) {
 
 // linkFree is an fs.FS over a folder that refuses paths through links and leaves links out of
 // listings.
-type linkFree struct{ dir string }
+type linkFree struct {
+	dir    string
+	follow bool
+}
 
 func (l linkFree) Open(name string) (fs.File, error) {
 	if !fs.ValidPath(name) {
@@ -291,7 +312,7 @@ func (l linkFree) Open(name string) (fs.File, error) {
 	}
 	defer root.Close() // files opened from a Root stay open after it closes
 	if name != "." {
-		info, err := check(root, name)
+		info, err := check(root, name, l.follow)
 		if err != nil {
 			return nil, &fs.PathError{Op: "open", Path: name, Err: err}
 		}
@@ -309,7 +330,7 @@ func (l linkFree) Open(name string) (fs.File, error) {
 		return nil, err
 	}
 	if info.IsDir() {
-		return &dirFile{File: f}, nil
+		return &dirFile{File: f, dir: l.dir, name: name, follow: l.follow}, nil
 	}
 	return f, nil
 }
@@ -332,6 +353,10 @@ type dirFile struct {
 	*os.File
 	entries []fs.DirEntry
 	read    bool
+	// dir, name and follow let ReadDir list a link as what it points at, when the link stays
+	// inside the folder.
+	dir, name string
+	follow    bool
 }
 
 func (d *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
@@ -343,6 +368,10 @@ func (d *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
 		for _, e := range all {
 			if e.Type().IsRegular() || e.IsDir() {
 				d.entries = append(d.entries, e)
+			} else if e.Type()&fs.ModeSymlink != 0 && d.follow {
+				if t, ok := d.target(e.Name()); ok {
+					d.entries = append(d.entries, t)
+				}
 			}
 		}
 		sort.Slice(d.entries, func(i, j int) bool { return d.entries[i].Name() < d.entries[j].Name() })
@@ -360,4 +389,19 @@ func (d *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
 	out := d.entries[:k]
 	d.entries = d.entries[k:]
 	return out, nil
+}
+
+// target is the entry a link in this folder lists as: what it points at, under the link's name,
+// when that is a regular file or a folder inside the root.
+func (d *dirFile) target(name string) (fs.DirEntry, bool) {
+	root, err := os.OpenRoot(d.dir)
+	if err != nil {
+		return nil, false
+	}
+	defer root.Close()
+	info, err := root.Stat(path.Join(d.name, name))
+	if err != nil || !info.Mode().IsRegular() && !info.IsDir() {
+		return nil, false
+	}
+	return fs.FileInfoToDirEntry(info), true
 }

@@ -3,7 +3,7 @@ module github.com/panyam/goapplib/storage/backends/gorm
 go 1.26.9
 
 require (
-	github.com/panyam/goapplib/storage v0.7.14
+	github.com/panyam/goapplib/storage v0.7.15
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 )

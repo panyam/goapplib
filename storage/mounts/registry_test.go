@@ -298,3 +298,32 @@ func TestTheRegistryReadsAMountAtAVersionThroughItsDriver(t *testing.T) {
 		t.Errorf("ListAt through a driver that can't read versions = %v, want ErrInvalidArgument", err)
 	}
 }
+
+func TestARegistryWithNoStoreServesItsFixedMounts(t *testing.T) {
+	ctx := context.Background()
+	notes := t.TempDir()
+	if err := os.WriteFile(filepath.Join(notes, "hello.md"), []byte("hi"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reg := mounts.NewRegistry(nil, []mounts.Driver{folder.New()},
+		mounts.WithFixed(mounts.Mount{Name: "Notes Folder", Kind: mounts.KindFolder, Source: notes, Mode: mounts.ModeLive}))
+	if got := names(t, reg); len(got) != 1 || got[0] != "Notes Folder" {
+		t.Errorf("List = %v, want the fixed mount alone", got)
+	}
+	u, err := mounts.ParseURI("mount://Notes Folder/hello.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, err := reg.HostPath(ctx, u); err != nil || p != filepath.Join(notes, "hello.md") {
+		t.Errorf("HostPath = %q, %v", p, err)
+	}
+	if b, err := fs.ReadFile(reg.FS(ctx), "Notes Folder/hello.md"); err != nil || string(b) != "hi" {
+		t.Errorf("reading through FS = %q, %v", b, err)
+	}
+	if _, err := reg.Create(ctx, mounts.Mount{Name: "x", Kind: mounts.KindGitHub, Source: "github://a/b"}); !errors.Is(err, mounts.ErrInvalidArgument) {
+		t.Errorf("Create with no store = %v, want ErrInvalidArgument", err)
+	}
+	if err := reg.Delete(ctx, "nope"); !errors.Is(err, mounts.ErrNotFound) {
+		t.Errorf("Delete of an unknown mount with no store = %v, want ErrNotFound", err)
+	}
+}
