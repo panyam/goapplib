@@ -14,11 +14,12 @@ storage/                  module github.com/panyam/goapplib/storage
   doc.go                  package storage
   mounts/                 records, the registry, folder and GitHub drivers
   connections/            server-held sign-ins
+  blobs/                  files kept once by hash, for snapshots and uploads
   drivers/s3/             its own module, when it exists
   drivers/gcs/            its own module, when it exists
 ```
 
-[Mounts](../mounts/) and [Connections](../connections/) have the design of the two packages, whose records, interfaces and errors exist so far. Their drivers, registry and service come in the implementation tickets. [#154](https://github.com/panyam/goapplib/issues/154) decides whether blobs get a package, or whether the mounts driver that snapshots keeps them as an internal detail.
+[Mounts](../mounts/), [Connections](../connections/) and [Blobs](../blobs/) have the design of each package, and say which parts are built so far.
 
 ## The dependency rule
 
