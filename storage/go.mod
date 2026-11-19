@@ -5,9 +5,11 @@ go 1.26.9
 require (
 	github.com/panyam/oneauth v0.3.6
 	golang.org/x/oauth2 v0.38.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	github.com/alexedwards/scs/v2 v2.8.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fernet/fernet-go v0.0.0-20240119011108-303da6aec611 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
