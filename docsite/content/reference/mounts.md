@@ -5,7 +5,7 @@ description: "The design of the storage module's mounts: the record, mount:// UR
 
 Picture agni saving a circuit design that points at `mount://jetson/baseboard.kicad_sch`. A month later someone opens it. If `jetson` reads the repo's latest commit, the design now means different bytes from the ones it was made from. So agni pins a GitHub mount at the commit it resolved to, and keeps that commit's files. notation needs the opposite. A notation's text sits in a repo, a person edits it, and each save should become a new commit on the branch.
 
-A mount is a named place an app's files live: a folder, a GitHub repo, and later an S3 or GCS bucket. The app keeps its own records in its own store, and they point into mounts by `mount://` URI. This page is the design for [#152](https://github.com/panyam/goapplib/issues/152). The `storage/mounts` package holds the record, the URI rules, the interfaces, the registry and the errors, and they are rendered at the bottom of the page from the source. The folder driver and the folder record store are in packages beside it. The GitHub driver comes in [#159](https://github.com/panyam/goapplib/issues/159). [Connections](../connections/) covers how a mount over a private repo signs in, and [the storage module](../storage-module/) covers where the code lives.
+A mount is a named place an app's files live: a folder, a GitHub repo, and later an S3 or GCS bucket. The app keeps its own records in its own store, and they point into mounts by `mount://` URI. This page is the design for [#152](https://github.com/panyam/goapplib/issues/152). The `storage/mounts` package holds the record, the URI rules, the interfaces, the registry and the errors, and they are rendered at the bottom of the page from the source. The folder driver, the GitHub driver and the folder record store are in packages beside it. [Connections](../connections/) covers how a mount over a private repo signs in, and [the storage module](../storage-module/) covers where the code lives.
 
 ## How agni and notation use it
 
@@ -49,6 +49,20 @@ A `Driver` serves one kind. It resolves a ref to a version, and opens a mount as
 
 The folder driver is `storage/mounts/folder`. Its mounts are live, writable and local, and it refuses a link anywhere in a path, so a link inside the folder can't reach outside it. A file's version is the SHA-256 of its contents. A write goes through a temp file and a rename, under a lock per file. So its `IfMatch` check holds between writers in one process, sharing one `folder.Driver`. Two processes writing one file can both pass the check, and the second rename wins.
 
+The GitHub driver is `storage/mounts/github`, built with a blob store and options for the API root, the HTTP client, the limits and the views folder:
+
+```go
+gh := github.New(blobStore, github.WithViews(filepath.Join(storeDir, "views")))
+```
+
+- `Resolve` reads the repo's default branch when the ref is empty, then asks GitHub which commit the ref points at.
+- For a snapshot, `Prepare` streams the commit's tarball into the blob store. It keeps regular files only, refuses a path that is absolute, unclean or climbs out, and stops at the limits with `ErrTooLarge`. Then it writes the manifest. `Open` serves the snapshot from the manifest and the blob store without asking GitHub, after a restart too.
+- `HostPath` on a snapshot builds a folder of hard links to its blobs, at `<views>/<name>/<commit>`, the first time it is asked. A restart that lost the folder rebuilds it from the manifest.
+- For a live mount, `Prepare` fills in the default branch when `Ref` is empty, since a write commits onto a branch. `Open` reads the branch through the Contents API on every open. `Stat` returns a file's git blob sha, and `Put` and `Delete` each make one commit. GitHub refuses a stale sha with 409, and an update without a sha with 422, and the driver returns `ErrConflict` for both.
+- 404 becomes `ErrNotFound`, which is also what a private repo answers without a valid token. Rate limits, rejected tokens and server errors become `ErrUnavailable`. An error from the connection's token source, such as a person who has to connect again, passes through unchanged.
+
+`storage/mounts/github/githubtest` is a fake GitHub for tests, the library's and an app's own. It serves a repo's commits, tarballs and contents from memory, and each write makes a real commit. A private repo answers only an accepted token, and every request is recorded with the token it carried. oneauth's `outbound/githubtest` mints and refreshes tokens, and `AcceptToken` lets this fake trust the ones it mints. A test against real GitHub reads `octocat/Hello-World`, and runs with `STORAGE_LIVE_GITHUB=1`.
+
 ## The registry
 
 `Registry` joins the fixed mounts from the server's configuration, the runtime mounts from a `RecordStore`, and the drivers, and an app goes through it for everything:
@@ -68,6 +82,7 @@ reg := mounts.NewRegistry(store, []mounts.Driver{folder.New(), github},
 - `FS(ctx)` returns every mount as one `fs.FS` through goutils' `mountfs`, with each mount's driver opened when a path first reaches it. It keeps `ctx` for those opens, because a person's connection gives a token only to its owner. An app calls `FS` per request. A background job that needs a person's mount passes that person's context.
 - `WithCredentials` takes the [connections](../connections/) service's `TokenSource` method, so the registry asks for a mount's token without importing connections.
 - Before using its list, the registry compares the store's `Generation` with the last one it read, at most once a second (`WithRecheck` changes that). It lists again only when they differ. A registry sees its own creates and deletes at once. If the store fails after a good read, the registry keeps serving the last good list.
+- `BlobRefs(store)` gives a blob sweep the manifest and files of every snapshot mount. An app passes it to `Sweep` beside its own referrers. A manifest it can't read fails the sweep, so a snapshot never loses its files to it. The sweep's grace period should be longer than the recheck interval, since a mount another process just made reaches this registry's list only at the next check.
 
 ## Record stores
 
