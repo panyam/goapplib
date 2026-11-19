@@ -19,7 +19,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
 	github.com/morrisxyang/xreflect v0.0.0-20231001053442-6df0df9858ba // indirect
 	github.com/panyam/goutils v0.1.14 // indirect
-	github.com/panyam/oneauth v0.3.6 // indirect
+	github.com/panyam/oneauth v0.3.7 // indirect
 	github.com/panyam/templar v0.1.0 // indirect
 	github.com/radovskyb/watcher v1.0.7 // indirect
 	github.com/yuin/goldmark v1.8.2 // indirect
@@ -29,7 +29,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/oauth2 v0.36.0 // indirect
+	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
@@ -41,8 +41,11 @@ require (
 
 require (
 	github.com/panyam/goapplib v0.6.8
+	github.com/panyam/goapplib/storage v0.0.0
 	google.golang.org/protobuf v1.36.11
 )
 
 // The demos build against the goapplib in this checkout, so the site documents main.
 replace github.com/panyam/goapplib => ../
+
+replace github.com/panyam/goapplib/storage => ../storage

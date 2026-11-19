@@ -33,7 +33,7 @@ storage/                  module github.com/panyam/goapplib/storage
 
 The root module already depends on Datastore and gorm for `UsersService`. Those came first, and moving them would break every app's imports. The rule stops the list from growing.
 
-A dependency that both modules have moves in both at once. An app that imports goapplib and `storage` gets one version of oneauth, the higher of the two, so the root has to build against whatever `storage` requires. Both require oneauth v0.3.6.
+A dependency that both modules have moves in both at once. An app that imports goapplib and `storage` gets one version of oneauth, the higher of the two, so the root has to build against whatever `storage` requires. Every module in the repo that uses oneauth requires v0.3.7.
 
 ## Versions
 
