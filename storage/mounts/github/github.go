@@ -32,8 +32,8 @@ import (
 // DefaultBaseURL is GitHub's API root. GitHub Enterprise and tests set another with WithBaseURL.
 const DefaultBaseURL = "https://api.github.com"
 
-// Driver serves mounts.KindGitHub mounts. It implements mounts.Preparer, mounts.Writer and
-// mounts.Localizer. Share one Driver per process, since it caches manifests and builds each
+// Driver serves mounts.KindGitHub mounts. It implements mounts.Preparer, mounts.Writer,
+// mounts.Localizer and mounts.VersionReader. Share one Driver per process, since it caches manifests and builds each
 // snapshot's folder view once.
 type Driver struct {
 	blobs  blobs.Store
@@ -42,8 +42,11 @@ type Driver struct {
 	limits mounts.Limits
 	views  string
 
+	rawURL string
+
 	mu        sync.Mutex
 	manifests map[blobs.Hash]*tree
+	trees     map[string][]mounts.File // ListAt's file lists, by repo, commit and token
 	viewMu    sync.Mutex
 }
 
@@ -69,7 +72,7 @@ func WithViews(dir string) Option { return func(d *Driver) { d.views = dir } }
 // New returns a GitHub driver keeping snapshots in store. A nil store serves live mounts only,
 // and Prepare refuses a snapshot with ErrInvalidArgument.
 func New(store blobs.Store, opts ...Option) *Driver {
-	d := &Driver{blobs: store, base: DefaultBaseURL, client: http.DefaultClient, manifests: map[blobs.Hash]*tree{}}
+	d := &Driver{blobs: store, base: DefaultBaseURL, client: http.DefaultClient, manifests: map[blobs.Hash]*tree{}, trees: map[string][]mounts.File{}}
 	for _, o := range opts {
 		o(d)
 	}

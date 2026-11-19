@@ -23,12 +23,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
 	"golang.org/x/oauth2"
 )
 
 // Driver serves mounts.KindFolder mounts, whose Source is the folder's absolute path. It
-// implements mounts.Writer and mounts.Localizer. It ignores token sources.
+// implements mounts.Writer, mounts.Localizer and mounts.VersionReader. It ignores token sources.
 //
 // A write's IfMatch check and the write itself happen under a lock per file held in this Driver,
 // so two writers in one process can't both pass the check. Writers in two processes, or two
@@ -36,10 +37,24 @@ import (
 type Driver struct {
 	mu    sync.Mutex
 	locks map[string]*sync.Mutex
+	blobs blobs.Store
 }
 
+// Option configures a Driver.
+type Option func(*Driver)
+
+// WithBlobs sets the blob store FetchAt keeps files in. Without it, FetchAt returns
+// ErrInvalidArgument.
+func WithBlobs(store blobs.Store) Option { return func(d *Driver) { d.blobs = store } }
+
 // New returns a folder driver.
-func New() *Driver { return &Driver{locks: map[string]*sync.Mutex{}} }
+func New(opts ...Option) *Driver {
+	d := &Driver{locks: map[string]*sync.Mutex{}}
+	for _, o := range opts {
+		o(d)
+	}
+	return d
+}
 
 // Kind returns mounts.KindFolder.
 func (d *Driver) Kind() mounts.Kind { return mounts.KindFolder }
