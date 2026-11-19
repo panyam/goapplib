@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"path"
+	"path/filepath"
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
@@ -26,7 +27,7 @@ func (d *Driver) ListAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 	if version != "" {
 		return nil, fmt.Errorf("%w: a folder has no versions, got %q", mounts.ErrInvalidArgument, version)
 	}
-	fsys := linkFree{dir: m.Source}
+	fsys := linkFree{dir: m.Source, follow: d.follow}
 	start := under
 	if start == "" {
 		start = "."
@@ -44,12 +45,24 @@ func (d *Driver) ListAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 	var out []mounts.File
 	var total int64
 	limits := mounts.DefaultLimits
+	// Two links can make a loop, so a walk that follows links visits each real folder once.
+	seen := map[string]bool{}
 	err = fs.WalkDir(fsys, start, func(p string, de fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+		if de.IsDir() && d.follow {
+			real, err := filepath.EvalSymlinks(filepath.Join(m.Source, filepath.FromSlash(p)))
+			if err != nil {
+				return err
+			}
+			if seen[real] {
+				return fs.SkipDir
+			}
+			seen[real] = true
 		}
 		if !de.Type().IsRegular() {
 			return nil
@@ -80,7 +93,7 @@ func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSou
 	if version != "" {
 		return "", false, fmt.Errorf("%w: a folder has no versions, got %q", mounts.ErrInvalidArgument, version)
 	}
-	file, err := linkFree{dir: m.Source}.Open(f.Path)
+	file, err := linkFree{dir: m.Source, follow: d.follow}.Open(f.Path)
 	if err != nil {
 		return "", false, err
 	}

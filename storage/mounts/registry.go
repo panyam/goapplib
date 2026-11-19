@@ -52,7 +52,8 @@ type Preparer interface {
 }
 
 // NewRegistry returns a registry over store, serving the kinds of drivers. Two drivers of one kind
-// keep the later one.
+// keep the later one. A nil store serves the fixed mounts alone, for an app with no store of its
+// own, such as agni's CLI. Create and Delete then return ErrInvalidArgument.
 func NewRegistry(store RecordStore, drivers []Driver, opts ...Option) *Registry {
 	r := &Registry{store: store, drivers: map[Kind]Driver{}, fixed: map[string]Mount{}, every: time.Second, now: time.Now}
 	for _, d := range drivers {
@@ -151,6 +152,9 @@ func (r *Registry) Get(ctx context.Context, name string) (Mount, error) {
 // a fixed or runtime mount returns ErrExists. Driver errors pass through, such as ErrNotFound for a
 // source that doesn't exist.
 func (r *Registry) Create(ctx context.Context, m Mount) (Mount, error) {
+	if r.store == nil {
+		return Mount{}, fmt.Errorf("%w: this registry has no record store, so it keeps no runtime mounts", ErrInvalidArgument)
+	}
 	if err := ValidName(m.Name); err != nil {
 		return Mount{}, err
 	}
@@ -209,6 +213,9 @@ func (r *Registry) Delete(ctx context.Context, name string) error {
 		if used {
 			return fmt.Errorf("%w: records still point into mount %q", ErrInUse, name)
 		}
+	}
+	if r.store == nil {
+		return fmt.Errorf("%w: this registry has no record store, so it keeps no runtime mounts", ErrInvalidArgument)
 	}
 	if err := r.store.DeleteMount(ctx, name); err != nil {
 		return err
@@ -309,6 +316,9 @@ func (r *Registry) Remove(ctx context.Context, name string, req DeleteRequest) (
 func (r *Registry) refresh(ctx context.Context) ([]Mount, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.store == nil {
+		return nil, nil
+	}
 	if r.loaded && r.now().Sub(r.checked) < r.every {
 		return r.runtime, nil
 	}
