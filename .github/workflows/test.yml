@@ -179,3 +179,17 @@ jobs:
           name: exercise-tour-screenshots
           path: exercise/tour/dist/screenshots/
           if-no-files-found: warn
+
+  # Mission #150's exercise: the notes example app over a folder mount and a GitHub mount, against a
+  # fake GitHub. Go only, so no Chromium.
+  exercise-storage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: docsite/go.mod
+
+      - name: Run the exercise
+        run: make exercise-storage

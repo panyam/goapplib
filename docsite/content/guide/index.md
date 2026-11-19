@@ -17,3 +17,5 @@ Two pages cover running an app's Go handlers in the browser, each with a live de
 
 1. [Go handlers in a Web Worker](wasmhost/) covers wasmhost's pieces, mounting files, and the Connect transport.
 2. [State, heavy jobs and long requests](wasmhost-state/) covers the cache, throwaway workers, lanes, streaming and aborts.
+
+[Records, files and sign-ins](storage/) covers the storage module through a small notes app: records in the app's own store, files in mounts (a folder or a GitHub repo), and sign-ins to private repos in connections.

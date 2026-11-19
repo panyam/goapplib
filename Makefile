@@ -5,7 +5,7 @@
 #   make test     - Run all tests
 #   make help     - Show available targets
 
-.PHONY: setup test go-test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite exercise-tour help
+.PHONY: setup test go-test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite exercise-tour exercise-storage help
 
 GOROOT_WASM := $(shell go env GOROOT)/lib/wasm
 EXERCISE := exercise/wasmhost
@@ -60,6 +60,11 @@ exercise-islands: ## Mission #60 exercise: a page whose islands load and mount b
 
 exercise-docsite: ## Mission #91 exercise: build the docsite, check its links, and run every page and live demo in headless Chromium
 	$(MAKE) -C docsite exercise
+
+# Go only, with no browser: docsite/examples/notes against a fake GitHub, restarted over the same
+# folders. With GITHUB_TOKEN and STORAGE_EXERCISE_REPO=owner/repo set, it also reads that private repo.
+exercise-storage: ## Mission #150 exercise: the notes example app over a folder mount and a GitHub mount, with a token connection
+	cd docsite && GOFLAGS=-buildvcs=false go test -count=1 -v ./examples/notes/exercise/
 
 exercise-worker-state: ## Mission #74 exercise: a stateful service in a Web Worker, its memory, a reload, long jobs and an abort, in headless Chromium
 	cd $(WORKERSTATE) && pnpm install --frozen-lockfile
