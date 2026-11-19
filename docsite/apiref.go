@@ -31,6 +31,10 @@ var apiPackages = []apiPackage{
 	{"storage/mounts", "github.com/panyam/goapplib/storage/mounts", "mounts"},
 	{"storage/connections", "github.com/panyam/goapplib/storage/connections", "connections"},
 	{"storage/blobs", "github.com/panyam/goapplib/storage/blobs", "blobs"},
+	{"storage/mounts/folder", "github.com/panyam/goapplib/storage/mounts/folder", "folder"},
+	{"storage/mounts/github", "github.com/panyam/goapplib/storage/mounts/github", "github"},
+	{"storage/backends/gorm", "github.com/panyam/goapplib/storage/backends/gorm", "gormstore"},
+	{"storage/backends/gae", "github.com/panyam/goapplib/storage/backends/gae", "gaestore"},
 }
 
 // apiGuides links a symbol to the guide page that teaches it, which its entry in the reference

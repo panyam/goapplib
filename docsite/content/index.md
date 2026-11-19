@@ -35,4 +35,9 @@ hideTitle: true
 <p>tsappkit-dock lays out an IDE-like page: panels in a grid, floating, or in drawers on any edge. A bottom drawer doubles as a phone sheet, and the saved layout picks up new panels.</p>
 <a href="{{.Site.PathPrefix}}/guide/dock/">The dock, live &rarr;</a>
 </div>
+<div class="feature-card">
+<h3>Records, files and sign-ins</h3>
+<p>An app keeps its records in its own store. The files they point at live in mounts, a folder or a GitHub repo. A private repo is reached through a connection, a sign-in the server holds.</p>
+<a href="{{.Site.PathPrefix}}/overview/#storage">The storage module &rarr;</a>
+</div>
 </div>

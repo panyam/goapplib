@@ -24,8 +24,9 @@ A Go library for server-rendered web apps. Go renders each page through template
 | [`@panyam/tsappkit-solid`](tsappkit-solid/) | `SolidIsland` mounts a Solid tree as an island. | [Island pages](https://panyam.github.io/goapplib/guide/islands/) |
 | [`@panyam/tsappkit-dock`](tsappkit-dock/) | An IDE-like dock on dockview-core. Panels sit in a grid, float, or slide out of drawers on any edge. The saved layout picks up new panels. | [Docks and drawers](https://panyam.github.io/goapplib/guide/dock/) |
 | [`wasmhost`](wasmhost/) | Runs an app's HTTP or Connect handlers as wasm in a Web Worker. The page's clients can't tell it from a server. | [Go handlers in a Web Worker](https://panyam.github.io/goapplib/guide/wasmhost/) |
+| [`github.com/panyam/goapplib/storage`](storage/) | Its own Go module. An app keeps its records in its own store, the files they point at in mounts (a folder or a GitHub repo), and sign-ins to private repos in connections. GORM and Datastore backends are modules of their own. | [Records, files and sign-ins](https://panyam.github.io/goapplib/guide/storage/) |
 
-All four share one version, in `VERSION`. The [Overview](https://panyam.github.io/goapplib/overview/) says more about each.
+They all share one version, in `VERSION`, and so do the storage backends. The [Overview](https://panyam.github.io/goapplib/overview/) says more about each.
 
 ## Install
 
@@ -78,6 +79,7 @@ The full example lives in [`docsite/examples/hello`](docsite/examples/hello), an
 - Client code: [Island pages](https://panyam.github.io/goapplib/guide/islands/), [Components and the page lifecycle](https://panyam.github.io/goapplib/guide/components/), [Guided tours](https://panyam.github.io/goapplib/guide/tour/)
 - Docks: [Docks and drawers](https://panyam.github.io/goapplib/guide/dock/), [Dock experiments](https://panyam.github.io/goapplib/guide/dock-lab/)
 - wasmhost: [Go handlers in a Web Worker](https://panyam.github.io/goapplib/guide/wasmhost/), [State, heavy jobs and long requests](https://panyam.github.io/goapplib/guide/wasmhost-state/)
+- Storage: [Records, files and sign-ins](https://panyam.github.io/goapplib/guide/storage/), and the design in [The storage module](https://panyam.github.io/goapplib/reference/storage-module/), [Mounts](https://panyam.github.io/goapplib/reference/mounts/), [Connections](https://panyam.github.io/goapplib/reference/connections/) and [Blobs](https://panyam.github.io/goapplib/reference/blobs/)
 - Reference: [Go API](https://panyam.github.io/goapplib/reference/api/), [UsersService](https://panyam.github.io/goapplib/reference/users/), [tsappkit/docs](https://panyam.github.io/goapplib/reference/docs-kit/)
 
 ## Who uses it
