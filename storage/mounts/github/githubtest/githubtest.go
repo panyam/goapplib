@@ -38,6 +38,7 @@ type Server struct {
 	accept   func(token string) bool
 	requests []Request
 	fail     []int
+	corrupt  bool
 }
 
 // Request is one request the fake answered.
@@ -255,6 +256,10 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if raw, ok := strings.CutPrefix(req.URL.Path, "/raw/"); ok && req.Method == http.MethodGet {
+		s.raw(w, raw, accepted)
+		return
+	}
 	parts := strings.SplitN(strings.TrimPrefix(req.URL.Path, "/repos/"), "/", 4)
 	if !strings.HasPrefix(req.URL.Path, "/repos/") || len(parts) < 2 {
 		notFound(w)
@@ -274,6 +279,12 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 		r.getCommit(w, parts[3])
 	case len(parts) == 4 && parts[2] == "tarball" && req.Method == http.MethodGet:
 		r.tarball(w, parts[3])
+	case len(parts) == 4 && parts[2] == "branches" && req.Method == http.MethodGet:
+		r.getBranch(w, parts[3])
+	case len(parts) == 4 && parts[2] == "git" && strings.HasPrefix(parts[3], "trees/") && req.Method == http.MethodGet:
+		r.getTree(w, strings.TrimPrefix(parts[3], "trees/"), req.URL.Query().Get("recursive") == "1")
+	case len(parts) == 4 && parts[2] == "git" && strings.HasPrefix(parts[3], "blobs/") && req.Method == http.MethodGet:
+		r.getBlob(w, strings.TrimPrefix(parts[3], "blobs/"))
 	case len(parts) >= 3 && parts[2] == "contents":
 		p := ""
 		if len(parts) == 4 {
@@ -292,6 +303,125 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 	default:
 		notFound(w)
 	}
+}
+
+// RawURL is the fake's raw host, which serves a file by owner, repo, commit and path as
+// raw.githubusercontent.com does. Point a driver at it with WithRawURL.
+func (s *Server) RawURL() string { return s.URL + "/raw" }
+
+// CorruptRaw makes the raw host and the git blobs endpoint send each file with one byte added, so
+// a test can check that a driver refuses bytes that don't match their git blob id.
+func (s *Server) CorruptRaw(on bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.corrupt = on
+}
+
+// raw serves "<owner>/<repo>/<commit>/<path>". A private repo needs an accepted token, and answers
+// 404 without one, as GitHub does.
+func (s *Server) raw(w http.ResponseWriter, p string, accepted bool) {
+	parts := strings.SplitN(p, "/", 4)
+	if len(parts) < 4 {
+		notFound(w)
+		return
+	}
+	s.mu.Lock()
+	r := s.repos[parts[0]+"/"+parts[1]]
+	s.mu.Unlock()
+	if r == nil || r.Private && !accepted {
+		notFound(w)
+		return
+	}
+	c := r.resolve(parts[2])
+	if c == nil {
+		notFound(w)
+		return
+	}
+	f, ok := c.files[parts[3]]
+	if !ok || f.symlink {
+		notFound(w)
+		return
+	}
+	s.writeFile(w, f.data)
+}
+
+func (s *Server) writeFile(w http.ResponseWriter, data []byte) {
+	s.mu.Lock()
+	corrupt := s.corrupt
+	s.mu.Unlock()
+	if corrupt {
+		data = append(append([]byte(nil), data...), '!')
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Write(data)
+}
+
+func (r *Repo) getBranch(w http.ResponseWriter, name string) {
+	r.s.mu.Lock()
+	sha, ok := r.branches[name]
+	r.s.mu.Unlock()
+	if !ok {
+		notFound(w)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"name": name, "commit": map[string]string{"sha": sha}})
+}
+
+// getTree answers the trees API for a commit, every file with its git blob id, plus a folder
+// entry for each folder, as GitHub lists them. A link has mode 120000.
+func (r *Repo) getTree(w http.ResponseWriter, ref string, recursive bool) {
+	c := r.resolve(ref)
+	if c == nil || !recursive {
+		notFound(w)
+		return
+	}
+	type treeEntry struct {
+		Path string `json:"path"`
+		Mode string `json:"mode"`
+		Type string `json:"type"`
+		SHA  string `json:"sha"`
+		Size int    `json:"size,omitempty"`
+	}
+	var es []treeEntry
+	dirs := map[string]bool{}
+	for _, p := range sortedKeys(c.files) {
+		for d := path.Dir(p); d != "." && !dirs[d]; d = path.Dir(d) {
+			dirs[d] = true
+			es = append(es, treeEntry{Path: d, Mode: "040000", Type: "tree", SHA: blobSHA([]byte(d))})
+		}
+		f := c.files[p]
+		mode := "100644"
+		if f.symlink {
+			mode = "120000"
+		}
+		es = append(es, treeEntry{Path: p, Mode: mode, Type: "blob", SHA: blobSHA(f.data), Size: len(f.data)})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"sha": c.sha, "tree": es, "truncated": false})
+}
+
+// getBlob serves a blob's raw bytes by its git blob id, as the git blobs API does with the raw
+// media type.
+func (r *Repo) getBlob(w http.ResponseWriter, id string) {
+	r.s.mu.Lock()
+	var data []byte
+	found := false
+	for _, c := range r.commits {
+		for _, f := range c.files {
+			if !f.symlink && blobSHA(f.data) == id {
+				data, found = f.data, true
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	r.s.mu.Unlock()
+	if !found {
+		notFound(w)
+		return
+	}
+	r.s.writeFile(w, data)
 }
 
 // resolve turns a branch name or a full commit sha into a commit.

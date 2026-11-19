@@ -19,6 +19,10 @@ import (
 	"testing"
 
 	"github.com/panyam/goapplib/docsite/examples/notes"
+	"github.com/panyam/goapplib/storage/blobs"
+	"github.com/panyam/goapplib/storage/mounts"
+	"github.com/panyam/goapplib/storage/mounts/fsstore"
+	"github.com/panyam/goapplib/storage/mounts/github"
 	"github.com/panyam/goapplib/storage/mounts/github/githubtest"
 )
 
@@ -211,4 +215,61 @@ func TestRealGitHub(t *testing.T) {
 		t.Fatalf("%s at %s lists no files", repo, m.Version)
 	}
 	ok("read %s at %s through a token connection: %s", repo, m.Version[:7], strings.Join(list, ", "))
+}
+
+// TestReadingARepoAtTwoCommits is the step for goapplib issue 172. It reads a repo's folder at one
+// commit through the registry, then at the next, and checks that the second read downloaded only
+// the file that changed.
+func TestReadingARepoAtTwoCommits(t *testing.T) {
+	ctx := t.Context()
+	gh := githubtest.New(t)
+	repo := gh.AddRepo("acme", "board", false, map[string]string{
+		"hw/board.kicad_sch": "(kicad_sch)",
+		"hw/power.kicad_sch": "(kicad_sch power)",
+		"hw/board.kicad_pcb": "(kicad_pcb)",
+	})
+	store, err := blobs.NewDir(filepath.Join(t.TempDir(), "blobs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	records, err := fsstore.New(filepath.Join(t.TempDir(), "mounts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := mounts.NewRegistry(records, []mounts.Driver{github.New(store, github.WithBaseURL(gh.URL), github.WithRawURL(gh.RawURL()))})
+	if _, err := reg.Create(ctx, mounts.Mount{Name: "board", Kind: mounts.KindGitHub, Source: repo.Source(), Mode: mounts.ModeLive}); err != nil {
+		t.Fatal(err)
+	}
+	read := func(ref string) (string, int) {
+		v, moves, err := reg.ResolveAt(ctx, "board", ref)
+		if err != nil || !moves {
+			t.Fatalf("ResolveAt(%s) = %s, %v, %v; want a moving ref", ref, v, moves, err)
+		}
+		files, err := reg.ListAt(ctx, "board", v, "hw")
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for _, f := range files {
+			_, fetched, err := reg.FetchAt(ctx, "board", v, f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if fetched {
+				n++
+			}
+		}
+		return v, n
+	}
+	v1, n1 := read("main")
+	if n1 != 3 {
+		t.Fatalf("the first read downloaded %d files, want 3", n1)
+	}
+	ok("read hw/ at commit %s through the registry, downloading %d files", v1[:7], n1)
+	repo.Commit("main", map[string]string{"hw/power.kicad_sch": "(kicad_sch power v2)"}, nil)
+	v2, n2 := read("main")
+	if n2 != 1 {
+		t.Fatalf("the read at the next commit downloaded %d files, want only the changed one", n2)
+	}
+	ok("read hw/ at the next commit %s, downloading only the %d file that changed", v2[:7], n2)
 }

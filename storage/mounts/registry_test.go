@@ -271,3 +271,30 @@ func TestFSAndHostPath(t *testing.T) {
 		t.Errorf("HostPath(a driver with no Localizer) = %v, want ErrNotLocal", err)
 	}
 }
+
+func TestTheRegistryReadsAMountAtAVersionThroughItsDriver(t *testing.T) {
+	e := newEnv(t)
+	v, moves, err := e.reg.ResolveAt(e.ctx, "notes", "")
+	if err != nil || v != "" || !moves {
+		t.Errorf("ResolveAt(notes) = %q, %v, %v; want no version, moving", v, moves, err)
+	}
+	files, err := e.reg.ListAt(e.ctx, "notes", "", "")
+	if err != nil || len(files) != 1 || files[0].Path != "hello.md" {
+		t.Errorf("ListAt(notes) = %v, %v; want hello.md", files, err)
+	}
+	if _, err := e.reg.ListAt(e.ctx, "notes", "", "../outside"); !errors.Is(err, mounts.ErrInvalidPath) {
+		t.Errorf("ListAt of a path climbing out = %v, want ErrInvalidPath", err)
+	}
+	if _, _, err := e.reg.FetchAt(e.ctx, "notes", "", mounts.File{}); !errors.Is(err, mounts.ErrInvalidPath) {
+		t.Errorf("FetchAt of the root = %v, want ErrInvalidPath", err)
+	}
+	if _, _, err := e.reg.ResolveAt(e.ctx, "nope", ""); !errors.Is(err, mounts.ErrNotFound) {
+		t.Errorf("ResolveAt of an unknown mount = %v, want ErrNotFound", err)
+	}
+	if _, err := e.reg.Create(e.ctx, mounts.Mount{Name: "boards", Kind: mounts.KindGitHub, Source: "github://acme/boards", Mode: mounts.ModeSnapshot, Connection: "acme-app"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.reg.ListAt(e.ctx, "boards", "", ""); !errors.Is(err, mounts.ErrInvalidArgument) {
+		t.Errorf("ListAt through a driver that can't read versions = %v, want ErrInvalidArgument", err)
+	}
+}

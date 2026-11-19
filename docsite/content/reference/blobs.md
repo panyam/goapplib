@@ -48,6 +48,10 @@ GCS and S3 stores come later, in their own modules under `storage/drivers/`, as 
 
 wasmhost's `Cache` (`MemCache`, `DirCache`, the browser cache) looks similar, and the two are kept apart. A cache may lose an entry and rebuild it, but a blob store may not, since a record pointing at a missing blob has lost data. Their keys differ too: a cache key is any string the caller picks, and a blob's name is computed from its contents. The two share no lower layer.
 
+## Aliases
+
+A source can have its own name for a file's contents, such as a git blob id. `Aliases` is an optional interface on a store that remembers which blob such a name points at, in a namespace like `git`. The GitHub driver uses it so a second read of a repo downloads only files whose git blob id it hasn't seen (#172). `Dir` keeps each alias as a file under `<root>/aliases/<ns>/<id>`, beside the blobs, so `Sweep` never walks them. An alias is a hint. Its blob can be swept, so a caller checks `Has` before trusting it.
+
 ## The package
 
 {{ apiref "storage/blobs" }}
