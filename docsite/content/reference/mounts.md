@@ -89,7 +89,10 @@ reg := mounts.NewRegistry(store, []mounts.Driver{folder.New(), github},
 A `RecordStore` creates and deletes records, and never changes one in place. Several processes can share a store, and `Generation` is how each one notices the others' changes. `storage/mounts/mountstest` checks a backend against this contract, the way oneauth's `usertokentest` checks user-token stores. A backend's test calls `mountstest.RunRecordStore`, and `RunShared` when two of its stores can share data.
 
 - **Folder,** `storage/mounts/fsstore`. One YAML file per mount, read through `os.Root`. A create writes a temp file and hard-links it to `<name>.yaml`. The link fails when the name exists, so of two processes creating one name, one wins. `Generation` is agni's stamp of each file's name, size and mtime. A folder's own mtime isn't enough on Windows.
-- **GORM and Datastore,** later ([#161](https://github.com/panyam/goapplib/issues/161)), the way `services/backends/` does users. `Generation` is a counter row that each create and delete bumps in the same transaction.
+- **GORM,** `gormstore.NewMountStore(db)` from the module `github.com/panyam/goapplib/storage/backends/gorm`, over any database GORM supports. It keeps records in the `goapplib_mounts` table. A create inserts with "on conflict do nothing", and an insert that adds no row returns `ErrExists`, so of two servers creating one name, one wins. `Generation` is a counter in `goapplib_mount_generation` that each create and delete bumps in the same transaction.
+- **Datastore,** `gaestore.NewMountStore(client, namespace)` from the module `github.com/panyam/goapplib/storage/backends/gae`. Each record is a `GoapplibMount` entity keyed by the mount's name. A create reads the key and writes it in one transaction, and so does the generation counter. Every create and delete writes that one counter entity, so writers contend on it, and the store retries a contended transaction up to 32 times rather than Datastore's default 3.
+
+Both backends are modules of their own, so an app that keeps records in a folder never downloads GORM or the Datastore SDK. Both run `mountstest`. GORM runs on SQLite in CI. Datastore runs with `make test-datastore`, which starts the local emulator, and CI skips it.
 
 ## What the library enforces
 

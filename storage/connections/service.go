@@ -38,9 +38,13 @@ type Service struct {
 	client *http.Client
 	now    func() time.Time
 
+	check     ReadCheck
+	accessTTL time.Duration
+
 	mu      sync.Mutex
 	entries map[string]*entry
 	key     string
+	access  map[string]answer
 }
 
 // entry is one connection's built token source, kept while its record's sign-in fields match.

@@ -24,9 +24,9 @@ Later kinds are the server's own cloud identity for S3 and GCS (agni#1730), and 
 
 `Connection` keeps the ID, kind, scope and owner, a display name, the API base URL, and the fields for its kind. It also keeps a `Status` and `LastError`, so a settings page can show "connect again" without opening a token. `Validate` checks that the fields fit the kind and scope. It refuses an App installation with a person scope, and a user connection that carries a secret reference.
 
-`Store` gets, lists, puts and deletes records. `ListConnections(owner)` gives a person's connections for a settings page, and the server's with an empty owner. agni#1728 needs "can this viewer read this mount's source". That check waits on agni knowing who the caller is (agni#1627), and [#163](https://github.com/panyam/goapplib/issues/163) tracks it.
+`Store` gets, lists, puts and deletes records. `ListConnections(owner)` gives a person's connections for a settings page, and the server's with an empty owner. `CanRead`, below, uses the same list to answer whether a viewer can read a source.
 
-`storage/connections/fsstore` keeps one YAML file per connection, written through a temp file and a rename. Several processes can share its folder. `PutConnection` runs `Validate`, so an invalid record never reaches disk. `storage/connections/connectionstest` is the contract suite every `Store` backend runs. GORM and Datastore stores wait on a consumer that needs them ([#161](https://github.com/panyam/goapplib/issues/161)).
+`storage/connections/fsstore` keeps one YAML file per connection, written through a temp file and a rename. Several processes can share its folder. `PutConnection` runs `Validate`, so an invalid record never reaches disk. `storage/connections/connectionstest` is the contract suite every `Store` backend runs. For several servers without a shared folder, `gormstore.NewConnectionStore(db)` keeps connections in a `goapplib_connections` table, and `gaestore.NewConnectionStore(client, namespace)` keeps them as `GoapplibConnection` entities. Each is in its own module, `storage/backends/gorm` or `storage/backends/gae`, and each runs `connectionstest`. Both index the owner, for `ListConnections`.
 
 ## Secrets
 
@@ -58,6 +58,23 @@ ts, err := svc.TokenSource(connections.WithViewer(ctx, subject), "alice-gh")
 The service reuses each connection's source until the record's sign-in fields change. A new `KeyRef` or `InstallationID` builds a new one on the next call. Any other failure sets the status to `failed`, and the next token that works sets it back to `ok`. `TokenSource` stamps `LastUsed` at most once an hour, so a busy mount doesn't write its connection's record on every request.
 
 A driver wraps the source in an `oauth2.Transport` and sends it with every request.
+
+## Can this viewer read it?
+
+Imagine a viewer opening a design that agni linked from a private repo. agni has to decide whether to show it. GitHub knows whether this person can read the repo, so agni asks GitHub with the person's own connections:
+
+```go
+svc := connections.NewService(store, connections.WithReadCheck(githubDriver.CanRead))
+id, err := svc.CanRead(connections.WithViewer(ctx, subject), "github://acme/board")
+```
+
+- `CanRead` lists the viewer's connections in ID order. For each one it builds the token source and calls the read check, and it returns the first connection that can read the source.
+- The GitHub driver's `CanRead` is the read check. It asks for the repo, and a 404 counts as a definite no, which is also how GitHub answers a private repo the token can't see. A connection to another host than the driver serves gets a no without a request.
+- When no connection can read, or the viewer has none, `CanRead` returns `ErrNoAccess`. A request with no viewer returns `ErrNotOwner`. If a check failed, such as a rejected token, and no connection succeeded, `CanRead` returns that failure rather than a no, since the answer isn't known.
+- It keeps each yes or no for a minute per viewer and source (`WithAccessTTL` changes that), so a page with many links to one repo asks GitHub once. It doesn't keep a failure.
+- It never tries a server connection. A server connection would answer for the server, and a link made through one falls back to the app's own sharing (agni#1176).
+
+The read check is a function rather than code in this package. That keeps every GitHub API call in the GitHub driver, and this package doesn't import mounts.
 
 ## Connecting a person
 
