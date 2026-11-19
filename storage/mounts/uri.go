@@ -44,21 +44,33 @@ func NewURI(mount, p string) (URI, error) {
 	if err := ValidName(mount); err != nil {
 		return URI{}, err
 	}
+	clean, err := CleanPath(p)
+	if err != nil {
+		return URI{}, err
+	}
+	return URI{Mount: mount, Path: clean}, nil
+}
+
+// CleanPath applies NewURI's path rules to p, a path inside a mount. It returns the clean,
+// relative, slash-separated form, and "" for the mount's root. An absolute path, or one that climbs
+// out with "..", wraps ErrInvalidPath. Drivers call it on every path they are given, so a path
+// that skipped NewURI still can't leave the mount.
+func CleanPath(p string) (string, error) {
 	p = strings.ReplaceAll(strings.TrimSpace(p), `\`, "/")
 	if strings.HasPrefix(p, "/") {
-		return URI{}, fmt.Errorf("%w: %q is absolute", ErrInvalidPath, p)
+		return "", fmt.Errorf("%w: %q is absolute", ErrInvalidPath, p)
 	}
 	if p == "" {
-		return URI{Mount: mount}, nil
+		return "", nil
 	}
 	clean := path.Clean(p)
 	if clean == ".." || strings.HasPrefix(clean, "../") {
-		return URI{}, fmt.Errorf("%w: %q leaves the mount", ErrInvalidPath, p)
+		return "", fmt.Errorf("%w: %q leaves the mount", ErrInvalidPath, p)
 	}
 	if clean == "." {
 		clean = ""
 	}
-	return URI{Mount: mount, Path: clean}, nil
+	return clean, nil
 }
 
 // ParseURI parses "mount://<name>/<path>" with the rules of NewURI. Any other scheme wraps
