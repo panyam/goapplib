@@ -28,6 +28,8 @@ var apiPackages = []apiPackage{
 	{"", "github.com/panyam/goapplib", "goapplib"},
 	{"page", "github.com/panyam/goapplib/page", "page"},
 	{"wasmhost", "github.com/panyam/goapplib/wasmhost", "wasmhost"},
+	{"storage/mounts", "github.com/panyam/goapplib/storage/mounts", "mounts"},
+	{"storage/connections", "github.com/panyam/goapplib/storage/connections", "connections"},
 }
 
 // apiGuides links a symbol to the guide page that teaches it, which its entry in the reference

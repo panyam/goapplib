@@ -12,13 +12,13 @@ This page records the layout, the version policy and the dependency rule. The st
 ```
 storage/                  module github.com/panyam/goapplib/storage
   doc.go                  package storage
-  mounts/                 records, the registry, folder and GitHub drivers (#152)
-  connections/            server-held sign-ins (#153)
+  mounts/                 records, the registry, folder and GitHub drivers
+  connections/            server-held sign-ins
   drivers/s3/             its own module, when it exists
   drivers/gcs/            its own module, when it exists
 ```
 
-Only `doc.go` exists so far. [#152](https://github.com/panyam/goapplib/issues/152) and [#153](https://github.com/panyam/goapplib/issues/153) add the packages under it. [#154](https://github.com/panyam/goapplib/issues/154) decides whether blobs get a package, or whether the mounts driver that snapshots keeps them as an internal detail.
+[Mounts](../mounts/) and [Connections](../connections/) have the design of the two packages, whose records, interfaces and errors exist so far. Their drivers, registry and service come in the implementation tickets. [#154](https://github.com/panyam/goapplib/issues/154) decides whether blobs get a package, or whether the mounts driver that snapshots keeps them as an internal detail.
 
 ## The dependency rule
 
@@ -28,6 +28,8 @@ Only `doc.go` exists so far. [#152](https://github.com/panyam/goapplib/issues/15
 - A driver that needs a third-party SDK gets its own module under `storage/drivers/<name>`. An app that uses folders and GitHub then never downloads the AWS or GCS SDKs.
 
 The root module already depends on Datastore and gorm for `UsersService`. Those came first, and moving them would break every app's imports. The rule stops the list from growing.
+
+A dependency that both modules have moves in both at once. An app that imports goapplib and `storage` gets one version of oneauth, the higher of the two, so the root has to build against whatever `storage` requires. Both require oneauth v0.3.6.
 
 ## Versions
 
