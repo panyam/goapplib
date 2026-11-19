@@ -53,7 +53,10 @@ if [ -n "$(git status --porcelain)" ]; then
   git commit -qam "Release v$v"
 fi
 for t in "${tags[@]}"; do git tag -a "$t" -m "$t"; done
-git push -q origin main "${tags[@]}"
+# GitHub creates no tag events for a push of more than three tags, so publish.yml would never see
+# v$v pushed beside the nested modules' tags. Push those first, then v$v on its own.
+git push -q origin main "${tags[@]:1}"
+git push -q origin "v$v"
 echo "pushed main and ${tags[*]}; publish.yml runs on v$v"
 
 if [ -n "$notes" ]; then
