@@ -16,6 +16,10 @@ var (
 	// viewer isn't its Owner, or by a request with no viewer.
 	ErrNotOwner = errors.New("connections: viewer does not own this connection")
 
+	// ErrNotConfigured means the Service lacks what a connection needs, such as a
+	// KindGitHubUser connection on a service built without WithUserTokens.
+	ErrNotConfigured = errors.New("connections: service not configured for this connection")
+
 	// ErrReconnect means a person's token can't be refreshed, so they have to connect again.
 	// It wraps oneauth's outbound.ErrReconnect.
 	ErrReconnect = errors.New("connections: connect again")

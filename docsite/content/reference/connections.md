@@ -5,7 +5,7 @@ description: "The design of the storage module's connections: server-held sign-i
 
 Picture an agni server with three private repos mounted from one org. The org installed agni's GitHub App, so one installation covers all three repos, and the server signs in as that installation. Now an engineer mounts a repo of their own with a personal token, and a notation user connects their own GitHub account so notation can commit for them. Each of those is a connection: a sign-in the server holds for a third-party service. A mount names one by ID, and the driver reads through it.
 
-This page is the design for [#153](https://github.com/panyam/goapplib/issues/153). The `storage/connections` package holds the record, its validation and the store interface, rendered at the bottom of the page from the source. The service that builds token sources comes in the implementation ticket. The tokens themselves come from oneauth's `outbound` package, from v0.3.6 ([oneauth#467](https://github.com/panyam/oneauth/issues/467)). This module keeps what oneauth leaves out on purpose: the record, its scope, which mounts use it, and which token source it builds. [Mounts](../mounts/) covers the other side.
+This page is the design for [#153](https://github.com/panyam/goapplib/issues/153). The `storage/connections` package holds the record, its validation and the store interface, rendered at the bottom of the page from the source. So does `Service`, which builds each connection's token source, and a folder `Store` in `storage/connections/fsstore`. The tokens themselves come from oneauth's `outbound` package, from v0.3.6 ([oneauth#467](https://github.com/panyam/oneauth/issues/467)). This module keeps what oneauth leaves out on purpose: the record, its scope, which mounts use it, and which token source it builds. [Mounts](../mounts/) covers the other side.
 
 ## Kinds and scopes
 
@@ -24,7 +24,9 @@ Later kinds are the server's own cloud identity for S3 and GCS (agni#1730), and 
 
 `Connection` keeps the ID, kind, scope and owner, a display name, the API base URL, and the fields for its kind. It also keeps a `Status` and `LastError`, so a settings page can show "connect again" without opening a token. `Validate` checks that the fields fit the kind and scope. It refuses an App installation with a person scope, and a user connection that carries a secret reference.
 
-`Store` gets, lists, puts and deletes records. `ListConnections(owner)` gives a person's connections for a settings page, and the server's with an empty owner. agni#1728 needs "does this viewer have a connection to this source", and it gets that from the viewer's list plus the mount's source.
+`Store` gets, lists, puts and deletes records. `ListConnections(owner)` gives a person's connections for a settings page, and the server's with an empty owner. agni#1728 needs "can this viewer read this mount's source". That check waits on agni knowing who the caller is (agni#1627), and [#163](https://github.com/panyam/goapplib/issues/163) tracks it.
+
+`storage/connections/fsstore` keeps one YAML file per connection, written through a temp file and a rename. Several processes can share its folder. `PutConnection` runs `Validate`, so an invalid record never reaches disk. `storage/connections/connectionstest` is the contract suite every `Store` backend runs. GORM and Datastore stores wait on a consumer that needs them ([#161](https://github.com/panyam/goapplib/issues/161)).
 
 ## Secrets
 
@@ -39,15 +41,12 @@ A person's own token is different, since nobody can put it in an env var for the
 
 ## Token sources
 
-The service is built in the implementation ticket. Its planned API:
+An app builds one `Service` over its store. `WithUserTokens` gives it oneauth's user-token store, the master key's secret reference, and the OAuth app's config:
 
 ```go
-func NewService(store Store, opts ...Option) *Service
-func WithUserTokens(store outbound.UserTokenStore, masterKeyRef string, oauth *oauth2.Config) Option
-func WithHTTPClient(c *http.Client) Option
-
-func (s *Service) TokenSource(ctx context.Context, id string) (oauth2.TokenSource, error)
-func (s *Service) Disconnect(ctx context.Context, id string) error // revoke, delete the token, delete the record
+svc := connections.NewService(store,
+	connections.WithUserTokens(fs.NewFSUserTokenStore(dir), "env:CONNECTIONS_KEY", githubOAuth))
+ts, err := svc.TokenSource(connections.WithViewer(ctx, subject), "alice-gh")
 ```
 
 `TokenSource` has the signature the mounts registry's `WithCredentials` takes. For each kind:
@@ -56,11 +55,13 @@ func (s *Service) Disconnect(ctx context.Context, id string) error // revoke, de
 - `github-token`: `outbound.NewStatic(TokenRef)`.
 - `github-user`: `UserTokens.TokenSource(owner)` under the connection's provider key. Each `Token` call reads the store, and refreshes with compare-and-swap when the token is close to expiry, so replicas don't fight. When the refresh token is dead, oneauth returns `outbound.ErrReconnect`. The service then sets the record's status to `reconnect`, and returns `ErrReconnect`.
 
+The service reuses each connection's source until the record's sign-in fields change. A new `KeyRef` or `InstallationID` builds a new one on the next call. Any other failure sets the status to `failed`, and the next token that works sets it back to `ok`. `TokenSource` stamps `LastUsed` at most once an hour, so a busy mount doesn't write its connection's record on every request.
+
 A driver wraps the source in an `oauth2.Transport` and sends it with every request.
 
 ## Connecting a person
 
-oneauth's GitHub provider asks for `read:user` and `user:email` at login. To read and write a person's private repos, the app lists `repo` in the provider's `AllowedExtraScopes`, and sends the person to the login path with `?scope=repo`. The provider's `HandleUserFunc` gets the token, and the app saves it with `UserTokens.Save` and puts a `github-user` record.
+oneauth's GitHub provider asks for `read:user` and `user:email` at login. To read and write a person's private repos, the app lists `repo` in the provider's `AllowedExtraScopes`, and sends the person to the login path with `?scope=repo`. The provider's `HandleUserFunc` gets the token. The app puts a `github-user` record, then saves the token with `Service.SaveUserToken`, which also sets a `reconnect` status back to `ok`.
 
 `HandleUserFunc` can't tell a connect from a login, and carries no return URL. The app keeps both in its own state, such as a short-lived cookie set before the redirect. A GitHub App's user tokens ignore OAuth scopes, and a person adds repos on the App's install page instead. That flow belongs to the app.
 
