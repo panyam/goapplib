@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Cuts a release from a clean, up-to-date main. It sets VERSION and the three package.json
-# versions, pins the docs to the new version (pin-docs.sh), and commits "Release vX.Y.Z" if
+# versions, moves each nested Go module's require of this repo's other modules to the new version,
+# pins the docs to the new version (pin-docs.sh), and commits "Release vX.Y.Z" if
 # anything changed. Then it tags vX.Y.Z, plus <dir>/vX.Y.Z for each nested Go module
 # (go-modules.sh), and pushes main and the tags. Given a notes file, it creates the GitHub release.
 # The v tag runs publish.yml, which publishes the npm packages.
@@ -35,6 +36,14 @@ for dir in tsappkit tsappkit-solid tsappkit-dock; do
     p.version = process.argv[2];
     fs.writeFileSync(f, JSON.stringify(p, null, 2) + "\n");
   ' "$dir/package.json" "$v"
+done
+for m in $(scripts/go-modules.sh); do
+  for dep in $(cd "$m" && go mod edit -json | node -e '
+    const j = JSON.parse(require("fs").readFileSync(0, "utf8"));
+    for (const r of j.Require || []) if (r.Path === "github.com/panyam/goapplib" || r.Path.startsWith("github.com/panyam/goapplib/")) console.log(r.Path);
+  '); do
+    (cd "$m" && go mod edit -require="$dep@v$v")
+  done
 done
 scripts/pin-docs.sh "$v"
 scripts/check-versions.sh "v$v"
