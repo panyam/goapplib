@@ -22,6 +22,7 @@ setup: ## Configure git hooks and local dev environment
 
 test: ## Run all tests
 	go test ./...
+	for m in $$(scripts/go-modules.sh); do (cd $$m && go vet ./... && go test ./...) || exit 1; done
 	$(MAKE) wasm-test
 	cd tsappkit && pnpm install --frozen-lockfile && pnpm test
 	cd tsappkit-solid && pnpm install --frozen-lockfile && pnpm test
