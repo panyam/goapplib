@@ -26,8 +26,8 @@ const (
 )
 
 // maxAttempts is how often a contended transaction is tried before it fails. Every create and
-// delete writes the one generation entity, so concurrent writers contend on it, and Datastore's
-// default of 3 attempts isn't enough for a burst of them.
+// delete writes the one generation entity, so concurrent writers contend on it. The limit is
+// above Datastore's default of 3 to leave room for a burst of them.
 const maxAttempts = 32
 
 // mountEntity is a mount record. Its key's name is the mount's name, so the key keeps names unique
