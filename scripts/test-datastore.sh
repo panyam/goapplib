@@ -12,10 +12,12 @@ port=${DATASTORE_PORT:-8432}
 emulator="$(gcloud info --format='value(installation.sdk_root)')/platform/cloud-datastore-emulator/cloud_datastore_emulator"
 [ -x "$emulator" ] || { echo "no Datastore emulator; run: gcloud components install cloud-datastore-emulator" >&2; exit 1; }
 
-log=$(mktemp)
-"$emulator" start --host=localhost --port="$port" --store_on_disk=false --consistency=1.0 >"$log" 2>&1 &
+# The emulator writes WEB-INF/ into its working folder, so it runs in a temp one.
+work=$(mktemp -d)
+log="$work/emulator.log"
+(cd "$work" && exec "$emulator" start --host=localhost --port="$port" --store_on_disk=false --consistency=1.0 >"$log" 2>&1) &
 pid=$!
-trap 'kill $pid 2>/dev/null || true; pkill -f "CloudDatastore.*--port=$port" 2>/dev/null || true; rm -f "$log"' EXIT
+trap 'kill $pid 2>/dev/null || true; pkill -f "CloudDatastore.*--port=$port" 2>/dev/null || true; rm -rf "$work"' EXIT
 for _ in $(seq 1 60); do
   curl -sf "http://localhost:$port/" >/dev/null && break
   kill -0 $pid 2>/dev/null || { cat "$log" >&2; exit 1; }
