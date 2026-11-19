@@ -3,6 +3,7 @@ module github.com/panyam/goapplib/storage
 go 1.26.9
 
 require (
+	github.com/panyam/goutils v0.1.14
 	github.com/panyam/oneauth v0.3.6
 	golang.org/x/oauth2 v0.38.0
 	gopkg.in/yaml.v3 v3.0.1

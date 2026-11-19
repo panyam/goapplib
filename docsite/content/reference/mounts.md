@@ -5,7 +5,7 @@ description: "The design of the storage module's mounts: the record, mount:// UR
 
 Picture agni saving a circuit design that points at `mount://jetson/baseboard.kicad_sch`. A month later someone opens it. If `jetson` reads the repo's latest commit, the design now means different bytes from the ones it was made from. So agni pins a GitHub mount at the commit it resolved to, and keeps that commit's files. notation needs the opposite. A notation's text sits in a repo, a person edits it, and each save should become a new commit on the branch.
 
-A mount is a named place an app's files live: a folder, a GitHub repo, and later an S3 or GCS bucket. The app keeps its own records in its own store, and they point into mounts by `mount://` URI. This page is the design for [#152](https://github.com/panyam/goapplib/issues/152). The `storage/mounts` package holds the record, the URI rules, the interfaces and the errors, and they are rendered at the bottom of the page from the source. The registry and the drivers come in the implementation tickets. [Connections](../connections/) covers how a mount over a private repo signs in, and [the storage module](../storage-module/) covers where the code lives.
+A mount is a named place an app's files live: a folder, a GitHub repo, and later an S3 or GCS bucket. The app keeps its own records in its own store, and they point into mounts by `mount://` URI. This page is the design for [#152](https://github.com/panyam/goapplib/issues/152). The `storage/mounts` package holds the record, the URI rules, the interfaces, the registry and the errors, and they are rendered at the bottom of the page from the source. The folder driver and the folder record store are in packages beside it. The GitHub driver comes in [#159](https://github.com/panyam/goapplib/issues/159). [Connections](../connections/) covers how a mount over a private repo signs in, and [the storage module](../storage-module/) covers where the code lives.
 
 ## How agni and notation use it
 
@@ -45,40 +45,36 @@ A `Driver` serves one kind. It resolves a ref to a version, and opens a mount as
 
 - `Writer` adds `Stat`, `Put` and `Delete` for live mounts. A write passes `IfMatch`, the file's version from `Stat`. Empty means create only, and `AnyVersion` means overwrite whatever is there.
 - `Localizer` adds `HostPath` for code that needs a real file, such as agni running `kicad-cli`. A folder mount has one. A GitHub snapshot has one when its view is hard links on the server's disk. A mount with no folder here returns `ErrNotLocal`, so code that needs a host path fails clearly on GAE or in wasm.
+- `Preparer` adds `Prepare`, which the registry calls when a mount is made, after `Resolve`. A GitHub snapshot downloads its files there and sets the mount's `Manifest`. If `Prepare` fails, no record is written.
+
+The folder driver is `storage/mounts/folder`. Its mounts are live, writable and local, and it refuses a link anywhere in a path, so a link inside the folder can't reach outside it. A file's version is the SHA-256 of its contents. A write goes through a temp file and a rename, under a lock per file. So its `IfMatch` check holds between writers in one process, sharing one `folder.Driver`. Two processes writing one file can both pass the check, and the second rename wins.
 
 ## The registry
 
-The registry joins the fixed mounts from the server's configuration, the runtime mounts from a `RecordStore`, and the drivers. It is built in the folder-driver ticket. Its planned API:
+`Registry` joins the fixed mounts from the server's configuration, the runtime mounts from a `RecordStore`, and the drivers, and an app goes through it for everything:
 
 ```go
-func NewRegistry(store RecordStore, drivers []Driver, opts ...Option) *Registry
-func WithFixed(ms ...Mount) Option        // from flags; a runtime record with the same name is ignored
-func WithCredentials(f func(ctx context.Context, connection string) (oauth2.TokenSource, error)) Option
-func WithInUse(f func(ctx context.Context, name string) (bool, error)) Option
-func WithLimits(l Limits) Option
-
-func (r *Registry) List(ctx context.Context) ([]Mount, error)
-func (r *Registry) Get(ctx context.Context, name string) (Mount, error)
-func (r *Registry) Create(ctx context.Context, m Mount) (Mount, error) // resolves m.Ref, fills Version
-func (r *Registry) Delete(ctx context.Context, name string) error      // ErrFixed, ErrInUse
-func (r *Registry) Open(ctx context.Context, u URI) (fs.File, error)
-func (r *Registry) FS(ctx context.Context) fs.FS                       // every mount, through mountfs
-func (r *Registry) HostPath(ctx context.Context, u URI) (string, error)
-func (r *Registry) Put(ctx context.Context, u URI, data []byte, ifMatch FileVersion) (*WriteResult, error)
-func (r *Registry) Remove(ctx context.Context, u URI, ifMatch FileVersion) (*WriteResult, error)
+store, _ := fsstore.New(filepath.Join(storeDir, "mounts"))
+reg := mounts.NewRegistry(store, []mounts.Driver{folder.New(), github},
+	mounts.WithFixed(mounts.Mount{Name: "boards", Kind: mounts.KindFolder, Source: "/srv/boards", Mode: mounts.ModeLive}),
+	mounts.WithCredentials(conns.TokenSource),
+	mounts.WithInUse(designs.PointsInto),
+)
 ```
 
+- `Create` resolves the ref, calls `Prepare`, sets `Version` and `Created`, and writes the record. It refuses `KindFolder`, a mode the driver doesn't serve, and a name a fixed mount has.
+- `Delete` refuses a fixed mount with `ErrFixed`. It asks the app's `WithInUse` check whether records still point into the mount, and refuses with `ErrInUse` when they do. agni#1735 wanted this, and agni doesn't check it yet.
+- `Open`, `Stat`, `HostPath`, `Put` and `Remove` work on one file. A write to a snapshot mount returns `ErrReadOnly` before it reaches the driver, and one over `WithLimits`' `MaxBytes` returns `ErrTooLarge`.
+- `FS(ctx)` returns every mount as one `fs.FS` through goutils' `mountfs`, with each mount's driver opened when a path first reaches it. It keeps `ctx` for those opens, because a person's connection gives a token only to its owner. An app calls `FS` per request. A background job that needs a person's mount passes that person's context.
 - `WithCredentials` takes the [connections](../connections/) service's `TokenSource` method, so the registry asks for a mount's token without importing connections.
-- `FS(ctx)` keeps the viewer from `ctx`, because a person's connection gives a token only to its owner. A background job that needs a person's mount passes that person's context.
-- `WithInUse` is the app's answer to "do records still point into this mount?" A delete it refuses returns `ErrInUse`. agni#1735 wanted this, and agni doesn't check it yet.
-- Before using its list, the registry compares the store's `Generation` with the last one it read, at most once a second. It lists again only when they differ, and keeps its `mountfs.FS` in step with `Mount` and `Unmount`. A process that has just created a mount sees it at once.
+- Before using its list, the registry compares the store's `Generation` with the last one it read, at most once a second (`WithRecheck` changes that). It lists again only when they differ. A registry sees its own creates and deletes at once. If the store fails after a good read, the registry keeps serving the last good list.
 
 ## Record stores
 
-A `RecordStore` creates and deletes records, and never changes one in place. Several processes can share a store, and `Generation` is how each one notices the others' changes.
+A `RecordStore` creates and deletes records, and never changes one in place. Several processes can share a store, and `Generation` is how each one notices the others' changes. `storage/mounts/mountstest` checks a backend against this contract, the way oneauth's `usertokentest` checks user-token stores. A backend's test calls `mountstest.RunRecordStore`, and `RunShared` when two of its stores can share data.
 
-- **Folder,** first. One YAML file per mount, written through a temp file and a rename, and read through `os.Root`. `Generation` is agni's stamp of each file's name, size and mtime. A folder's own mtime isn't enough on Windows.
-- **GORM and Datastore,** later, the way `services/backends/` does users. `Generation` is a counter row that each create and delete bumps in the same transaction.
+- **Folder,** `storage/mounts/fsstore`. One YAML file per mount, read through `os.Root`. A create writes a temp file and hard-links it to `<name>.yaml`. The link fails when the name exists, so of two processes creating one name, one wins. `Generation` is agni's stamp of each file's name, size and mtime. A folder's own mtime isn't enough on Windows.
+- **GORM and Datastore,** later ([#161](https://github.com/panyam/goapplib/issues/161)), the way `services/backends/` does users. `Generation` is a counter row that each create and delete bumps in the same transaction.
 
 ## What the library enforces
 
@@ -108,7 +104,7 @@ Each error wraps one of the package's sentinels, and an app maps them with `erro
 ## What agni deletes when it moves over
 
 - `mounts/mounts.go`'s `Mount`, `Kind`, `SafeResolve` and `Resolve`, and `artifact/uri.go`. `ParseURI` and `Registry.HostPath` replace them.
-- `mounts/table.go`: the registry and the folder record store replace it.
+- `mounts/table.go`: `mounts.Registry` and `fsstore` replace it. agni's records gain `version` and `mode`, and its `commit` key becomes `version`.
 - `cmd/agni/mountmaker.go`'s GitHub code: `resolveRef`, `snapshot`, `tarPath` and the HTTP error mapping. The GitHub driver replaces them. agni keeps `CreateMount` and `DeleteMount` as thin calls into the registry.
 - `Record.Files`: the manifest blob replaces it. agni's existing records need a one-time rewrite, which the move's ticket in agni covers.
 
