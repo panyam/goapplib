@@ -36,7 +36,7 @@ The folder store's sweep also removes temp files older than the grace period, wh
 
 A snapshot can have 100,000 files, and a mount record can't hold a list that long in Datastore. So a snapshot's file list is a blob too. `Manifest` lists each file's path, hash and size. `PutManifest` sorts it by path before storing it, so the same files give the same hash in any order. It refuses paths that are absolute, unclean, climbing or duplicated.
 
-A mount record keeps one hash, the manifest's. `ManifestRefs` expands that hash into the manifest plus every file it lists. The mounts registry's referrer passes those hashes to `Sweep`. The registry's referrer comes with the GitHub driver ([#159](https://github.com/panyam/goapplib/issues/159)).
+A mount record keeps one hash, the manifest's. `ManifestRefs` expands that hash into the manifest plus every file it lists. The mounts registry's `BlobRefs` does that for every snapshot mount, and passes the hashes to `Sweep`.
 
 ## The folder store
 

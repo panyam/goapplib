@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goutils/mountfs"
 	"golang.org/x/oauth2"
 )
@@ -419,4 +420,27 @@ func (l *lazyFS) Open(name string) (fs.File, error) {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: l.err}
 	}
 	return l.fsys.Open(name)
+}
+
+// BlobRefs returns a blobs.Referrer that names, for every snapshot mount, its manifest and every
+// file the manifest lists, so a sweep of store keeps them. Pass it to store's Sweep beside the
+// app's own referrers. A manifest that can't be read fails the referrer, and so the sweep, rather
+// than letting the sweep remove a snapshot's files. The registry rereads its records at most once
+// per recheck interval, so a sweep's grace period should be longer than that.
+func (r *Registry) BlobRefs(store blobs.Store) blobs.Referrer {
+	return func(ctx context.Context, keep func(blobs.Hash)) error {
+		ms, err := r.List(ctx)
+		if err != nil {
+			return err
+		}
+		for _, m := range ms {
+			if m.Manifest == "" {
+				continue
+			}
+			if err := blobs.ManifestRefs(ctx, store, blobs.Hash(m.Manifest), keep); err != nil {
+				return fmt.Errorf("mount %q: %w", m.Name, err)
+			}
+		}
+		return nil
+	}
 }
