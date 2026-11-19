@@ -1,9 +1,9 @@
 ---
 title: "Overview"
-description: "What goapplib is, the three packages it ships, and how this site's demos run."
+description: "What goapplib is, the packages it ships, and how this site's demos run."
 ---
 
-goapplib is for web apps whose pages are rendered on the server, in Go, and that need client code only in places. It ships as a Go module and three npm packages, all sharing one version (the [Reference]({{.Site.PathPrefix}}/reference/) lists them). We built it for our own apps, and thambura, agni and lilbattle all run on it.
+goapplib is for web apps whose pages are rendered on the server, in Go, and that need client code only in places. It ships as a Go module, a storage module beside it, and three npm packages, all sharing one version (the [Reference]({{.Site.PathPrefix}}/reference/) lists them). We built it for our own apps, and thambura, agni and lilbattle all run on it.
 
 ## goapplib
 
@@ -20,6 +20,10 @@ It's the Go module, `github.com/panyam/goapplib`. A page is a view, a Go type th
 ## wasmhost
 
 `wasmhost` (Go) and `@panyam/tsappkit/wasmhost` (TS) run an app's own HTTP or Connect handlers as wasm inside a Web Worker. The page pushes the files the handlers read into the worker, and its generated Connect clients talk to the worker through `workerFetch`, so they don't know whether a server or the worker answered. A cache keeps state across a reload, lanes give long jobs their own worker, and `workerStats` reports a worker's live Go heap beside its wasm memory, so a lane replaces a worker only when a fresh one would come back smaller. The [guide]({{.Site.PathPrefix}}/guide/wasmhost/) walks through it with live demos.
+
+## storage
+
+`github.com/panyam/goapplib/storage` is a Go module of its own, so an app that doesn't use it gets nothing new in its `go.sum`. An app keeps its records, such as a note's title and author, in its own store. The files those records point at live in mounts. A mount is a named place, a folder or a GitHub repo for now, and a file in one is `mount://<name>/<path>`. A GitHub mount is pinned to a commit or follows a branch, and it reads the repo at any other commit by downloading only the files that changed. The app reaches a private repo through a connection. A connection is a sign-in the server holds, and its record names where the token is, never the token itself. A blob store keeps each downloaded file once, by its hash. GORM and Datastore backends store the mount and connection records. The [guide]({{.Site.PathPrefix}}/guide/storage/) builds a small notes app on it, and the [Reference]({{.Site.PathPrefix}}/reference/storage-module/) has the design.
 
 ## Demos on this site
 
