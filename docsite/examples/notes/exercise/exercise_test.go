@@ -113,7 +113,7 @@ func TestStorageExercise(t *testing.T) {
 	c.do("POST", "/connections", map[string]any{"ID": "acme", "Kind": "github-token", "Scope": "server", "Name": "acme org", "TokenRef": "env:NOTES_GITHUB_TOKEN"}, nil)
 	ok("made connection acme, whose record names env:NOTES_GITHUB_TOKEN")
 
-	c.do("POST", "/mounts", map[string]any{"Name": "shared", "Kind": "github", "Source": repo.Source(), "Mode": "live", "Connection": "acme"}, nil)
+	c.do("POST", "/mounts", map[string]any{"Name": "shared", "Source": repo.Source(), "Mode": "live", "Connection": "acme"}, nil)
 	before := repo.Head("main")
 	var shared notes.Note
 	c.do("POST", "/notes", map[string]string{"title": "Standup", "author": "ada", "mount": "shared", "text": "ship the storage module"}, &shared)
@@ -126,7 +126,7 @@ func TestStorageExercise(t *testing.T) {
 	ok("wrote note %s to the private repo as commit %s", shared.ID, repo.Head("main")[:7])
 
 	var pinned struct{ Version string }
-	c.do("POST", "/mounts", map[string]any{"Name": "pinned", "Kind": "github", "Source": repo.Source(), "Mode": "snapshot", "Connection": "acme"}, &pinned)
+	c.do("POST", "/mounts", map[string]any{"Name": "pinned", "Source": repo.Source(), "Mode": "snapshot", "Connection": "acme"}, &pinned)
 	at := repo.Head("main")
 	if pinned.Version != at {
 		t.Fatalf("the snapshot is at %q, want the head %q", pinned.Version, at)
@@ -204,7 +204,7 @@ func TestRealGitHub(t *testing.T) {
 	c := start(t, cfg)
 	c.do("POST", "/connections", map[string]any{"ID": "mine", "Kind": "github-token", "Scope": "server", "TokenRef": "env:GITHUB_TOKEN"}, nil)
 	var m struct{ Version string }
-	c.do("POST", "/mounts", map[string]any{"Name": "private", "Kind": "github", "Source": "github://" + repo, "Mode": "snapshot", "Connection": "mine"}, &m)
+	c.do("POST", "/mounts", map[string]any{"Name": "private", "Source": "github://" + repo, "Mode": "snapshot", "Connection": "mine"}, &m)
 	var list []string
 	c.do("GET", "/files/private/", nil, &list)
 	if len(list) == 0 {

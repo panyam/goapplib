@@ -30,7 +30,7 @@ func TestNotesInMounts(t *testing.T) {
 	if w := call(t, h, "POST", "/notes", map[string]string{"title": "a", "mount": "nowhere", "text": "x"}); w.Code != http.StatusNotFound {
 		t.Errorf("a note in a missing mount = %d %s, want 404", w.Code, w.Body)
 	}
-	if w := call(t, h, "POST", "/mounts", map[string]any{"Name": "pub", "Kind": "github", "Source": repo.Source(), "Mode": "live"}); w.Code != http.StatusOK {
+	if w := call(t, h, "POST", "/mounts", map[string]any{"Name": "pub", "Source": repo.Source(), "Mode": "live"}); w.Code != http.StatusOK {
 		t.Fatalf("a mount over a public repo with no connection = %d %s", w.Code, w.Body)
 	}
 	if w := call(t, h, "POST", "/notes", map[string]string{"title": "b", "mount": "pub", "text": "y"}); w.Code != http.StatusOK {

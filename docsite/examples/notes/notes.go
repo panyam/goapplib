@@ -214,14 +214,22 @@ func (a *App) listMounts(w http.ResponseWriter, r *http.Request) {
 }
 
 // createMount makes a GitHub mount. The registry resolves its ref and, for a snapshot, downloads
-// the commit through the mount's connection, before it writes the record.
+// the commit through the mount's connection, before it writes the record. The request names the
+// repo but never the kind, so a client can't ask for a folder on the server.
 func (a *App) createMount(w http.ResponseWriter, r *http.Request) {
-	var m mounts.Mount
-	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+	var in struct {
+		Name       string
+		Source     string
+		Ref        string
+		Mode       mounts.Mode
+		Connection string
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	m, err := a.mounts.Create(r.Context(), m)
+	m, err := a.mounts.Create(r.Context(), mounts.Mount{Name: in.Name, Kind: mounts.KindGitHub,
+		Source: in.Source, Ref: in.Ref, Mode: in.Mode, Connection: in.Connection})
 	if err != nil {
 		fail(w, err)
 		return
