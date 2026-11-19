@@ -55,7 +55,7 @@ Picture an app that runs `go get github.com/panyam/goapplib/storage/backends/gor
 
 ## Working against an unreleased copy
 
-agni and notation will build against storage before it is tagged. Use a Go workspace in the consumer's checkout rather than a `replace` in its `go.mod`:
+Say agni needs a storage change that isn't tagged yet. Use a Go workspace in the consumer's checkout rather than a `replace` in its `go.mod`:
 
 ```sh
 cd agni

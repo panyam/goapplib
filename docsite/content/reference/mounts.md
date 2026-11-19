@@ -124,15 +124,18 @@ Each error wraps one of the package's sentinels, and an app maps them with `erro
 | `ErrConflict` | `ErrAborted`, which agni doesn't have yet |
 | `ErrNotLocal` | `ErrFailedPrecondition` |
 
-## What agni deletes when it moves over
+## What agni deleted when it moved over
+
+agni moved onto the library in agni#1762, at storage v0.7.15. It deleted these:
+
 
 - `mounts/mounts.go`'s `Mount`, `Kind`, `SafeResolve` and `Resolve`, and `artifact/uri.go`. `ParseURI`, `URI.Resolve`, `Dir` and `Base`, and `Registry.HostPath` replace them. A registry with no store covers agni's CLI, and `folder.WithLinksInside` keeps its `--mount` folders with links working.
-- `mounts/table.go`: `mounts.Registry` and `fsstore` replace it. agni's records gain `version` and `mode`, and its `commit` key becomes `version`.
-- `cmd/agni/mountmaker.go`'s GitHub code: `resolveRef`, `snapshot`, `tarPath` and the HTTP error mapping. The GitHub driver replaces them. agni keeps `CreateMount` and `DeleteMount` as thin calls into the registry.
-- `cmd/agni/linkreaders.go`, from agni's linked artifacts: `Registry.ResolveAt`, `ListAt` and `FetchAt` replace its GitHub and folder readers, its tree cache and its git blob id index.
-- `Record.Files`: the manifest blob replaces it. agni's existing records need a one-time rewrite, which the move's ticket in agni covers.
+- `mounts/table.go`: `mounts.Registry` and `fsstore` replace it. agni's records gained `version` and `mode`, and its `commit` key became `version`.
+- `cmd/agni/mountmaker.go`'s GitHub code: `resolveRef`, `snapshot`, `tarPath` and the HTTP error mapping. The GitHub driver replaces them. agni kept `CreateMount` and `DeleteMount` as thin calls into the registry.
+- `cmd/agni/linkreaders.go`, from agni's linked artifacts: `Registry.ResolveAt`, `ListAt` and `FetchAt` replace its GitHub and folder readers, its tree cache and its git blob id index. agni's `exercise-linked-sources` shows a move to a newer commit downloading only the 17 changed files.
+- `Record.Files`: the manifest blob replaces it. At startup, agni rewrites each record an older agni wrote once, and its file list becomes a manifest blob.
 
-agni keeps its `Workspace` adapter, its `archivefs` reading, and the flags. `make exercise-mounts` should print the same lines before and after the move.
+agni kept its `Workspace` adapter, its `archivefs` reading, and the flags, in a package now called `mountset`. `make exercise-mounts` printed the same lines before and after the move, except the uploads size `du` reports. The new manifest blob adds 6.7 KB to the uploads.
 
 ## The package
 
