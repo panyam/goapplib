@@ -5,7 +5,7 @@
 #   make test     - Run all tests
 #   make help     - Show available targets
 
-.PHONY: setup test go-test wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite exercise-tour help
+.PHONY: setup test go-test test-datastore wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite exercise-tour help
 
 GOROOT_WASM := $(shell go env GOROOT)/lib/wasm
 EXERCISE := exercise/wasmhost
@@ -29,6 +29,9 @@ test: go-test ## Run all tests
 go-test: ## Run the Go tests in the root module and each nested module (scripts/go-modules.sh)
 	go test ./...
 	for m in $$(scripts/go-modules.sh); do (cd $$m && go vet ./... && go test ./...) || exit 1; done
+
+test-datastore: ## Run the Datastore backend tests against a local emulator (CI skips them)
+	scripts/test-datastore.sh
 
 # The timeout matters: a wasmhost export that blocks the event loop hangs rather than failing. The
 # test binary runs under an empty environment because wasm_exec_node.js copies the environment into

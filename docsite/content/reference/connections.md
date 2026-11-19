@@ -26,7 +26,7 @@ Later kinds are the server's own cloud identity for S3 and GCS (agni#1730), and 
 
 `Store` gets, lists, puts and deletes records. `ListConnections(owner)` gives a person's connections for a settings page, and the server's with an empty owner. agni#1728 needs "can this viewer read this mount's source". That check waits on agni knowing who the caller is (agni#1627), and [#163](https://github.com/panyam/goapplib/issues/163) tracks it.
 
-`storage/connections/fsstore` keeps one YAML file per connection, written through a temp file and a rename. Several processes can share its folder. `PutConnection` runs `Validate`, so an invalid record never reaches disk. `storage/connections/connectionstest` is the contract suite every `Store` backend runs. GORM and Datastore stores wait on a consumer that needs them ([#161](https://github.com/panyam/goapplib/issues/161)).
+`storage/connections/fsstore` keeps one YAML file per connection, written through a temp file and a rename. Several processes can share its folder. `PutConnection` runs `Validate`, so an invalid record never reaches disk. `storage/connections/connectionstest` is the contract suite every `Store` backend runs. For several servers without a shared folder, `gormstore.NewConnectionStore(db)` keeps connections in a `goapplib_connections` table, and `gaestore.NewConnectionStore(client, namespace)` keeps them as `GoapplibConnection` entities. Each is in its own module, `storage/backends/gorm` or `storage/backends/gae`, and each runs `connectionstest`. Both index the owner, for `ListConnections`.
 
 ## Secrets
 
