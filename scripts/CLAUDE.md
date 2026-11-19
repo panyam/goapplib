@@ -1,10 +1,12 @@
 # Releasing and publishing
 
-goapplib, `@panyam/tsappkit`, `@panyam/tsappkit-solid` and `@panyam/tsappkit-dock` share the version in `VERSION`. A PR that bumps one bumps all four, and the release tag is that version. `check-versions.sh` checks it in CI, and `publish.yml` runs it with the tag before publishing anything.
+goapplib, its nested Go modules, `@panyam/tsappkit`, `@panyam/tsappkit-solid` and `@panyam/tsappkit-dock` share the version in `VERSION`. A PR that bumps one bumps all of them, and the release tag is that version. `check-versions.sh` checks it in CI, and `publish.yml` runs it with the tag before publishing anything. It also fails when a nested module requires another of this repo's modules at a version other than `VERSION`.
+
+`go-modules.sh` lists the nested Go modules: every `go.mod` below the root except `docsite/`. `storage` and `storage/backends/{gorm,gae}` are on it, and a new module joins it without any script edit.
 
 ## Cutting a release
 
-1. Run `scripts/release.sh X.Y.Z [notes.md]` on a clean main. Bumps are patches by default; ask before a minor. The script sets `VERSION` and the package.json versions, and runs `pin-docs.sh`. It commits "Release vX.Y.Z" if anything changed, then tags, pushes main and the tag, and runs `gh release create --verify-tag` when given notes. The release body is the notes; there's no CHANGELOG.
+1. Run `scripts/release.sh X.Y.Z [notes.md]` on a clean main. Bumps are patches by default; ask before a minor. The script sets `VERSION` and the package.json versions, and runs `pin-docs.sh`. It moves each nested module's require of this repo's other modules to the new version. It commits "Release vX.Y.Z" if anything changed, then tags `vX.Y.Z` and `<dir>/vX.Y.Z` for each nested module on the same commit, pushes main and every tag, and runs `gh release create --verify-tag` when given notes. The release body is the notes; there's no CHANGELOG.
 2. `pin-docs.sh` moves the docs' version pins: `go get ...@vX.Y.Z` in README.md and getting-started, templar's `ref:`, and the version example in each package README. A new pin in the docs needs a pattern there. Don't pin the package READMEs between releases. They're npm pages, so a README change at a version already on npm fails `npm-publish.sh`'s same-contents check.
 3. The tag runs `.github/workflows/publish.yml`, which runs `npm-publish.sh`. Watch it with `gh run watch`.
 4. File an upgrade ticket in each consumer that needs the release: `panyam/thambura`, `panyam/agni`, `panyam/diffpp`, `turnforge/lilbattle`.

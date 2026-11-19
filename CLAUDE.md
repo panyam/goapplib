@@ -6,22 +6,25 @@ A Go web-app framework (server-rendered pages, mixins, htmx, templates through t
 
 Each of these directories has a CLAUDE.md with its own gotchas, loaded when a session works there:
 
-- `exercise/`: the browser exercises (`make exercise-wasmhost`, `-islands`, `-worker-state`, `-tour`) and their `pending`/XPASS convention.
+- `exercise/`: the browser exercises (`make exercise-wasmhost`, `-islands`, `-worker-state`, `-tour`) and their `pending`/XPASS convention, plus `make exercise-storage`, which has no browser.
 - `docsite/`: the site, its demos, and `make exercise-docsite`.
 - `wasmhost/`: Go handlers in a Web Worker, and which piece fits which problem.
 - `tsappkit/`, `tsappkit-solid/`, `tsappkit-dock/`: the npm packages.
 - `templates/`: the fields `BasePage.html` expects, and live template actions in comments.
 - `scripts/`: releasing and npm publishing.
+- `storage/`: the storage module (mounts, connections, blobs), its nested backend modules, and its fakes.
 
 ## Commands
 
 - `make setup` sets up the git hooks. `make test` runs the Go tests, the wasmhost tests as wasm under Node (`make wasm-test`, needs `node`), and each TS package's tests.
+- `make go-test` runs the Go tests of the root and of every nested module (`scripts/go-modules.sh`). The pre-push hook runs it.
 - `make exercise-<name>` runs one browser exercise in headless Chromium; CI runs all of them on every PR.
 - `~/.claude/skills/retriage/queue.sh` shows what's next.
 
 ## Versions and releases
 
-- goapplib and the three TS packages share the version in `VERSION`. A PR that bumps one bumps all four, and the first PR after a release that changes any package bumps them. CI checks it (`scripts/check-versions.sh`).
+- goapplib, its nested Go modules (`storage` and its backends) and the three TS packages share the version in `VERSION`. A PR that bumps one bumps all of them, and the first PR after a release that changes any package bumps them. CI checks it (`scripts/check-versions.sh`). A release tags each nested module as `<dir>/vX.Y.Z` beside `vX.Y.Z`.
+- A dependency two modules share moves in all of them at once, since an app importing both gets the higher version (oneauth, for one).
 - Bumps are patches by default, even for new API. Ask before a minor.
 - When a capability lands, tag a release. A `v*` tag publishes the TS packages. `scripts/CLAUDE.md` has the steps and the publishing traps.
 - Consumers bump to the tag: `panyam/thambura`, `panyam/agni`, `panyam/diffpp`, `turnforge/lilbattle`. File an upgrade ticket in each one a release helps.
@@ -42,3 +45,4 @@ The conventions are in `~/.claude/skills/retriage/CONVENTIONS.md`.
 - **PR images** go on the orphan `pr-assets` branch under the PR number and are linked by commit (`https://github.com/panyam/goapplib/raw/<sha>/63/x.png`), so `main` carries no binaries.
 - **One PR closing two issues needs "Closes" before each** ("Closes #111, closes #95"). Check `gh pr view N --json closingIssuesReferences` after opening.
 - **A PR with merge conflicts runs no `pull_request` workflows**, while CodeQL still reports green. If `test` is missing from a PR's checks, check `mergeable` first.
+- **A PR stacked on another branch runs only `build`, and its "Closes" doesn't link**, because `test.yml` and `docs.yml` run on PRs into `main`. After the base PR merges and GitHub retargets it to `main`, save the body again so "Closes" links, and merge `main` in if it conflicts.
