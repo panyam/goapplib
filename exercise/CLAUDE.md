@@ -1,6 +1,6 @@
 # exercise/
 
-Each directory is a browser exercise driven in headless Chromium by its `run.mjs` (playwright-core; locally it uses `~/Library/Caches/ms-playwright` or `~/.cache/ms-playwright`). CI runs all of them on every PR (`.github/workflows/test.yml`).
+Each directory is a browser exercise driven in headless Chromium by its `run.mjs` (playwright-core; locally it uses `~/Library/Caches/ms-playwright` or `~/.cache/ms-playwright`). CI runs all of them on every PR (`.github/workflows/test.yml`). In CI, `panyam/ci-actions/setup-browser` sets `CHROME_PATH` to the runner's Google Chrome, and each `run.mjs` launches that, so a CI failure can come from a newer Chrome than local runs use. `CHROME_PATH=... make exercise-<name>` reproduces it (#191).
 
 ## The exercises
 

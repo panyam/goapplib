@@ -48,7 +48,10 @@ const results = [];
 const fallbacks = [];
 const check = (name, ok, detail) => results.push({ name, ok, detail });
 
-const browser = await chromium.launch();
+// CI sets CHROME_PATH to the runner's Chrome (panyam/ci-actions setup-browser). Locally it's unset,
+// so Playwright's own Chromium runs.
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+console.log(`browser ${browser.version()} from ${process.env.CHROME_PATH || "playwright-core"}`);
 try {
   await serverRendered(browser);
   await wide(browser);
