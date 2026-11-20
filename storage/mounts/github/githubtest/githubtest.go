@@ -9,8 +9,16 @@
 // anything else. Once a private repo has grants (Repo.Grant), only a granted token reads it. Every request is recorded with the token it carried, so a test can check that a
 // connection's token reached each one.
 //
-// oneauth's outbound/githubtest does a different job, minting and refreshing tokens. A test that
-// drives a connection end to end uses both, with AcceptToken trusting the tokens the other mints.
+// It serves a GitHub App's sign-in on the same host, at the paths oneauth's
+// GithubOAuth2.SetEnterpriseURL points at: the web flow with PKCE, the device flow, refresh, /user
+// and org membership. AddApp registers the App, AddUser makes a person, and SignInAs or
+// User.Approve stands in for the person in the browser. Each sign-in issues the person a token,
+// which Repo.GrantUser and Repo.HookManagerUsers name by login. Every API route also answers under
+// /api/v3, as on a GitHub Enterprise Server host.
+//
+// oneauth's outbound/githubtest mints installation tokens and user tokens for a connection, with
+// no sign-in or repos. A test that drives a connection end to end uses both, with AcceptToken
+// trusting the tokens the other mints.
 package githubtest
 
 import (
@@ -46,6 +54,18 @@ type Server struct {
 	fail     []int
 	corrupt  bool
 	hookSeq  int64
+
+	// Sign-in state, in signin.go.
+	apps           map[string]string // client id -> secret
+	users          map[string]*User  // by lowercase login
+	userSeq        int64
+	signedIn       *User
+	codes          map[string]authCode
+	access         map[string]*User        // live sign-in access token -> person
+	issuedBy       map[string]string       // sign-in access token -> its refresh token
+	refresh        map[string]refreshGrant // unused refresh token -> grant
+	devices        map[string]*device      // device code -> sign-in
+	deviceInterval time.Duration
 }
 
 // Request is one request the fake answered.
@@ -71,8 +91,10 @@ type Repo struct {
 	tags          map[string]tag
 	seq           int
 	grants        map[string]bool // guarded by s.mu
+	userGrants    map[string]bool // lowercase logins, guarded by s.mu
 	hooks         []*Hook         // guarded by s.mu
 	managers      map[string]bool // guarded by s.mu
+	userManagers  map[string]bool // lowercase logins, guarded by s.mu
 }
 
 type commit struct {
@@ -110,7 +132,10 @@ type TarEntry struct {
 
 // New starts a fake and stops it when the test ends.
 func New(t testing.TB) *Server {
-	s := &Server{repos: map[string]*Repo{}, tokens: map[string]bool{}}
+	s := &Server{repos: map[string]*Repo{}, tokens: map[string]bool{},
+		apps: map[string]string{}, users: map[string]*User{}, codes: map[string]authCode{}, access: map[string]*User{},
+		issuedBy: map[string]string{}, refresh: map[string]refreshGrant{}, devices: map[string]*device{},
+		deviceInterval: time.Second}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
 	t.Cleanup(s.Close)
 	return s
@@ -173,6 +198,20 @@ func (r *Repo) Grant(tokens ...string) {
 	}
 }
 
+// GrantUser lets each of logins read the repo through any token they get by signing in, so the
+// grant holds across refreshes. It limits a private repo as Grant does, and the two add up: a
+// repo with grants of either kind answers a granted token or a granted person's token.
+func (r *Repo) GrantUser(logins ...string) {
+	r.s.mu.Lock()
+	defer r.s.mu.Unlock()
+	if r.userGrants == nil {
+		r.userGrants = map[string]bool{}
+	}
+	for _, l := range logins {
+		r.userGrants[strings.ToLower(l)] = true
+	}
+}
+
 // visible reports whether a request with tok, accepted or not, can see r.
 func (s *Server) visible(r *Repo, tok string, accepted bool) bool {
 	if r == nil {
@@ -183,7 +222,16 @@ func (s *Server) visible(r *Repo, tok string, accepted bool) bool {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return accepted && (len(r.grants) == 0 || r.grants[tok])
+	return accepted && allows(r.grants, r.userGrants, tok, s.userOf(tok))
+}
+
+// allows reports whether tok, held by u or by no one, passes a limit of tokens and logins. No
+// limit at all passes everyone. Callers hold s.mu.
+func allows(tokens, logins map[string]bool, tok string, u *User) bool {
+	if len(tokens) == 0 && len(logins) == 0 {
+		return true
+	}
+	return tokens[tok] || u != nil && logins[strings.ToLower(u.Login)]
 }
 
 // Source returns the repo's mounts source, "github://owner/name".
@@ -320,7 +368,7 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 	if len(s.fail) > 0 {
 		fail, s.fail = s.fail[0], s.fail[1:]
 	}
-	accepted := tok != "" && (s.tokens[tok] || s.accept != nil && s.accept(tok))
+	accepted := tok != "" && (s.tokens[tok] || s.access[tok] != nil || s.accept != nil && s.accept(tok))
 	s.mu.Unlock()
 
 	if fail != 0 {
@@ -330,21 +378,42 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(fail)
 		return
 	}
+	// The sign-in endpoints take client credentials, never a bearer token.
+	if strings.HasPrefix(req.URL.Path, "/login/") {
+		s.serveSignIn(w, req)
+		return
+	}
 	if tok != "" && !accepted {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "Bad credentials"})
 		return
 	}
+	// A GitHub Enterprise Server host serves its API under /api/v3, so a client pointed at the
+	// fake as one reaches the same routes.
+	p := req.URL.Path
+	if rest, ok := strings.CutPrefix(p, "/api/v3/"); ok {
+		p = "/" + rest
+	}
+	if p == "/user" && req.Method == http.MethodGet {
+		s.serveUser(w, tok)
+		return
+	}
+	if org, ok := strings.CutPrefix(p, "/orgs/"); ok && req.Method == http.MethodGet {
+		if o, login, ok := strings.Cut(org, "/members/"); ok && !strings.Contains(login, "/") {
+			s.serveMembership(w, o, login, tok, accepted)
+			return
+		}
+	}
 
-	if req.URL.Path == "/graphql" && req.Method == http.MethodPost {
+	if p == "/graphql" && req.Method == http.MethodPost {
 		s.graphql(w, req, tok, accepted)
 		return
 	}
-	if raw, ok := strings.CutPrefix(req.URL.Path, "/raw/"); ok && req.Method == http.MethodGet {
+	if raw, ok := strings.CutPrefix(p, "/raw/"); ok && req.Method == http.MethodGet {
 		s.raw(w, raw, tok, accepted)
 		return
 	}
-	parts := strings.SplitN(strings.TrimPrefix(req.URL.Path, "/repos/"), "/", 4)
-	if !strings.HasPrefix(req.URL.Path, "/repos/") || len(parts) < 2 {
+	parts := strings.SplitN(strings.TrimPrefix(p, "/repos/"), "/", 4)
+	if !strings.HasPrefix(p, "/repos/") || len(parts) < 2 {
 		notFound(w)
 		return
 	}
