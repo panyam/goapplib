@@ -69,9 +69,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: exercise/wasmhost/pnpm-lock.yaml
 
-      - name: Install Chromium
+      - name: Install packages
         working-directory: exercise/wasmhost
-        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+        run: pnpm install --frozen-lockfile
+
+      # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
+      - uses: panyam/ci-actions/setup-browser@v0.1.0
+        with:
+          working-directory: exercise/wasmhost
 
       - name: Run the exercise
         run: make exercise-wasmhost
@@ -97,9 +102,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: exercise/islands/pnpm-lock.yaml
 
-      - name: Install Chromium
+      - name: Install packages
         working-directory: exercise/islands
-        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+        run: pnpm install --frozen-lockfile
+
+      # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
+      - uses: panyam/ci-actions/setup-browser@v0.1.0
+        with:
+          working-directory: exercise/islands
 
       - name: Run the exercise
         run: make exercise-islands
@@ -133,9 +143,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: exercise/workerstate/pnpm-lock.yaml
 
-      - name: Install Chromium
+      - name: Install packages
         working-directory: exercise/workerstate
-        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+        run: pnpm install --frozen-lockfile
+
+      # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
+      - uses: panyam/ci-actions/setup-browser@v0.1.0
+        with:
+          working-directory: exercise/workerstate
 
       - name: Run the exercise
         run: make exercise-worker-state
@@ -165,9 +180,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: exercise/tour/pnpm-lock.yaml
 
-      - name: Install Chromium
+      - name: Install packages
         working-directory: exercise/tour
-        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+        run: pnpm install --frozen-lockfile
+
+      # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
+      - uses: panyam/ci-actions/setup-browser@v0.1.0
+        with:
+          working-directory: exercise/tour
 
       - name: Run the exercise
         run: make exercise-tour

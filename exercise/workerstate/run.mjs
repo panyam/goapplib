@@ -42,7 +42,10 @@ if (process.argv.includes("--serve")) {
 
 async function drive(url) {
   mkdirSync(shots, { recursive: true });
-  const browser = await chromium.launch();
+  // CI sets CHROME_PATH to the runner's Chrome (panyam/ci-actions setup-browser). Locally it's unset,
+  // so Playwright's own Chromium runs.
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+  console.log(`browser ${browser.version()} from ${process.env.CHROME_PATH || "playwright-core"}`);
   const results = [];
   const check = (name, ok, detail) => results.push({ name, ok, detail });
   try {

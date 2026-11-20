@@ -156,7 +156,10 @@ async function narrow(browser) {
   await page.close();
 }
 
-const browser = await chromium.launch();
+// CI sets CHROME_PATH to the runner's Chrome (panyam/ci-actions setup-browser). Locally it's unset,
+// so Playwright's own Chromium runs.
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+console.log(`browser ${browser.version()} from ${process.env.CHROME_PATH || "playwright-core"}`);
 try {
   // A phase that throws (a step that never came, so its button never showed) is a failed check
   // rather than a crash, so the checks before it still print.

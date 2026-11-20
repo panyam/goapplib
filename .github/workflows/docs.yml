@@ -40,9 +40,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: docsite/pnpm-lock.yaml
 
-      - name: Install Chromium
+      - name: Install packages
         working-directory: docsite
-        run: pnpm install --frozen-lockfile && pnpm exec playwright-core install --with-deps chromium
+        run: pnpm install --frozen-lockfile
+
+      # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
+      - uses: panyam/ci-actions/setup-browser@v0.1.0
+        with:
+          working-directory: docsite
 
       # Mission #91's exercise: build, test, and run every page and demo. One definition, in the Makefile.
       - name: Build and check the site
