@@ -1,7 +1,8 @@
 // Package githubtest is a fake GitHub for tests of code that reads and writes repos: the mounts
 // GitHub driver, the storage example app, and consumers' own tests. It serves the REST routes the
-// driver uses (a repo, a commit, a tarball, and the Contents API) over repos held in memory, and
-// each write makes a real commit on its branch.
+// driver uses (a repo, a commit, a branch's commits, a tarball, and the Contents API) and the
+// GraphQL tags query over repos held in memory, and each write makes a real commit on its branch.
+// PushRequest and SignedRequest build signed webhook deliveries for an app's handler.
 //
 // A private repo answers only a request with an accepted token, as GitHub does, with 404 for
 // anything else. Every request is recorded with the token it carried, so a test can check that a
@@ -14,7 +15,9 @@ package githubtest
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -23,9 +26,11 @@ import (
 	"net/http/httptest"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Server is the fake. Its URL is the API base a driver is pointed at.
@@ -33,7 +38,7 @@ type Server struct {
 	*httptest.Server
 
 	mu       sync.Mutex
-	repos    map[string]*Repo
+	repos    map[string]*Repo // by lowercase owner/name, since GitHub ignores case there
 	tokens   map[string]bool
 	accept   func(token string) bool
 	requests []Request
@@ -61,13 +66,28 @@ type Repo struct {
 	branches      map[string]string  // branch -> commit sha
 	commits       map[string]*commit // sha -> commit
 	extra         map[string][]TarEntry
+	tags          map[string]tag
 	seq           int
 }
 
 type commit struct {
-	sha   string
-	files map[string]file
+	sha     string
+	parent  string
+	message string
+	date    time.Time
+	files   map[string]file
 }
+
+// tag is a tag in the fake. An annotated tag points at a tag object, which GraphQL shows as a Tag
+// whose target is the commit.
+type tag struct {
+	sha       string
+	annotated bool
+}
+
+// epoch is the date of every fake repo's first commit. Each later commit is a minute after the one
+// before, unless a test sets its date with SetCommitTime.
+var epoch = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 type file struct {
 	data    []byte
@@ -124,9 +144,9 @@ func (s *Server) Requests() []Request {
 // AddRepo creates owner/name with one commit on branch "main" holding files, and returns it.
 func (s *Server) AddRepo(owner, name string, private bool, files map[string]string) *Repo {
 	r := &Repo{s: s, Owner: owner, Name: name, Private: private, defaultBranch: "main",
-		branches: map[string]string{}, commits: map[string]*commit{}, extra: map[string][]TarEntry{}}
+		branches: map[string]string{}, commits: map[string]*commit{}, extra: map[string][]TarEntry{}, tags: map[string]tag{}}
 	s.mu.Lock()
-	s.repos[owner+"/"+name] = r
+	s.repos[strings.ToLower(owner+"/"+name)] = r
 	s.mu.Unlock()
 	r.Commit("main", files, nil)
 	return r
@@ -174,6 +194,29 @@ func (r *Repo) Symlink(branch, p, target string) string {
 	return r.commitLocked(branch, files)
 }
 
+// Tag points the tag name at commit sha, replacing any tag of that name. An annotated tag is served
+// as GitHub serves one, through a tag object. It panics on a sha the repo doesn't have.
+func (r *Repo) Tag(name, sha string, annotated bool) {
+	r.s.mu.Lock()
+	defer r.s.mu.Unlock()
+	if r.commits[sha] == nil {
+		panic("githubtest: no commit " + sha)
+	}
+	r.tags[name] = tag{sha: sha, annotated: annotated}
+}
+
+// SetCommitTime sets commit sha's date, so a test can make the order of tags by date differ from
+// their order by name. It panics on a sha the repo doesn't have.
+func (r *Repo) SetCommitTime(sha string, t time.Time) {
+	r.s.mu.Lock()
+	defer r.s.mu.Unlock()
+	c := r.commits[sha]
+	if c == nil {
+		panic("githubtest: no commit " + sha)
+	}
+	c.date = t.UTC()
+}
+
 // AddTarEntries adds entries to the tarball of commit sha only. The Contents API doesn't see them.
 func (r *Repo) AddTarEntries(sha string, es ...TarEntry) {
 	r.s.mu.Lock()
@@ -201,7 +244,9 @@ func (r *Repo) commitLocked(branch string, files map[string]file) string {
 		fmt.Fprintf(h, "%s %s\n", p, blobSHA(files[p].data))
 	}
 	sha := hex.EncodeToString(h.Sum(nil))
-	r.commits[sha] = &commit{sha: sha, files: files}
+	r.commits[sha] = &commit{sha: sha, parent: r.branches[branch], files: files,
+		message: fmt.Sprintf("commit %d on %s\n\nmade by githubtest", r.seq, branch),
+		date:    epoch.Add(time.Duration(r.seq-1) * time.Minute)}
 	r.branches[branch] = sha
 	return sha
 }
@@ -256,6 +301,10 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if req.URL.Path == "/graphql" && req.Method == http.MethodPost {
+		s.graphql(w, req, accepted)
+		return
+	}
 	if raw, ok := strings.CutPrefix(req.URL.Path, "/raw/"); ok && req.Method == http.MethodGet {
 		s.raw(w, raw, accepted)
 		return
@@ -266,7 +315,7 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	r := s.repos[parts[0]+"/"+parts[1]]
+	r := s.repos[strings.ToLower(parts[0]+"/"+parts[1])]
 	s.mu.Unlock()
 	if r == nil || r.Private && !accepted {
 		notFound(w)
@@ -275,6 +324,8 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 	switch {
 	case len(parts) == 2 && req.Method == http.MethodGet:
 		writeJSON(w, http.StatusOK, map[string]any{"full_name": r.Owner + "/" + r.Name, "private": r.Private, "default_branch": r.defaultBranch})
+	case len(parts) == 3 && parts[2] == "commits" && req.Method == http.MethodGet:
+		r.listCommits(w, req)
 	case len(parts) == 4 && parts[2] == "commits" && req.Method == http.MethodGet:
 		r.getCommit(w, parts[3])
 	case len(parts) == 4 && parts[2] == "tarball" && req.Method == http.MethodGet:
@@ -326,7 +377,7 @@ func (s *Server) raw(w http.ResponseWriter, p string, accepted bool) {
 		return
 	}
 	s.mu.Lock()
-	r := s.repos[parts[0]+"/"+parts[1]]
+	r := s.repos[strings.ToLower(parts[0]+"/"+parts[1])]
 	s.mu.Unlock()
 	if r == nil || r.Private && !accepted {
 		notFound(w)
@@ -625,4 +676,167 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
+}
+
+// listCommits answers GET /repos/{o}/{r}/commits?sha=<branch or commit>, newest first, following
+// parents, with per_page and page and a Link header naming the next page, as GitHub pages.
+func (r *Repo) listCommits(w http.ResponseWriter, req *http.Request) {
+	q := req.URL.Query()
+	c := r.resolve(q.Get("sha"))
+	if c == nil {
+		notFound(w)
+		return
+	}
+	per, _ := strconv.Atoi(q.Get("per_page"))
+	if per <= 0 {
+		per = 30
+	}
+	page, _ := strconv.Atoi(q.Get("page"))
+	if page <= 0 {
+		page = 1
+	}
+	r.s.mu.Lock()
+	var all []map[string]any
+	for ; c != nil; c = r.commits[c.parent] {
+		all = append(all, map[string]any{"sha": c.sha, "commit": map[string]any{
+			"message":   c.message,
+			"author":    map[string]any{"name": "githubtest", "date": c.date.Format(time.RFC3339)},
+			"committer": map[string]any{"name": "githubtest", "date": c.date.Format(time.RFC3339)},
+		}})
+	}
+	r.s.mu.Unlock()
+	lo := min((page-1)*per, len(all))
+	hi := min(lo+per, len(all))
+	if hi < len(all) {
+		next := *req.URL
+		q.Set("page", strconv.Itoa(page+1))
+		next.RawQuery = q.Encode()
+		w.Header().Set("Link", fmt.Sprintf(`<%s%s>; rel="next"`, r.s.URL, next.String()))
+	}
+	writeJSON(w, http.StatusOK, all[lo:hi])
+}
+
+// graphql answers the one GraphQL query the driver sends, a repository's tag refs. It reads the
+// variables owner, name, first and after, and doesn't parse the query, except to check that it
+// asks for TAG_COMMIT_DATE order, which it orders by as GitHub does. Without that it lists tags by
+// name, as GitHub does by default.
+// GitHub's GraphQL API refuses a request with no token, and so does the fake.
+func (s *Server) graphql(w http.ResponseWriter, req *http.Request, accepted bool) {
+	if !accepted {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "This endpoint requires you to be authenticated."})
+		return
+	}
+	var body struct {
+		Query     string `json:"query"`
+		Variables struct {
+			Owner string  `json:"owner"`
+			Name  string  `json:"name"`
+			First int     `json:"first"`
+			After *string `json:"after"`
+		} `json:"variables"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "Problems parsing JSON"})
+		return
+	}
+	v := body.Variables
+	s.mu.Lock()
+	r := s.repos[strings.ToLower(v.Owner+"/"+v.Name)]
+	s.mu.Unlock()
+	if r == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"repository": nil},
+			"errors": []map[string]any{{"type": "NOT_FOUND", "message": "Could not resolve to a Repository with the name '" + v.Owner + "/" + v.Name + "'."}}})
+		return
+	}
+	type node struct {
+		name string
+		t    tag
+		c    *commit
+	}
+	r.s.mu.Lock()
+	var nodes []node
+	for name, t := range r.tags {
+		nodes = append(nodes, node{name, t, r.commits[t.sha]})
+	}
+	r.s.mu.Unlock()
+	if strings.Contains(body.Query, "TAG_COMMIT_DATE") {
+		// GitHub orders by the commit's day, then by name descending, so two tags on one day can
+		// come back in the wrong order by time. golang/go's go1.27.3 and go1.26.10 did in 2026-11.
+		sort.Slice(nodes, func(i, j int) bool {
+			di, dj := nodes[i].c.date.Truncate(24*time.Hour), nodes[j].c.date.Truncate(24*time.Hour)
+			if !di.Equal(dj) {
+				return di.After(dj)
+			}
+			return nodes[i].name > nodes[j].name
+		})
+	} else {
+		sort.Slice(nodes, func(i, j int) bool { return nodes[i].name < nodes[j].name })
+	}
+	start := 0
+	if v.After != nil {
+		start, _ = strconv.Atoi(*v.After)
+	}
+	first := v.First
+	if first <= 0 || first > 100 {
+		first = 100
+	}
+	start = min(start, len(nodes))
+	end := min(start+first, len(nodes))
+	var out []map[string]any
+	for _, n := range nodes[start:end] {
+		headline, _, _ := strings.Cut(n.c.message, "\n")
+		target := map[string]any{"__typename": "Commit", "oid": n.c.sha, "committedDate": n.c.date.Format(time.RFC3339), "messageHeadline": headline}
+		if n.t.annotated {
+			target = map[string]any{"__typename": "Tag", "target": target}
+		}
+		out = append(out, map[string]any{"name": n.name, "target": target})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"repository": map[string]any{"refs": map[string]any{
+		"pageInfo": map[string]any{"hasNextPage": end < len(nodes), "endCursor": strconv.Itoa(end)},
+		"nodes":    out,
+	}}}})
+}
+
+// SignedRequest builds a webhook delivery to target as GitHub sends one: a POST of body with the
+// event name in X-GitHub-Event and X-Hub-Signature-256 set to the HMAC-SHA256 of body under secret.
+// Serve it to an app's handler with httptest.NewRecorder, or send it with http.DefaultClient.
+func SignedRequest(target string, secret []byte, event string, body []byte) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(string(body)))
+	req.RequestURI = ""
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GitHub-Event", event)
+	sum := sha1.Sum(body)
+	req.Header.Set("X-GitHub-Delivery", hex.EncodeToString(sum[:16]))
+	mac := hmac.New(sha256.New, secret)
+	mac.Write(body)
+	req.Header.Set("X-Hub-Signature-256", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+	return req
+}
+
+// PushRequest builds a signed push event to target for branch's head, with its parent as before,
+// as GitHub sends after a push of one commit. It panics on a missing branch.
+func (r *Repo) PushRequest(target string, secret []byte, branch string) *http.Request {
+	r.s.mu.Lock()
+	head, ok := r.branches[branch]
+	var before string
+	if ok {
+		before = r.commits[head].parent
+	}
+	def := r.defaultBranch
+	r.s.mu.Unlock()
+	if !ok {
+		panic("githubtest: no branch " + branch)
+	}
+	if before == "" {
+		before = strings.Repeat("0", 40)
+	}
+	body, _ := json.Marshal(map[string]any{
+		"ref": "refs/heads/" + branch, "before": before, "after": head,
+		"created": false, "deleted": false, "forced": false,
+		"repository": map[string]any{
+			"name": r.Name, "full_name": r.Owner + "/" + r.Name, "private": r.Private,
+			"default_branch": def, "owner": map[string]any{"login": r.Owner, "name": r.Owner},
+		},
+	})
+	return SignedRequest(target, secret, "push", body)
 }

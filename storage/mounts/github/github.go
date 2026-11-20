@@ -232,13 +232,20 @@ func (d *Driver) send(ctx context.Context, ts oauth2.TokenSource, method, p stri
 	if len(q) > 0 {
 		u += "?" + q.Encode()
 	}
+	return d.sendURL(ctx, ts, method, u, rd, body != nil)
+}
+
+// sendURL sends one request to the full URL u, such as the GraphQL endpoint, which isn't under the
+// REST base on GitHub Enterprise.
+func (d *Driver) sendURL(ctx context.Context, ts oauth2.TokenSource, method, u string, rd io.Reader, hasBody bool) (*http.Response, error) {
+	p := u
 	req, err := http.NewRequestWithContext(ctx, method, u, rd)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	if body != nil {
+	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if ts != nil {
