@@ -2,6 +2,7 @@
 // GitHub driver, the storage example app, and consumers' own tests. It serves the REST routes the
 // driver uses (a repo, a commit, a branch's commits, a tarball, and the Contents API) and the
 // GraphQL tags query over repos held in memory, and each write makes a real commit on its branch.
+// It serves the hooks API too, and Push delivers a signed push to each hook made through it.
 // PushRequest and SignedRequest build signed webhook deliveries for an app's handler.
 //
 // A private repo answers only a request with an accepted token, as GitHub does, with 404 for
@@ -44,6 +45,7 @@ type Server struct {
 	requests []Request
 	fail     []int
 	corrupt  bool
+	hookSeq  int64
 }
 
 // Request is one request the fake answered.
@@ -69,6 +71,8 @@ type Repo struct {
 	tags          map[string]tag
 	seq           int
 	grants        map[string]bool // guarded by s.mu
+	hooks         []*Hook         // guarded by s.mu
+	managers      map[string]bool // guarded by s.mu
 }
 
 type commit struct {
@@ -366,6 +370,8 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 		r.getTree(w, strings.TrimPrefix(parts[3], "trees/"), req.URL.Query().Get("recursive") == "1")
 	case len(parts) == 4 && parts[2] == "git" && strings.HasPrefix(parts[3], "blobs/") && req.Method == http.MethodGet:
 		r.getBlob(w, strings.TrimPrefix(parts[3], "blobs/"))
+	case len(parts) >= 3 && parts[2] == "hooks":
+		r.serveHooks(w, req, parts, tok, accepted)
 	case len(parts) >= 3 && parts[2] == "contents":
 		p := ""
 		if len(parts) == 4 {
