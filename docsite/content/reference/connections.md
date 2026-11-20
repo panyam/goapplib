@@ -72,6 +72,7 @@ id, err := svc.CanRead(connections.WithViewer(ctx, subject), "github://acme/boar
 - The GitHub driver's `CanRead` is the read check. It asks for the repo, and a 404 counts as a definite no, which is also how GitHub answers a private repo the token can't see. A connection to another host than the driver serves gets a no without a request.
 - When no connection can read, or the viewer has none, `CanRead` returns `ErrNoAccess`. A request with no viewer returns `ErrNotOwner`. If a check failed, such as a rejected token, and no connection succeeded, `CanRead` returns that failure rather than a no, since the answer isn't known.
 - It keeps each yes or no for a minute per viewer and source (`WithAccessTTL` changes that), so a page with many links to one repo asks GitHub once. It doesn't keep a failure.
+- `SaveUserToken`, `SavePastedToken` and `Disconnect` drop the kept answers of the connection's owner. So a person checked before they connect gets a yes on their next call, without waiting out the minute. An app that changes a person's connections through the `Store` calls `ForgetAccess(viewer)` after the write. A `CanRead` that was already running when the answers were dropped still returns its answer, but doesn't keep it.
 - It never tries a server connection. A server connection would answer for the server, and a link made through one falls back to the app's own sharing (agni#1176).
 
 The read check is a function rather than code in this package. That keeps every GitHub API call in the GitHub driver, and this package doesn't import mounts.

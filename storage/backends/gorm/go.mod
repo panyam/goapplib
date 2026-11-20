@@ -3,7 +3,7 @@ module github.com/panyam/goapplib/storage/backends/gorm
 go 1.26.9
 
 require (
-	github.com/panyam/goapplib/storage v0.7.19
+	github.com/panyam/goapplib/storage v0.7.20
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 )
@@ -16,7 +16,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/panyam/goutils v0.1.14 // indirect
-	github.com/panyam/oneauth v0.3.10 // indirect
+	github.com/panyam/oneauth v0.3.12 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect

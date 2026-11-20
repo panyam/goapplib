@@ -1,3 +1,6 @@
+cloud.google.com/go v0.121.6 h1:waZiuajrI28iAf40cWgycWNgaXPO06dupuS+sgibK6c=
+cloud.google.com/go/compute/metadata v0.9.0 h1:pDUj4QMoPejqq20dK0Pg2N4yG9zIkYGdBtwLoEkH9Zs=
+cloud.google.com/go/compute/metadata v0.9.0/go.mod h1:E0bWwX5wTnLPedCKqk3pJmVgCBSM6qQI1yTBdEb3C10=
 connectrpc.com/connect v1.19.1 h1:R5M57z05+90EfEvCY1b7hBxDVOUl45PrtXtAV2fOC14=
 connectrpc.com/connect v1.19.1/go.mod h1:tN20fjdGlewnSFeZxLKb0xwIZ6ozc3OQs2hTXy4du9w=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
@@ -43,8 +46,10 @@ github.com/morrisxyang/xreflect v0.0.0-20231001053442-6df0df9858ba h1:As4ul3aWz7
 github.com/morrisxyang/xreflect v0.0.0-20231001053442-6df0df9858ba/go.mod h1:M7gEkNNIO7dO1XnjIZUUvY57QG8Oed3Cf882guZD8sI=
 github.com/panyam/goutils v0.1.14 h1:PWM5jAzTSVHjWXbHD0CaifskSETFKHKaKIK5HrOg/uE=
 github.com/panyam/goutils v0.1.14/go.mod h1:lxEmbCJ04RY+KqFgo/+67bEdU2edpLYafMiJECTm3gQ=
-github.com/panyam/oneauth v0.3.10 h1:2YIeJM6JNwAULhr/rjAgypb3AqMUiJoyZvZs90J8n7w=
-github.com/panyam/oneauth v0.3.10/go.mod h1:o96puZu6zVL4O5aB2Y4uZdzHoXK8pFLnHkamY5DmPwM=
+github.com/panyam/oneauth v0.3.12 h1:T7Df1AiNcbq7YEcBtc9J6tSIx0uTCjSnLhcOZeGQqeM=
+github.com/panyam/oneauth v0.3.12/go.mod h1:o96puZu6zVL4O5aB2Y4uZdzHoXK8pFLnHkamY5DmPwM=
+github.com/panyam/oneauth/oauth2 v0.3.12 h1:hq4ecB+aYAHJDz8v6yYBv212aPFUl9MUm3A8qYzqyfE=
+github.com/panyam/oneauth/oauth2 v0.3.12/go.mod h1:ePmsYQP4g6uCjO5eazWbBMmjzUewVAP/H5V6JWU8Kc4=
 github.com/panyam/s3gen v0.1.6 h1:4z73m+po/iU24bRaeJEXNN7wWfqfCi1ufU8qD8KlI9w=
 github.com/panyam/s3gen v0.1.6/go.mod h1:ZTpWhSoP7u97fPgAp6MqNDJ/y6t8lFhQKY9pwBTplgA=
 github.com/panyam/templar v0.1.0 h1:yy4sqois9gvNhIy2xsNyRoI5r/qvz1tVY+YuxnmzbWY=

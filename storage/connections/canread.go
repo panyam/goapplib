@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -55,8 +56,9 @@ func (a answer) result() (string, error) {
 // succeeded, it returns that failure instead of ErrNoAccess, since the answer isn't known.
 //
 // A yes or a no is kept for the access TTL per viewer and source, so a page that checks many links
-// asks GitHub once per repo. A failure isn't kept. Server connections are never tried, since they
-// would answer for the server rather than the person.
+// asks GitHub once per repo. A failure isn't kept. SaveUserToken, SavePastedToken and Disconnect
+// forget the owner's kept answers, and so does ForgetAccess. Server connections are never tried,
+// since they would answer for the server rather than the person.
 func (s *Service) CanRead(ctx context.Context, source string) (string, error) {
 	viewer := Viewer(ctx)
 	if viewer == "" {
@@ -72,6 +74,7 @@ func (s *Service) CanRead(ctx context.Context, source string) (string, error) {
 	}
 	s.mu.Lock()
 	a, ok := s.access[key]
+	gen := s.gen[viewer]
 	s.mu.Unlock()
 	if ok && s.now().Sub(a.at) < ttl {
 		return a.result()
@@ -104,7 +107,34 @@ func (s *Service) CanRead(ctx context.Context, source string) (string, error) {
 	if s.access == nil {
 		s.access = map[string]answer{}
 	}
-	s.access[key] = a
+	// A forget since this call began means the viewer's connections changed under it, so the
+	// answer goes back to the caller without being kept.
+	if s.gen[viewer] == gen {
+		s.access[key] = a
+	}
 	s.mu.Unlock()
 	return a.result()
+}
+
+// ForgetAccess drops every answer CanRead keeps for viewer, so the next call asks the service
+// again. The service forgets on its own when SaveUserToken, SavePastedToken or Disconnect changes
+// a person's connection. An app that adds, changes or removes a person's connection through the
+// Store calls ForgetAccess after the write, or the person waits out the access TTL. A CanRead
+// already running for viewer still returns its answer, but doesn't keep it.
+func (s *Service) ForgetAccess(viewer string) {
+	if viewer == "" {
+		return
+	}
+	prefix := viewer + "\x00"
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.gen == nil {
+		s.gen = map[string]uint64{}
+	}
+	s.gen[viewer]++
+	for k := range s.access {
+		if strings.HasPrefix(k, prefix) {
+			delete(s.access, k)
+		}
+	}
 }
