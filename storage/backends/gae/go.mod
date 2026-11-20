@@ -4,7 +4,7 @@ go 1.26.9
 
 require (
 	cloud.google.com/go/datastore v1.21.0
-	github.com/panyam/goapplib/storage v0.7.19
+	github.com/panyam/goapplib/storage v0.7.20
 )
 
 require (

@@ -45,6 +45,9 @@ type Service struct {
 	entries map[string]*entry
 	key     string
 	access  map[string]answer
+	// gen counts each viewer's forgets, so a CanRead that began before one doesn't keep its
+	// answer.
+	gen map[string]uint64
 }
 
 // entry is one connection's built token source, kept while its record's sign-in fields match.
@@ -131,6 +134,8 @@ func (s *Service) TokenSource(ctx context.Context, id string) (oauth2.TokenSourc
 // record's status back to StatusOK. The app calls it from its OAuth callback after a person
 // connects, with the viewer set as for TokenSource. The token must come from the app's own OAuth
 // flow, since Disconnect revokes it through the app. A pasted token goes through SavePastedToken.
+// Once the token is saved, CanRead forgets the owner's kept answers, so a no from before the
+// person connected doesn't outlive the connection.
 func (s *Service) SaveUserToken(ctx context.Context, id string, tok *oauth2.Token) error {
 	return s.saveToken(ctx, id, tok, false)
 }
@@ -170,6 +175,7 @@ func (s *Service) saveToken(ctx context.Context, id string, tok *oauth2.Token, p
 	if err := e.users.Save(ctx, c.Owner, tok); err != nil {
 		return err
 	}
+	s.ForgetAccess(c.Owner)
 	if c.Status != StatusOK || c.LastError != "" || c.Pasted != pasted {
 		c.Status, c.LastError, c.Pasted = StatusOK, "", pasted
 		return s.store.PutConnection(ctx, c)
@@ -182,7 +188,8 @@ func (s *Service) saveToken(ctx context.Context, id string, tok *oauth2.Token, p
 // revoke fails it returns the error and keeps both the token and the record, so the app can
 // retry. When the record's Pasted is set, it deletes the token with no call to GitHub, since the
 // app didn't issue it and can't revoke it. Other kinds have nothing to revoke here: an App
-// installation is removed on GitHub, and a fixed token by whoever issued it. A missing connection is not an error.
+// installation is removed on GitHub, and a fixed token by whoever issued it. A missing connection
+// is not an error. Once the record is gone, CanRead forgets the owner's kept answers.
 func (s *Service) Disconnect(ctx context.Context, id string) error {
 	c, err := s.store.GetConnection(ctx, id)
 	if errors.Is(err, ErrNotFound) {
@@ -207,7 +214,11 @@ func (s *Service) Disconnect(ctx context.Context, id string) error {
 	s.mu.Lock()
 	delete(s.entries, id)
 	s.mu.Unlock()
-	return s.store.DeleteConnection(ctx, id)
+	if err := s.store.DeleteConnection(ctx, id); err != nil {
+		return err
+	}
+	s.ForgetAccess(c.Owner)
+	return nil
 }
 
 // entry returns c's built token source, building it when there is none or c's sign-in fields

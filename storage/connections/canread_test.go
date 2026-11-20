@@ -3,6 +3,7 @@ package connections_test
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/goapplib/storage/mounts/github"
 	"github.com/panyam/goapplib/storage/mounts/github/githubtest"
+	oneauthfs "github.com/panyam/oneauth/stores/fs"
+	"golang.org/x/oauth2"
 )
 
 type access struct {
@@ -157,5 +160,125 @@ func TestCanReadNeedsACheck(t *testing.T) {
 	svc := connections.NewService(a.store)
 	if _, err := svc.CanRead(a.as("alice"), a.src); !errors.Is(err, connections.ErrNotConfigured) {
 		t.Errorf("CanRead without WithReadCheck = %v, want ErrNotConfigured", err)
+	}
+}
+
+// newUserAccess is newAccess with user tokens, so alice can connect with SaveUserToken or
+// SavePastedToken. Her token is ghu_alice, which reads the repo. She has no connection yet.
+func newUserAccess(t *testing.T) *access {
+	t.Helper()
+	a := newAccess(t)
+	a.gh.AddToken("ghu_alice")
+	t.Setenv("GOAPPLIB_TEST_CONN_KEY", masterKey)
+	drv := github.New(nil, github.WithBaseURL(a.gh.URL))
+	a.svc = connections.NewService(a.store,
+		connections.WithReadCheck(drv.CanRead),
+		connections.WithClock(func() time.Time { return a.now }),
+		connections.WithUserTokens(oneauthfs.NewFSUserTokenStore(t.TempDir()), "env:GOAPPLIB_TEST_CONN_KEY",
+			&oauth2.Config{ClientID: "cid", ClientSecret: "cs", Endpoint: oauth2.Endpoint{TokenURL: a.gh.URL + "/login/oauth/access_token"}}),
+	)
+	return a
+}
+
+func TestCanReadForgetsANoWhenTheViewerSavesAToken(t *testing.T) {
+	for name, save := range map[string]func(*connections.Service, context.Context, string, *oauth2.Token) error{
+		"SaveUserToken":   (*connections.Service).SaveUserToken,
+		"SavePastedToken": (*connections.Service).SavePastedToken,
+	} {
+		t.Run(name, func(t *testing.T) {
+			a := newUserAccess(t)
+			if _, err := a.svc.CanRead(a.as("alice"), a.src); !errors.Is(err, connections.ErrNoAccess) {
+				t.Fatalf("CanRead before alice connects = %v, want ErrNoAccess", err)
+			}
+			// The app makes the record, then saves the token from the OAuth callback.
+			c := alice()
+			c.BaseURL = a.gh.URL
+			if err := a.store.PutConnection(a.ctx, c); err != nil {
+				t.Fatal(err)
+			}
+			tok := &oauth2.Token{AccessToken: "ghu_alice", Expiry: time.Now().Add(time.Hour)}
+			if err := save(a.svc, a.as("alice"), "alice-gh", tok); err != nil {
+				t.Fatal(err)
+			}
+			if id, err := a.svc.CanRead(a.as("alice"), a.src); err != nil || id != "alice-gh" {
+				t.Errorf("CanRead right after %s = %q, %v; want alice-gh with no wait", name, id, err)
+			}
+		})
+	}
+}
+
+func TestCanReadForgetsAYesWhenTheViewerDisconnects(t *testing.T) {
+	a := newAccess(t)
+	a.put(t, "alice-gh", "alice", "ALICE_TOKEN", a.gh.URL)
+	if id, err := a.svc.CanRead(a.as("alice"), a.src); err != nil || id != "alice-gh" {
+		t.Fatalf("CanRead = %q, %v; want alice-gh", id, err)
+	}
+	if err := a.svc.Disconnect(a.ctx, "alice-gh"); err != nil {
+		t.Fatal(err)
+	}
+	if id, err := a.svc.CanRead(a.as("alice"), a.src); !errors.Is(err, connections.ErrNoAccess) {
+		t.Errorf("CanRead right after Disconnect = %q, %v; want ErrNoAccess with no wait", id, err)
+	}
+}
+
+func TestForgetAccessDropsOnlyThatViewersAnswers(t *testing.T) {
+	a := newAccess(t)
+	a.put(t, "bob-gh", "bob", "BOB_TOKEN", a.gh.URL)
+	if _, err := a.svc.CanRead(a.as("alice"), a.src); !errors.Is(err, connections.ErrNoAccess) {
+		t.Fatalf("alice with no connection = %v, want ErrNoAccess", err)
+	}
+	if _, err := a.svc.CanRead(a.as("bob"), a.src); err != nil {
+		t.Fatal(err)
+	}
+
+	// The app adds alice's connection through the store, which the service can't see.
+	a.put(t, "alice-gh", "alice", "ALICE_TOKEN", a.gh.URL)
+	if _, err := a.svc.CanRead(a.as("alice"), a.src); !errors.Is(err, connections.ErrNoAccess) {
+		t.Fatalf("before ForgetAccess, alice's kept no = %v, want ErrNoAccess", err)
+	}
+	a.svc.ForgetAccess("alice")
+	n := len(a.gh.Requests())
+	if id, err := a.svc.CanRead(a.as("alice"), a.src); err != nil || id != "alice-gh" {
+		t.Errorf("after ForgetAccess, CanRead = %q, %v; want alice-gh", id, err)
+	}
+	if _, err := a.svc.CanRead(a.as("bob"), a.src); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range a.gh.Requests()[n:] {
+		if r.Token == "ghp_bob" {
+			t.Errorf("ForgetAccess(alice) dropped bob's kept answer: %s %s", r.Method, r.Path)
+		}
+	}
+}
+
+func TestCanReadDoesNotKeepAnAnswerFromBeforeAForget(t *testing.T) {
+	a := newAccess(t)
+	a.put(t, "alice-gh", "alice", "ALICE_TOKEN", a.gh.URL)
+	entered, release := make(chan struct{}), make(chan struct{})
+	var calls atomic.Int32
+	a.svc = connections.NewService(a.store,
+		connections.WithClock(func() time.Time { return a.now }),
+		connections.WithReadCheck(func(ctx context.Context, baseURL, source string, ts oauth2.TokenSource) (bool, error) {
+			if calls.Add(1) == 1 {
+				close(entered)
+				<-release
+				return false, nil
+			}
+			return true, nil
+		}))
+
+	done := make(chan error)
+	go func() {
+		_, err := a.svc.CanRead(a.as("alice"), a.src)
+		done <- err
+	}()
+	<-entered
+	a.svc.ForgetAccess("alice")
+	close(release)
+	if err := <-done; !errors.Is(err, connections.ErrNoAccess) {
+		t.Fatalf("the call in flight = %v, want its own ErrNoAccess", err)
+	}
+	if id, err := a.svc.CanRead(a.as("alice"), a.src); err != nil || id != "alice-gh" {
+		t.Errorf("CanRead after the forget = %q, %v; the no from before it was kept", id, err)
 	}
 }
