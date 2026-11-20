@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/panyam/goapplib/storage/mounts"
@@ -36,8 +37,8 @@ func must(t *testing.T, err error) {
 func TestResolve(t *testing.T) {
 	d, ctx := folder.New(), context.Background()
 	m := tree(t)
-	if v, err := d.Resolve(ctx, m.Source, "", nil); err != nil || v != "" {
-		t.Errorf("Resolve(dir) = %q, %v; want \"\", nil", v, err)
+	if v, err := d.Resolve(ctx, m.Source, "", nil); err != nil || !strings.HasPrefix(v, "mtime:") || len(v) != len("mtime:")+64 {
+		t.Errorf("Resolve(dir) = %q, %v; want mtime: and a SHA-256", v, err)
 	}
 	if _, err := d.Resolve(ctx, "relative/dir", "", nil); !errors.Is(err, mounts.ErrInvalidArgument) {
 		t.Errorf("Resolve(relative) = %v, want ErrInvalidArgument", err)

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
@@ -58,5 +59,56 @@ func TestAFolderIsReadAtItsOnlyVersion(t *testing.T) {
 	}
 	if _, _, err := folder.New().FetchAt(ctx, m, nil, "", all[0]); !errors.Is(err, mounts.ErrInvalidArgument) {
 		t.Errorf("FetchAt without a blob store = %v, want ErrInvalidArgument", err)
+	}
+}
+
+func TestAFolderVersionMovesWithSizesAndMtimesOnly(t *testing.T) {
+	ctx := context.Background()
+	m := tree(t)
+	d := folder.New()
+	resolve := func() string {
+		t.Helper()
+		v, err := d.Resolve(ctx, m.Source, "", nil)
+		must(t, err)
+		return v
+	}
+	v1 := resolve()
+	if v2 := resolve(); v2 != v1 {
+		t.Fatalf("two Resolves of an unchanged folder = %q and %q, want one version", v1, v2)
+	}
+
+	b := filepath.Join(m.Source, "sub", "b.txt")
+	// A file nobody can read still counts, which shows Resolve reads no file's bytes.
+	must(t, os.Chmod(b, 0))
+	t.Cleanup(func() { os.Chmod(b, 0o644) })
+	if v := resolve(); v != v1 {
+		t.Errorf("Resolve after a chmod = %q, want %q, since only size and mtime count", v, v1)
+	}
+
+	later := time.Now().Add(time.Hour)
+	must(t, os.Chtimes(b, later, later))
+	v2 := resolve()
+	if v2 == v1 {
+		t.Errorf("Resolve after a touch = %q, want a new version", v2)
+	}
+
+	a := filepath.Join(m.Source, "a.txt")
+	fi, err := os.Stat(a)
+	must(t, err)
+	must(t, os.WriteFile(a, []byte("alpha, longer"), 0o644))
+	must(t, os.Chtimes(a, fi.ModTime(), fi.ModTime()))
+	if v3 := resolve(); v3 == v2 {
+		t.Errorf("Resolve after a resize with the mtime kept = %q, want a new version", v3)
+	}
+
+	if _, err := d.ListAt(ctx, m, nil, v1, ""); err != nil {
+		t.Errorf("ListAt at an older mtime version = %v, want the folder as it is now", err)
+	}
+}
+
+func TestAFolderListsNoRefs(t *testing.T) {
+	page, err := folder.New().ListRefs(context.Background(), tree(t).Source, mounts.ListRefsRequest{Kind: mounts.RefTag}, nil)
+	if err != nil || len(page.Refs) != 0 || page.NextPageToken != "" {
+		t.Errorf("ListRefs = %+v, %v; want an empty page", page, err)
 	}
 }

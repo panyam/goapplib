@@ -7,6 +7,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -275,10 +277,10 @@ func TestFSAndHostPath(t *testing.T) {
 func TestTheRegistryReadsAMountAtAVersionThroughItsDriver(t *testing.T) {
 	e := newEnv(t)
 	v, moves, err := e.reg.ResolveAt(e.ctx, "notes", "")
-	if err != nil || v != "" || !moves {
-		t.Errorf("ResolveAt(notes) = %q, %v, %v; want no version, moving", v, moves, err)
+	if err != nil || !strings.HasPrefix(v, "mtime:") || !moves {
+		t.Errorf("ResolveAt(notes) = %q, %v, %v; want a folder's mtime version, moving", v, moves, err)
 	}
-	files, err := e.reg.ListAt(e.ctx, "notes", "", "")
+	files, err := e.reg.ListAt(e.ctx, "notes", v, "")
 	if err != nil || len(files) != 1 || files[0].Path != "hello.md" {
 		t.Errorf("ListAt(notes) = %v, %v; want hello.md", files, err)
 	}
@@ -325,5 +327,62 @@ func TestARegistryWithNoStoreServesItsFixedMounts(t *testing.T) {
 	}
 	if err := reg.Delete(ctx, "nope"); !errors.Is(err, mounts.ErrNotFound) {
 		t.Errorf("Delete of an unknown mount with no store = %v, want ErrNotFound", err)
+	}
+}
+
+func TestFollowingFindsTheMountsAChangeMoves(t *testing.T) {
+	e := newEnv(t)
+	for name, ref := range map[string]string{"dflt": "", "main": "main", "side": "side", "tag": "v1", "pinned": "deadbeef"} {
+		if _, err := e.reg.Create(e.ctx, mounts.Mount{Name: name, Kind: mounts.KindGitHub, Source: "github://acme/boards", Ref: ref}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	follow := func(c mounts.Change) []string {
+		t.Helper()
+		ms, err := e.reg.Following(e.ctx, mounts.KindGitHub, c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, m := range ms {
+			out = append(out, m.Name)
+		}
+		return out
+	}
+	src := "github://acme/boards"
+	for _, c := range []struct {
+		change mounts.Change
+		want   []string
+	}{
+		{mounts.Change{Source: src, Ref: "main", RefKind: mounts.RefBranch, Default: true}, []string{"dflt", "main"}},
+		{mounts.Change{Source: src, Ref: "side", RefKind: mounts.RefBranch}, []string{"side"}},
+		{mounts.Change{Source: src, Ref: "v1", RefKind: mounts.RefTag}, []string{"tag"}},
+		{mounts.Change{Source: "github://acme/other", Ref: "main", RefKind: mounts.RefBranch, Default: true}, nil},
+	} {
+		if got := follow(c.change); !slices.Equal(got, c.want) {
+			t.Errorf("Following(%+v) = %v, want %v", c.change, got, c.want)
+		}
+	}
+	if _, err := e.reg.Following(e.ctx, "s3", mounts.Change{}); !errors.Is(err, mounts.ErrInvalidArgument) {
+		t.Errorf("Following for a kind with no driver = %v, want ErrInvalidArgument", err)
+	}
+}
+
+func TestTheRegistryListsRefsThroughItsDriver(t *testing.T) {
+	e := newEnv(t)
+	if page, err := e.reg.ListRefs(e.ctx, "notes", mounts.ListRefsRequest{Kind: mounts.RefTag}); err != nil || len(page.Refs) != 0 {
+		t.Errorf("ListRefs(notes) = %+v, %v; want an empty page", page, err)
+	}
+	if _, err := e.reg.ListRefs(e.ctx, "notes", mounts.ListRefsRequest{Kind: mounts.RefBranch}); !errors.Is(err, mounts.ErrInvalidArgument) {
+		t.Errorf("ListRefs of branches = %v, want ErrInvalidArgument", err)
+	}
+	if _, err := e.reg.ListRefs(e.ctx, "nope", mounts.ListRefsRequest{Kind: mounts.RefTag}); !errors.Is(err, mounts.ErrNotFound) {
+		t.Errorf("ListRefs of an unknown mount = %v, want ErrNotFound", err)
+	}
+	if _, err := e.reg.Create(e.ctx, mounts.Mount{Name: "boards", Kind: mounts.KindGitHub, Source: "github://acme/boards"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.reg.ListRefs(e.ctx, "boards", mounts.ListRefsRequest{Kind: mounts.RefTag}); !errors.Is(err, mounts.ErrInvalidArgument) {
+		t.Errorf("ListRefs through a driver that can't list refs = %v, want ErrInvalidArgument", err)
 	}
 }

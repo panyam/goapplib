@@ -11,10 +11,13 @@ import (
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/goapplib/storage/mounts/github"
+	"golang.org/x/oauth2"
 )
 
 // TestLiveGitHub checks the driver against real GitHub, so the fake can't drift from what GitHub
 // answers. It reads a small public repo with no token, and skips unless STORAGE_LIVE_GITHUB=1.
+// With STORAGE_LIVE_GITHUB_TOKEN set too, it lists a repo's tags through GraphQL, which needs a
+// token.
 func TestLiveGitHub(t *testing.T) {
 	if os.Getenv("STORAGE_LIVE_GITHUB") != "1" {
 		t.Skip("set STORAGE_LIVE_GITHUB=1 to run against api.github.com")
@@ -62,5 +65,25 @@ func TestLiveGitHub(t *testing.T) {
 	}
 	if _, err := d.Stat(ctx, live, nil, "README"); err != nil {
 		t.Errorf("Stat on real GitHub = %v", err)
+	}
+
+	commits, err := d.ListRefs(ctx, src, mounts.ListRefsRequest{Kind: mounts.RefCommit, PageSize: 1}, nil)
+	if err != nil || len(commits.Refs) != 1 || commits.Refs[0].Version != v || commits.Refs[0].Time.IsZero() || commits.NextPageToken != "2" {
+		t.Errorf("commits on the default branch = %+v, %v; want %s first, dated, and a next page", commits, err, v)
+	}
+	tok := os.Getenv("STORAGE_LIVE_GITHUB_TOKEN")
+	if tok == "" {
+		t.Log("STORAGE_LIVE_GITHUB_TOKEN unset, so tags aren't listed")
+		return
+	}
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok})
+	tags, err := d.ListRefs(ctx, "github://golang/go", mounts.ListRefsRequest{Kind: mounts.RefTag, PageSize: 5}, ts)
+	if err != nil || len(tags.Refs) != 5 || tags.NextPageToken == "" {
+		t.Fatalf("golang/go tags = %+v, %v; want a full page and a next token", tags, err)
+	}
+	for i, r := range tags.Refs {
+		if r.Version == "" || r.Time.IsZero() || i > 0 && r.Time.After(tags.Refs[i-1].Time) {
+			t.Errorf("tag %d = %+v; want a commit and a date no newer than the tag before", i, r)
+		}
 	}
 }

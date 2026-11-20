@@ -71,9 +71,12 @@ func (d *Driver) Kind() mounts.Kind { return mounts.KindFolder }
 // Modes returns mounts.ModeLive. A folder mount always shows the folder as it is now.
 func (d *Driver) Modes() []mounts.Mode { return []mounts.Mode{mounts.ModeLive} }
 
-// Resolve checks that source is an absolute path to a folder, and returns an empty version. A
-// folder has no refs, so a non-empty ref returns ErrInvalidArgument, as does a relative path or a
-// file. A missing folder returns ErrNotFound.
+// Resolve checks that source is an absolute path to a folder, and returns its version: "mtime:"
+// and a hash over each regular file's path, size and modification time (goapplib issue 178). It
+// reads no file's contents, so an app polls it to see whether a followed folder changed, and reads
+// the files only when the version moved. A folder has no refs, so a non-empty ref returns
+// ErrInvalidArgument, as does a relative path or a file. A missing folder returns ErrNotFound, and
+// one over mounts.DefaultLimits' file count returns ErrTooLarge.
 func (d *Driver) Resolve(ctx context.Context, source, ref string, ts oauth2.TokenSource) (string, error) {
 	if !filepath.IsAbs(source) {
 		return "", fmt.Errorf("%w: folder %q isn't an absolute path", mounts.ErrInvalidArgument, source)
@@ -91,7 +94,7 @@ func (d *Driver) Resolve(ctx context.Context, source, ref string, ts oauth2.Toke
 	if !info.IsDir() {
 		return "", fmt.Errorf("%w: %q isn't a folder", mounts.ErrInvalidArgument, source)
 	}
-	return "", nil
+	return d.version(ctx, source)
 }
 
 // Open returns the folder's files as they are now. The fs.FS refuses a path through a link with an
