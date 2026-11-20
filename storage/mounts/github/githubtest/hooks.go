@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 // Hook is a webhook made on a repo through the hooks API. Token is the token that last made or
@@ -34,6 +35,19 @@ func (r *Repo) HookManagers(tokens ...string) {
 	for _, tok := range tokens {
 		r.managers[tok] = true
 		r.s.tokens[tok] = true
+	}
+}
+
+// HookManagerUsers lets each of logins manage the repo's hooks through any token they get by
+// signing in. It limits who may manage hooks as HookManagers does, and the two add up.
+func (r *Repo) HookManagerUsers(logins ...string) {
+	r.s.mu.Lock()
+	defer r.s.mu.Unlock()
+	if r.userManagers == nil {
+		r.userManagers = map[string]bool{}
+	}
+	for _, l := range logins {
+		r.userManagers[strings.ToLower(l)] = true
 	}
 }
 
@@ -95,7 +109,7 @@ func (h *Hook) json() map[string]any {
 // see the repo.
 func (r *Repo) serveHooks(w http.ResponseWriter, req *http.Request, parts []string, tok string, accepted bool) {
 	r.s.mu.Lock()
-	allowed := tok != "" && accepted && (len(r.managers) == 0 || r.managers[tok])
+	allowed := tok != "" && accepted && allows(r.managers, r.userManagers, tok, r.s.userOf(tok))
 	r.s.mu.Unlock()
 	if !allowed {
 		notFound(w)

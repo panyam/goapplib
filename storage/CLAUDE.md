@@ -11,7 +11,7 @@ The storage module, `github.com/panyam/goapplib/storage`: mounts, connections an
 
 ## Gotchas
 
-- Two fake GitHubs exist. `mounts/github/githubtest` serves repos (commits, tarballs, contents) and checks tokens. oneauth's `outbound/githubtest` mints and refreshes tokens. `AcceptToken` makes the first trust the second's tokens.
+- Two fake GitHubs exist. `mounts/github/githubtest` serves repos (commits, tarballs, contents, hooks) and an App's sign-in, and checks tokens. oneauth's `outbound/githubtest` mints installation and user tokens for a connection. `AcceptToken` makes the first trust the second's tokens.
 - The Datastore tests skip unless `DATASTORE_PROJECT_ID` is set. `make test-datastore` runs them against the local emulator, in a temp folder. Run from the repo root, the emulator writes `WEB-INF/appengine-generated/`, which then blocks `release.sh`'s clean-tree check.
 - GORM on SQLite needs `_txlock=immediate` in the DSN, or concurrent creates fail with "database is locked". The tests set it.
 - The folder driver's `IfMatch` check holds within one process only, and `mounts/fsstore` needs hard links to create a record. Both are on the mounts page.
