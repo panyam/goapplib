@@ -89,6 +89,12 @@ type Connection struct {
 	// TokenRef is where a KindGitHubToken's token is, as a secret reference.
 	TokenRef string
 
+	// Pasted is set on a KindGitHubUser connection when the person pasted the stored token, so
+	// the app's OAuth flow never issued it. Disconnect then deletes the token without revoking
+	// it, since GitHub refuses to revoke a token through an app that didn't issue it.
+	// SavePastedToken sets it and SaveUserToken clears it.
+	Pasted bool
+
 	Status Status
 
 	// LastError is the last failure's message, with no secret in it. It is empty when Status

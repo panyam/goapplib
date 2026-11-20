@@ -33,6 +33,7 @@ func RunAll(t *testing.T, factory Factory) {
 	}{
 		{"GetMissing", testGetMissing},
 		{"PutThenGet", testPutThenGet},
+		{"PastedRoundTrips", testPastedRoundTrips},
 		{"PutReplaces", testPutReplaces},
 		{"PutValidates", testPutValidates},
 		{"ListByOwner", testListByOwner},
@@ -89,6 +90,29 @@ func testPutThenGet(t *testing.T, s connections.Store) {
 	got.Created, got.LastUsed = want.Created, want.LastUsed
 	if got != want {
 		t.Errorf("GetConnection = %+v, want %+v", got, want)
+	}
+}
+
+func testPastedRoundTrips(t *testing.T, s connections.Store) {
+	ctx := context.Background()
+	c := Person("bob-gh", "bob")
+	c.Pasted = true
+	if err := s.PutConnection(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetConnection(ctx, "bob-gh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Pasted {
+		t.Error("Pasted = false after a round trip, want true")
+	}
+	c.Pasted = false
+	if err := s.PutConnection(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.GetConnection(ctx, "bob-gh"); err != nil || got.Pasted {
+		t.Errorf("after clearing, Pasted = %v (err %v), want false", got.Pasted, err)
 	}
 }
 

@@ -154,6 +154,7 @@ type connectionRow struct {
 	InstallationID int64     `gorm:"column:installation_id"`
 	KeyRef         string    `gorm:"column:key_ref"`
 	TokenRef       string    `gorm:"column:token_ref"`
+	Pasted         bool      `gorm:"column:pasted"`
 	Status         string    `gorm:"column:status;size:16"`
 	LastError      string    `gorm:"column:last_error"`
 	Created        time.Time `gorm:"column:created"`
@@ -164,13 +165,13 @@ func (connectionRow) TableName() string { return "goapplib_connections" }
 
 func toConnectionRow(c connections.Connection) connectionRow {
 	return connectionRow{c.ID, string(c.Kind), string(c.Scope), c.Owner, c.Name, c.BaseURL, c.AppID,
-		c.InstallationID, c.KeyRef, c.TokenRef, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC()}
+		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC()}
 }
 
 func (r connectionRow) connection() connections.Connection {
 	return connections.Connection{ID: r.ID, Kind: connections.Kind(r.Kind), Scope: connections.Scope(r.Scope),
 		Owner: r.Owner, Name: r.Name, BaseURL: r.BaseURL, AppID: r.AppID, InstallationID: r.InstallationID,
-		KeyRef: r.KeyRef, TokenRef: r.TokenRef, Status: connections.Status(r.Status), LastError: r.LastError,
+		KeyRef: r.KeyRef, TokenRef: r.TokenRef, Pasted: r.Pasted, Status: connections.Status(r.Status), LastError: r.LastError,
 		Created: r.Created.UTC(), LastUsed: r.LastUsed.UTC()}
 }
 
