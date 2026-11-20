@@ -8,7 +8,7 @@ The guides are at https://panyam.github.io/goapplib/. This page lists what's in 
 npm install @panyam/tsappkit
 ```
 
-goapplib and the packages share one version, so goapplib `v0.7.18` goes with `@panyam/tsappkit@0.7.18`.
+goapplib and the packages share one version, so goapplib `v0.7.19` goes with `@panyam/tsappkit@0.7.19`.
 
 ## `@panyam/tsappkit`
 
