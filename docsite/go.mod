@@ -19,7 +19,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
 	github.com/morrisxyang/xreflect v0.0.0-20231001053442-6df0df9858ba // indirect
 	github.com/panyam/goutils v0.1.14 // indirect
-	github.com/panyam/oneauth v0.3.10 // indirect
+	github.com/panyam/oneauth v0.3.12 // indirect
 	github.com/panyam/templar v0.1.0 // indirect
 	github.com/radovskyb/watcher v1.0.7 // indirect
 	github.com/yuin/goldmark v1.8.2 // indirect
