@@ -44,4 +44,9 @@ var (
 	// ErrInUse means the app's in-use check says records still point into the mount, so it
 	// can't be deleted.
 	ErrInUse = errors.New("mounts: mount is in use")
+
+	// ErrPermissionDenied means the source refused the mount's token for this request, though
+	// the token may read the source. A GitHub token needs admin rights on a repo, or a
+	// fine-grained token's webhooks permission, to manage its hooks.
+	ErrPermissionDenied = errors.New("mounts: permission denied")
 )
