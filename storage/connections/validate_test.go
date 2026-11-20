@@ -13,6 +13,7 @@ func TestValidateAcceptsEachKind(t *testing.T) {
 		{ID: "ci-pat", Kind: KindGitHubToken, Scope: ScopeServer, TokenRef: "env:GITHUB_TOKEN"},
 		{ID: "alice-pat", Kind: KindGitHubToken, Scope: ScopePerson, Owner: "alice", TokenRef: "env:ALICE_TOKEN"},
 		{ID: "alice-gh", Kind: KindGitHubUser, Scope: ScopePerson, Owner: "alice"},
+		{ID: "alice-paste", Kind: KindGitHubUser, Scope: ScopePerson, Owner: "alice", Pasted: true},
 	} {
 		if err := c.Validate(); err != nil {
 			t.Errorf("%s: %v", c.ID, err)
@@ -31,6 +32,7 @@ func TestValidateRejects(t *testing.T) {
 		"app for a person":       {ID: "x", Kind: KindGitHubApp, Scope: ScopePerson, Owner: "alice", AppID: "1", InstallationID: 1, KeyRef: "env:K"},
 		"app without install":    {ID: "x", Kind: KindGitHubApp, Scope: ScopeServer, AppID: "1", KeyRef: "env:K"},
 		"app without key":        {ID: "x", Kind: KindGitHubApp, Scope: ScopeServer, AppID: "1", InstallationID: 1},
+		"pasted on a token kind": {ID: "x", Kind: KindGitHubToken, Scope: ScopeServer, TokenRef: "env:T", Pasted: true},
 		"raw token in token_ref": {ID: "x", Kind: KindGitHubToken, Scope: ScopeServer, TokenRef: raw},
 		"relative file ref":      {ID: "x", Kind: KindGitHubToken, Scope: ScopeServer, TokenRef: "file:secrets/t"},
 		"user with token_ref":    {ID: "x", Kind: KindGitHubUser, Scope: ScopePerson, Owner: "alice", TokenRef: "env:T"},

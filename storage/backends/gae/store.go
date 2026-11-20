@@ -193,6 +193,7 @@ type connectionEntity struct {
 	InstallationID int64     `datastore:"installation_id,noindex"`
 	KeyRef         string    `datastore:"key_ref,noindex"`
 	TokenRef       string    `datastore:"token_ref,noindex"`
+	Pasted         bool      `datastore:"pasted,noindex"`
 	Status         string    `datastore:"status,noindex"`
 	LastError      string    `datastore:"last_error,noindex"`
 	Created        time.Time `datastore:"created,noindex"`
@@ -201,13 +202,13 @@ type connectionEntity struct {
 
 func toConnectionEntity(c connections.Connection) *connectionEntity {
 	return &connectionEntity{string(c.Kind), string(c.Scope), c.Owner, c.Name, c.BaseURL, c.AppID,
-		c.InstallationID, c.KeyRef, c.TokenRef, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC()}
+		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC()}
 }
 
 func (e *connectionEntity) connection(id string) connections.Connection {
 	return connections.Connection{ID: id, Kind: connections.Kind(e.Kind), Scope: connections.Scope(e.Scope),
 		Owner: e.Owner, Name: e.Name, BaseURL: e.BaseURL, AppID: e.AppID, InstallationID: e.InstallationID,
-		KeyRef: e.KeyRef, TokenRef: e.TokenRef, Status: connections.Status(e.Status), LastError: e.LastError,
+		KeyRef: e.KeyRef, TokenRef: e.TokenRef, Pasted: e.Pasted, Status: connections.Status(e.Status), LastError: e.LastError,
 		Created: e.Created.UTC(), LastUsed: e.LastUsed.UTC()}
 }
 

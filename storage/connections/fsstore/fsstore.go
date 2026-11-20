@@ -51,6 +51,7 @@ type record struct {
 	InstallationID int64     `yaml:"installation_id,omitempty"`
 	KeyRef         string    `yaml:"key_ref,omitempty"`
 	TokenRef       string    `yaml:"token_ref,omitempty"`
+	Pasted         bool      `yaml:"pasted,omitempty"`
 	Status         string    `yaml:"status,omitempty"`
 	LastError      string    `yaml:"last_error,omitempty"`
 	Created        time.Time `yaml:"created"`
@@ -59,13 +60,13 @@ type record struct {
 
 func toRecord(c connections.Connection) record {
 	return record{c.ID, string(c.Kind), string(c.Scope), c.Owner, c.Name, c.BaseURL, c.AppID,
-		c.InstallationID, c.KeyRef, c.TokenRef, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC()}
+		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC()}
 }
 
 func (r record) connection() connections.Connection {
 	return connections.Connection{ID: r.ID, Kind: connections.Kind(r.Kind), Scope: connections.Scope(r.Scope),
 		Owner: r.Owner, Name: r.Name, BaseURL: r.BaseURL, AppID: r.AppID, InstallationID: r.InstallationID,
-		KeyRef: r.KeyRef, TokenRef: r.TokenRef, Status: connections.Status(r.Status), LastError: r.LastError,
+		KeyRef: r.KeyRef, TokenRef: r.TokenRef, Pasted: r.Pasted, Status: connections.Status(r.Status), LastError: r.LastError,
 		Created: r.Created, LastUsed: r.LastUsed}
 }
 

@@ -258,6 +258,116 @@ func TestDisconnectKeepsBothWhenRevokeFails(t *testing.T) {
 	}
 }
 
+// A person pasted a token the OAuth app never issued, so GitHub would refuse to revoke it
+// through the app (agni#1772).
+func TestDisconnectDeletesAPastedTokenWithoutRevoking(t *testing.T) {
+	f := newFixture(t)
+	f.put(t, alice())
+	ctx := connections.WithViewer(context.Background(), "alice")
+	if err := f.svc.SavePastedToken(ctx, "alice-gh", &oauth2.Token{AccessToken: "ghp_pasted", TokenType: "bearer"}); err != nil {
+		t.Fatal(err)
+	}
+	if c, err := f.store.GetConnection(ctx, "alice-gh"); err != nil || !c.Pasted {
+		t.Fatalf("after SavePastedToken, Pasted = %v (err %v), want true", c.Pasted, err)
+	}
+	if tok := token(t)(f.svc.TokenSource(ctx, "alice-gh")); tok.AccessToken != "ghp_pasted" {
+		t.Errorf("token = %q, want the pasted one", tok.AccessToken)
+	}
+	if err := f.svc.Disconnect(ctx, "alice-gh"); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.gh.RevokeCalls(); n != 0 {
+		t.Errorf("revoke calls = %d, want 0", n)
+	}
+	if _, err := f.store.GetConnection(ctx, "alice-gh"); !errors.Is(err, connections.ErrNotFound) {
+		t.Errorf("record after Disconnect: %v, want ErrNotFound", err)
+	}
+	f.put(t, alice())
+	ts, err := f.svc.TokenSource(ctx, "alice-gh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ts.Token(); !errors.Is(err, outbound.ErrUserTokenNotFound) {
+		t.Errorf("token after Disconnect: %v, want ErrUserTokenNotFound", err)
+	}
+}
+
+func TestSaveUserTokenAfterAPasteRevokesAgain(t *testing.T) {
+	f := newFixture(t)
+	f.put(t, alice())
+	ctx := connections.WithViewer(context.Background(), "alice")
+	if err := f.svc.SavePastedToken(ctx, "alice-gh", &oauth2.Token{AccessToken: "ghp_pasted", TokenType: "bearer"}); err != nil {
+		t.Fatal(err)
+	}
+	issued := f.gh.IssueUserToken("alice")
+	if err := f.svc.SaveUserToken(ctx, "alice-gh", issued); err != nil {
+		t.Fatal(err)
+	}
+	if c, err := f.store.GetConnection(ctx, "alice-gh"); err != nil || c.Pasted {
+		t.Fatalf("after SaveUserToken, Pasted = %v (err %v), want false", c.Pasted, err)
+	}
+	if err := f.svc.Disconnect(ctx, "alice-gh"); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.gh.RevokeCalls(); n != 1 {
+		t.Errorf("revoke calls = %d, want 1", n)
+	}
+	if _, ok := f.gh.ValidUserToken(issued.AccessToken); ok {
+		t.Error("the app's token still works at the fake after Disconnect")
+	}
+}
+
+// failingPuts fails every PutConnection while fail is set.
+type failingPuts struct {
+	connections.Store
+	fail bool
+}
+
+func (s *failingPuts) PutConnection(ctx context.Context, c connections.Connection) error {
+	if s.fail {
+		return errors.New("disk full")
+	}
+	return s.Store.PutConnection(ctx, c)
+}
+
+// When the record write after the token write fails, the record still says the app issued the
+// token, so Disconnect tries the revoke and keeps everything rather than skip it.
+func TestSavePastedTokenFailedRecordWriteStillRevokes(t *testing.T) {
+	f := newFixture(t)
+	f.put(t, alice())
+	store := &failingPuts{Store: f.store}
+	svc := connections.NewService(store,
+		connections.WithUserTokens(oneauthfs.NewFSUserTokenStore(f.dirs[1]), "env:GOAPPLIB_TEST_CONN_KEY", f.gh.OAuthConfig()))
+	ctx := connections.WithViewer(context.Background(), "alice")
+	store.fail = true
+	if err := svc.SavePastedToken(ctx, "alice-gh", &oauth2.Token{AccessToken: "ghp_pasted", TokenType: "bearer"}); err == nil {
+		t.Fatal("SavePastedToken succeeded though the record write failed")
+	}
+	store.fail = false
+	if err := svc.Disconnect(ctx, "alice-gh"); err == nil {
+		t.Fatal("Disconnect succeeded without the Pasted flag, so it skipped the revoke")
+	}
+	if n := f.gh.RevokeCalls(); n != 1 {
+		t.Errorf("revoke calls = %d, want 1", n)
+	}
+	if _, err := f.store.GetConnection(ctx, "alice-gh"); err != nil {
+		t.Errorf("the record was deleted after a failed revoke: %v", err)
+	}
+}
+
+func TestSavePastedTokenChecksKindAndOwner(t *testing.T) {
+	f := newFixture(t)
+	f.put(t, alice())
+	f.put(t, f.app())
+	tok := &oauth2.Token{AccessToken: "ghp_pasted", TokenType: "bearer"}
+	if err := f.svc.SavePastedToken(connections.WithViewer(context.Background(), "bob"), "alice-gh", tok); !errors.Is(err, connections.ErrNotOwner) {
+		t.Errorf("another viewer: %v, want ErrNotOwner", err)
+	}
+	if err := f.svc.SavePastedToken(connections.WithViewer(context.Background(), "alice"), "acme", tok); !errors.Is(err, connections.ErrInvalid) {
+		t.Errorf("an App connection: %v, want ErrInvalid", err)
+	}
+}
+
 func TestNoTokenInAnyStoredFile(t *testing.T) {
 	f := newFixture(t)
 	f.put(t, f.app())

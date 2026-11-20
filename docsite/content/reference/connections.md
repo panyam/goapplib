@@ -82,7 +82,14 @@ oneauth's GitHub provider asks for `read:user` and `user:email` at login. To rea
 
 `HandleUserFunc` can't tell a connect from a login, and carries no return URL. The app keeps both in its own state, such as a short-lived cookie set before the redirect. A GitHub App's user tokens ignore OAuth scopes, and a person adds repos on the App's install page instead. That flow belongs to the app.
 
-`Disconnect` revokes the token at GitHub with `outbound.GitHubRevoker`, then deletes the sealed token and the record. When the revoke fails, it keeps both so the app can retry, which is oneauth's rule.
+A person can also paste a token, such as a personal access token, instead of going through OAuth. The app saves it with `Service.SavePastedToken`, which seals it the same way and sets the record's `Pasted`. A later `SaveUserToken` clears `Pasted`.
+
+`Disconnect` does one of two things, depending on how the token came in:
+
+- **From the app's OAuth flow.** It revokes the token at GitHub with `outbound.GitHubRevoker`, then deletes the sealed token and the record. When the revoke fails, it keeps both so the app can retry, which is oneauth's rule.
+- **Pasted.** It deletes the sealed token and the record, and makes no call to GitHub. GitHub refuses to revoke a token through an app that didn't issue it. The person revokes a pasted token on GitHub's own settings page.
+
+Each save writes the token and the record's `Pasted` separately, ordered so a failed second write leaves `Pasted` unset. Disconnect then tries the revoke and keeps everything, rather than skip the revoke of a token the app issued (#183).
 
 ## Where a secret can and can't end up
 

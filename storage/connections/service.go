@@ -129,8 +129,24 @@ func (s *Service) TokenSource(ctx context.Context, id string) (oauth2.TokenSourc
 
 // SaveUserToken keeps tok as the token of KindGitHubUser connection id, sealed, and sets the
 // record's status back to StatusOK. The app calls it from its OAuth callback after a person
-// connects, with the viewer set as for TokenSource.
+// connects, with the viewer set as for TokenSource. The token must come from the app's own OAuth
+// flow, since Disconnect revokes it through the app. A pasted token goes through SavePastedToken.
 func (s *Service) SaveUserToken(ctx context.Context, id string, tok *oauth2.Token) error {
+	return s.saveToken(ctx, id, tok, false)
+}
+
+// SavePastedToken keeps tok as the token of KindGitHubUser connection id, as SaveUserToken does,
+// for a token the person pasted rather than one the app's OAuth flow issued. It sets the record's
+// Pasted, so Disconnect deletes the token without asking GitHub to revoke it. GitHub refuses that
+// revoke for a token the app didn't issue. A later SaveUserToken clears Pasted.
+func (s *Service) SavePastedToken(ctx context.Context, id string, tok *oauth2.Token) error {
+	return s.saveToken(ctx, id, tok, true)
+}
+
+// saveToken writes the sealed token and the record's Pasted in an order that leaves the record
+// saying the app issued the token when the second write fails. Disconnect then tries the revoke
+// and returns its error, rather than skip the revoke of a live app token.
+func (s *Service) saveToken(ctx context.Context, id string, tok *oauth2.Token, pasted bool) error {
 	c, err := s.store.GetConnection(ctx, id)
 	if err != nil {
 		return err
@@ -145,11 +161,17 @@ func (s *Service) SaveUserToken(ctx context.Context, id string, tok *oauth2.Toke
 	if err != nil {
 		return err
 	}
+	if c.Pasted && !pasted {
+		c.Pasted = false
+		if err := s.store.PutConnection(ctx, c); err != nil {
+			return err
+		}
+	}
 	if err := e.users.Save(ctx, c.Owner, tok); err != nil {
 		return err
 	}
-	if c.Status != StatusOK || c.LastError != "" {
-		c.Status, c.LastError = StatusOK, ""
+	if c.Status != StatusOK || c.LastError != "" || c.Pasted != pasted {
+		c.Status, c.LastError, c.Pasted = StatusOK, "", pasted
 		return s.store.PutConnection(ctx, c)
 	}
 	return nil
@@ -158,8 +180,9 @@ func (s *Service) SaveUserToken(ctx context.Context, id string, tok *oauth2.Toke
 // Disconnect removes connection id. For a KindGitHubUser connection it first revokes the token at
 // GitHub and deletes it from the user-token store, through oneauth's UserTokens.Revoke. When the
 // revoke fails it returns the error and keeps both the token and the record, so the app can
-// retry. Other kinds have nothing to revoke here: an App installation is removed on GitHub, and
-// a fixed token by whoever issued it. A missing connection is not an error.
+// retry. When the record's Pasted is set, it deletes the token with no call to GitHub, since the
+// app didn't issue it and can't revoke it. Other kinds have nothing to revoke here: an App
+// installation is removed on GitHub, and a fixed token by whoever issued it. A missing connection is not an error.
 func (s *Service) Disconnect(ctx context.Context, id string) error {
 	c, err := s.store.GetConnection(ctx, id)
 	if errors.Is(err, ErrNotFound) {
@@ -173,7 +196,11 @@ func (s *Service) Disconnect(ctx context.Context, id string) error {
 		if err != nil {
 			return err
 		}
-		if err := e.users.Revoke(ctx, c.Owner); err != nil {
+		revoke := e.users.Revoke
+		if c.Pasted {
+			revoke = e.users.Delete
+		}
+		if err := revoke(ctx, c.Owner); err != nil {
 			return err
 		}
 	}

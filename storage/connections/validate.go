@@ -27,6 +27,9 @@ func (c Connection) Validate() error {
 		return fmt.Errorf("%w: unknown scope %q", ErrInvalid, c.Scope)
 	}
 
+	if c.Pasted && c.Kind != KindGitHubUser {
+		return fmt.Errorf("%w: only a GitHub user connection has a pasted token", ErrInvalid)
+	}
 	switch c.Kind {
 	case KindGitHubApp:
 		if c.Scope != ScopeServer {

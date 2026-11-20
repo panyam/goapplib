@@ -5,7 +5,7 @@
 // PushRequest and SignedRequest build signed webhook deliveries for an app's handler.
 //
 // A private repo answers only a request with an accepted token, as GitHub does, with 404 for
-// anything else. Every request is recorded with the token it carried, so a test can check that a
+// anything else. Once a private repo has grants (Repo.Grant), only a granted token reads it. Every request is recorded with the token it carried, so a test can check that a
 // connection's token reached each one.
 //
 // oneauth's outbound/githubtest does a different job, minting and refreshing tokens. A test that
@@ -68,6 +68,7 @@ type Repo struct {
 	extra         map[string][]TarEntry
 	tags          map[string]tag
 	seq           int
+	grants        map[string]bool // guarded by s.mu
 }
 
 type commit struct {
@@ -150,6 +151,35 @@ func (s *Server) AddRepo(owner, name string, private bool, files map[string]stri
 	s.mu.Unlock()
 	r.Commit("main", files, nil)
 	return r
+}
+
+// Grant lets each of tokens read the repo, and accepts each one as AddToken does. Once a private
+// repo has a grant, it answers only granted tokens, and gives any other token 404, accepted or
+// not, as GitHub does for a repo the token can't see. A private repo with no grants answers any
+// accepted token. A public repo answers everyone either way.
+func (r *Repo) Grant(tokens ...string) {
+	r.s.mu.Lock()
+	defer r.s.mu.Unlock()
+	if r.grants == nil {
+		r.grants = map[string]bool{}
+	}
+	for _, tok := range tokens {
+		r.grants[tok] = true
+		r.s.tokens[tok] = true
+	}
+}
+
+// visible reports whether a request with tok, accepted or not, can see r.
+func (s *Server) visible(r *Repo, tok string, accepted bool) bool {
+	if r == nil {
+		return false
+	}
+	if !r.Private {
+		return true
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return accepted && (len(r.grants) == 0 || r.grants[tok])
 }
 
 // Source returns the repo's mounts source, "github://owner/name".
@@ -302,11 +332,11 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if req.URL.Path == "/graphql" && req.Method == http.MethodPost {
-		s.graphql(w, req, accepted)
+		s.graphql(w, req, tok, accepted)
 		return
 	}
 	if raw, ok := strings.CutPrefix(req.URL.Path, "/raw/"); ok && req.Method == http.MethodGet {
-		s.raw(w, raw, accepted)
+		s.raw(w, raw, tok, accepted)
 		return
 	}
 	parts := strings.SplitN(strings.TrimPrefix(req.URL.Path, "/repos/"), "/", 4)
@@ -317,7 +347,7 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 	s.mu.Lock()
 	r := s.repos[strings.ToLower(parts[0]+"/"+parts[1])]
 	s.mu.Unlock()
-	if r == nil || r.Private && !accepted {
+	if !s.visible(r, tok, accepted) {
 		notFound(w)
 		return
 	}
@@ -368,9 +398,9 @@ func (s *Server) CorruptRaw(on bool) {
 	s.corrupt = on
 }
 
-// raw serves "<owner>/<repo>/<commit>/<path>". A private repo needs an accepted token, and answers
-// 404 without one, as GitHub does.
-func (s *Server) raw(w http.ResponseWriter, p string, accepted bool) {
+// raw serves "<owner>/<repo>/<commit>/<path>". A private repo answers 404 to a token that can't see
+// it, as GitHub does.
+func (s *Server) raw(w http.ResponseWriter, p, tok string, accepted bool) {
 	parts := strings.SplitN(p, "/", 4)
 	if len(parts) < 4 {
 		notFound(w)
@@ -379,7 +409,7 @@ func (s *Server) raw(w http.ResponseWriter, p string, accepted bool) {
 	s.mu.Lock()
 	r := s.repos[strings.ToLower(parts[0]+"/"+parts[1])]
 	s.mu.Unlock()
-	if r == nil || r.Private && !accepted {
+	if !s.visible(r, tok, accepted) {
 		notFound(w)
 		return
 	}
@@ -721,7 +751,7 @@ func (r *Repo) listCommits(w http.ResponseWriter, req *http.Request) {
 // asks for TAG_COMMIT_DATE order, which it orders by as GitHub does. Without that it lists tags by
 // name, as GitHub does by default.
 // GitHub's GraphQL API refuses a request with no token, and so does the fake.
-func (s *Server) graphql(w http.ResponseWriter, req *http.Request, accepted bool) {
+func (s *Server) graphql(w http.ResponseWriter, req *http.Request, tok string, accepted bool) {
 	if !accepted {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "This endpoint requires you to be authenticated."})
 		return
@@ -743,7 +773,7 @@ func (s *Server) graphql(w http.ResponseWriter, req *http.Request, accepted bool
 	s.mu.Lock()
 	r := s.repos[strings.ToLower(v.Owner+"/"+v.Name)]
 	s.mu.Unlock()
-	if r == nil {
+	if !s.visible(r, tok, accepted) {
 		writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"repository": nil},
 			"errors": []map[string]any{{"type": "NOT_FOUND", "message": "Could not resolve to a Repository with the name '" + v.Owner + "/" + v.Name + "'."}}})
 		return
