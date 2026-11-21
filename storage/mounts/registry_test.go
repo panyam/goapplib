@@ -66,7 +66,7 @@ type env struct {
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	e := &env{ctx: context.Background(), dir: t.TempDir(), notes: t.TempDir(), gh: &fakeGitHub{},
-		inUse: map[string]bool{}, tokens: map[string]string{"acme-app": "tok-acme"}}
+		inUse: map[string]bool{}, tokens: map[string]string{"/acme-app": "tok-acme", "alice/gh": "tok-alice"}}
 	if err := os.WriteFile(filepath.Join(e.notes, "hello.md"), []byte("hi"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -82,8 +82,8 @@ func (e *env) registry(t *testing.T) *mounts.Registry {
 	}
 	return mounts.NewRegistry(store, []mounts.Driver{folder.New(), e.gh},
 		mounts.WithFixed(mounts.Mount{Name: "notes", Kind: mounts.KindFolder, Source: e.notes, Mode: mounts.ModeLive}),
-		mounts.WithCredentials(func(_ context.Context, conn string) (oauth2.TokenSource, error) {
-			tok, ok := e.tokens[conn]
+		mounts.WithCredentials(func(_ context.Context, owner, conn string) (oauth2.TokenSource, error) {
+			tok, ok := e.tokens[owner+"/"+conn]
 			if !ok {
 				return nil, errors.New("no such connection")
 			}
@@ -384,5 +384,29 @@ func TestTheRegistryListsRefsThroughItsDriver(t *testing.T) {
 	}
 	if _, err := e.reg.ListRefs(e.ctx, "boards", mounts.ListRefsRequest{Kind: mounts.RefTag}); !errors.Is(err, mounts.ErrInvalidArgument) {
 		t.Errorf("ListRefs through a driver that can't list refs = %v, want ErrInvalidArgument", err)
+	}
+}
+
+func TestCreateReadsThroughAPersonsConnection(t *testing.T) {
+	e := newEnv(t)
+	m, err := e.reg.Create(e.ctx, mounts.Mount{Name: "boards", Kind: mounts.KindGitHub, Source: "github://acme/boards", Ref: "main",
+		Mode: mounts.ModeSnapshot, Connection: "gh", ConnectionOwner: "alice"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(e.gh.tokens) == 0 || e.gh.tokens[0] != "tok-alice" {
+		t.Errorf("the driver got tokens %q, want alice's gh (tok-alice)", e.gh.tokens)
+	}
+	if stored, err := e.registry(t).Get(e.ctx, "boards"); err != nil || stored.ConnectionOwner != "alice" || m.ConnectionOwner != "alice" {
+		t.Errorf("stored mount = %+v, %v; want ConnectionOwner alice", stored, err)
+	}
+}
+
+func TestCreateRefusesAConnectionOwnerWithNoConnection(t *testing.T) {
+	e := newEnv(t)
+	_, err := e.reg.Create(e.ctx, mounts.Mount{Name: "boards", Kind: mounts.KindGitHub, Source: "github://acme/boards", Ref: "main",
+		Mode: mounts.ModeSnapshot, ConnectionOwner: "alice"})
+	if !errors.Is(err, mounts.ErrInvalidArgument) {
+		t.Errorf("Create = %v, want ErrInvalidArgument", err)
 	}
 }

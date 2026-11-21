@@ -62,6 +62,11 @@ type Mount struct {
 	// Empty means the source is public, or local.
 	Connection string
 
+	// ConnectionOwner is the subject of the person whose connection Connection is. Empty means a
+	// server connection. Only that person can open a mount over their connection, since the
+	// connections service gives a person's token to them alone.
+	ConnectionOwner string
+
 	// Manifest is the hash of the blob listing a snapshot's files and their hashes, which is
 	// what rebuilds a snapshot's view after a restart. It is empty for a live mount.
 	Manifest string

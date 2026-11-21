@@ -45,17 +45,18 @@ type record struct {
 	Version    string    `yaml:"version,omitempty"`
 	Mode       string    `yaml:"mode"`
 	Connection string    `yaml:"connection,omitempty"`
+	ConnOwner  string    `yaml:"connection_owner,omitempty"`
 	Manifest   string    `yaml:"manifest,omitempty"`
 	Created    time.Time `yaml:"created"`
 }
 
 func toRecord(m mounts.Mount) record {
-	return record{m.Name, string(m.Kind), m.Source, m.Ref, m.Version, string(m.Mode), m.Connection, m.Manifest, m.Created.UTC()}
+	return record{m.Name, string(m.Kind), m.Source, m.Ref, m.Version, string(m.Mode), m.Connection, m.ConnectionOwner, m.Manifest, m.Created.UTC()}
 }
 
 func (r record) mount() mounts.Mount {
 	return mounts.Mount{Name: r.Name, Kind: mounts.Kind(r.Kind), Source: r.Source, Ref: r.Ref, Version: r.Version,
-		Mode: mounts.Mode(r.Mode), Connection: r.Connection, Manifest: r.Manifest, Created: r.Created}
+		Mode: mounts.Mode(r.Mode), Connection: r.Connection, ConnectionOwner: r.ConnOwner, Manifest: r.Manifest, Created: r.Created}
 }
 
 // ListMounts reads every record, in name order. A file whose record names a different mount, or

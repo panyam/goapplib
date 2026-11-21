@@ -26,7 +26,7 @@ type Registry struct {
 	store   RecordStore
 	drivers map[Kind]Driver
 	fixed   map[string]Mount
-	creds   func(ctx context.Context, connection string) (oauth2.TokenSource, error)
+	creds   func(ctx context.Context, owner, connection string) (oauth2.TokenSource, error)
 	inUse   func(ctx context.Context, name string) (bool, error)
 	limits  Limits
 	every   time.Duration
@@ -82,11 +82,11 @@ func WithFixed(ms ...Mount) Option {
 	}
 }
 
-// WithCredentials sets how the registry gets a mount's token source from its Connection ID. The
-// connections service's TokenSource method has this signature. It is called with the request's
-// context, so a connection that belongs to one person sees who is asking. A mount with an empty
+// WithCredentials sets how the registry gets a mount's token source from its ConnectionOwner and
+// Connection. The connections service's TokenSource method has this signature. It is called with
+// the request's context, so a person's connection sees who is asking. A mount with an empty
 // Connection gets a nil token source without a call.
-func WithCredentials(f func(ctx context.Context, connection string) (oauth2.TokenSource, error)) Option {
+func WithCredentials(f func(ctx context.Context, owner, connection string) (oauth2.TokenSource, error)) Option {
 	return func(r *Registry) { r.creds = f }
 }
 
@@ -145,11 +145,12 @@ func (r *Registry) Get(ctx context.Context, name string) (Mount, error) {
 	return Mount{}, fmt.Errorf("%w: mount %q", ErrNotFound, name)
 }
 
-// Create makes a runtime mount from m's Name, Kind, Source, Ref, Mode and Connection. An empty
-// Mode takes the driver's first. Create resolves Ref through the driver, calls Prepare when the
-// driver has it, sets Version and Created, and writes the record. It returns ErrInvalidArgument
-// for a bad name, an unknown kind, a mode the driver doesn't serve, or KindFolder. A name taken by
-// a fixed or runtime mount returns ErrExists. Driver errors pass through, such as ErrNotFound for a
+// Create makes a runtime mount from m's Name, Kind, Source, Ref, Mode, Connection and
+// ConnectionOwner. An empty Mode takes the driver's first. Create resolves Ref through the driver,
+// calls Prepare when the driver has it, sets Version and Created, and writes the record. It
+// returns ErrInvalidArgument for a bad name, an unknown kind, a mode the driver doesn't serve,
+// KindFolder, or a ConnectionOwner with no Connection. A name taken by a fixed or runtime mount
+// returns ErrExists. Driver errors pass through, such as ErrNotFound for a
 // source that doesn't exist.
 func (r *Registry) Create(ctx context.Context, m Mount) (Mount, error) {
 	if r.store == nil {
@@ -160,6 +161,9 @@ func (r *Registry) Create(ctx context.Context, m Mount) (Mount, error) {
 	}
 	if m.Kind == KindFolder {
 		return Mount{}, fmt.Errorf("%w: folder mounts come from the server's configuration", ErrInvalidArgument)
+	}
+	if m.ConnectionOwner != "" && m.Connection == "" {
+		return Mount{}, fmt.Errorf("%w: mount %q names a connection owner but no connection", ErrInvalidArgument, m.Name)
 	}
 	d, err := r.driver(m)
 	if err != nil {
@@ -362,7 +366,7 @@ func (r *Registry) tokens(ctx context.Context, m Mount) (oauth2.TokenSource, err
 	if r.creds == nil {
 		return nil, fmt.Errorf("%w: mount %q names connection %q, and the registry has no credentials", ErrInvalidArgument, m.Name, m.Connection)
 	}
-	return r.creds(ctx, m.Connection)
+	return r.creds(ctx, m.ConnectionOwner, m.Connection)
 }
 
 func (r *Registry) open(ctx context.Context, name string) (fs.FS, error) {
