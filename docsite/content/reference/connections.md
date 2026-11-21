@@ -33,7 +33,7 @@ A connection's key is its owner and ID. A server connection's owner is empty. Sa
 Before v0.7.23 the key was the ID alone, and each store reads what it wrote then:
 
 - **Folder.** A person's `<id>.yaml` at the top still reads back as its owner's. The next write to that ID moves it under `people/`, so a server connection with the same ID can't overwrite it.
-- **GORM.** GORM can't change a table's primary key, so the records moved to a new table. `NewConnectionStore` copies the old `goapplib_connections` table into the new one, once, when the new one is empty. It leaves the old table for servers still on an older version, and you drop it by hand afterwards.
+- **GORM.** GORM can't change a table's primary key, so the records moved to a new table. `NewConnectionStore` copies the old `goapplib_connections` table into the new one, once, when the new one is empty. It leaves the old table for servers still on an older version, and you drop it by hand afterwards. The copy doesn't run again, so a record an older server writes to the old table after it isn't seen. Move every server to v0.7.23 before people add connections.
 - **Datastore.** A person's entity with no parent still reads back as its owner's, and the next write to that ID moves it under the parent in one transaction.
 
 ## Secrets
