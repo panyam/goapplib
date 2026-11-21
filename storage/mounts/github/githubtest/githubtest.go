@@ -581,6 +581,8 @@ func (r *Repo) getBlob(w http.ResponseWriter, id string) {
 }
 
 // resolve turns a branch name or a full commit sha into a commit.
+// resolve finds the commit ref names, as GitHub does wherever a ref goes: a branch first, then a
+// tag, then a commit SHA. An empty ref is the default branch.
 func (r *Repo) resolve(ref string) *commit {
 	r.s.mu.Lock()
 	defer r.s.mu.Unlock()
@@ -589,6 +591,9 @@ func (r *Repo) resolve(ref string) *commit {
 	}
 	if sha, ok := r.branches[ref]; ok {
 		return r.commits[sha]
+	}
+	if t, ok := r.tags[ref]; ok {
+		return r.commits[t.sha]
 	}
 	return r.commits[ref]
 }

@@ -103,3 +103,33 @@ func TestGrantLeavesAPublicRepoOpen(t *testing.T) {
 		}
 	}
 }
+
+// A tag name resolves wherever GitHub takes a ref, lightweight or annotated, so a consumer can read
+// a repo at a tag (goapplib issue 195).
+func TestATagNameResolvesWhereARefGoes(t *testing.T) {
+	s := New(t)
+	r := s.AddRepo("alice", "board", false, map[string]string{"a.txt": "one"})
+	first := r.Head("main")
+	r.Commit("main", map[string]string{"a.txt": "two"}, nil)
+	r.Tag("1.1.2", first, false)
+	r.Tag("1.1.2-signed", first, true)
+	for _, tag := range []string{"1.1.2", "1.1.2-signed"} {
+		code, body := get(t, http.MethodGet, s.URL+"/repos/alice/board/commits/"+tag, "", "")
+		if code != http.StatusOK || !strings.Contains(body, first) {
+			t.Errorf("/commits/%s = %d %s, want the tagged commit %s", tag, code, body, first)
+		}
+		if code, body := get(t, http.MethodGet, s.RawURL()+"/alice/board/"+tag+"/a.txt", "", ""); code != http.StatusOK || body != "one" {
+			t.Errorf("raw a.txt at %s = %d %q, want the tagged commit's \"one\"", tag, code, body)
+		}
+		if code, _ := get(t, http.MethodGet, s.URL+"/repos/alice/board/tarball/"+tag, "", ""); code != http.StatusOK {
+			t.Errorf("tarball at %s = %d, want 200", tag, code)
+		}
+		if code, body := get(t, http.MethodGet, s.URL+"/repos/alice/board/git/trees/"+tag+"?recursive=1", "", ""); code != http.StatusOK || !strings.Contains(body, "a.txt") {
+			t.Errorf("tree at %s = %d %s, want the tagged commit's files", tag, code, body)
+		}
+	}
+	// A branch of the same name wins, as on GitHub.
+	if code, body := get(t, http.MethodGet, s.URL+"/repos/alice/board/commits/main", "", ""); code != http.StatusOK || strings.Contains(body, first) {
+		t.Errorf("/commits/main = %d %s, want main's head, not the tag", code, body)
+	}
+}
