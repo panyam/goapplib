@@ -5,7 +5,7 @@
 #   make test     - Run all tests
 #   make help     - Show available targets
 
-.PHONY: setup test go-test test-datastore wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite exercise-tour exercise-storage help
+.PHONY: setup test go-test vulncheck test-datastore wasm-test exercise-wasmhost exercise-wasmhost-gen exercise-islands exercise-worker-state exercise-docsite exercise-tour exercise-storage help
 
 GOROOT_WASM := $(shell go env GOROOT)/lib/wasm
 EXERCISE := exercise/wasmhost
@@ -29,6 +29,14 @@ test: go-test ## Run all tests
 go-test: ## Run the Go tests in the root module and each nested module (scripts/go-modules.sh)
 	go test ./...
 	for m in $$(scripts/go-modules.sh); do (cd $$m && go vet ./... && go test ./...) || exit 1; done
+
+# The pinned scanner, run in the root module and each published nested module. The weekly
+# vulncheck workflow runs this (panyam/ci-actions#11). docsite isn't published, so it isn't scanned.
+GOVULNCHECK := go run golang.org/x/vuln/cmd/govulncheck@v1.10.0
+
+vulncheck: ## Scan the root module and each published nested module for known vulnerabilities
+	$(GOVULNCHECK) ./...
+	for m in $$(scripts/go-modules.sh); do (cd $$m && $(GOVULNCHECK) ./...) || exit 1; done
 
 test-datastore: ## Run the Datastore backend tests against a local emulator (CI skips them)
 	scripts/test-datastore.sh
