@@ -55,26 +55,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      # Go, pnpm and Node, then pnpm install in the exercise's folder (#198).
+      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.1
         with:
-          go-version-file: go.mod
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 12
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: pnpm
-          cache-dependency-path: exercise/wasmhost/pnpm-lock.yaml
-
-      - name: Install packages
-        working-directory: exercise/wasmhost
-        run: pnpm install --frozen-lockfile
+          pnpm-version: "12"
+          working-directory: exercise/wasmhost
 
       # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
-      - uses: panyam/ci-actions/setup-browser@v0.1.0
+      - uses: panyam/ci-actions/setup-browser@v0.1.1
         with:
           working-directory: exercise/wasmhost
 
@@ -88,26 +76,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      # Go, pnpm and Node, then pnpm install in the exercise's folder (#198).
+      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.1
         with:
-          go-version-file: go.mod
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 12
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: pnpm
-          cache-dependency-path: exercise/islands/pnpm-lock.yaml
-
-      - name: Install packages
-        working-directory: exercise/islands
-        run: pnpm install --frozen-lockfile
+          pnpm-version: "12"
+          working-directory: exercise/islands
 
       # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
-      - uses: panyam/ci-actions/setup-browser@v0.1.0
+      - uses: panyam/ci-actions/setup-browser@v0.1.1
         with:
           working-directory: exercise/islands
 
@@ -129,26 +105,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      # Go, pnpm and Node, then pnpm install in the exercise's folder (#198).
+      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.1
         with:
-          go-version-file: go.mod
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 12
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: pnpm
-          cache-dependency-path: exercise/workerstate/pnpm-lock.yaml
-
-      - name: Install packages
-        working-directory: exercise/workerstate
-        run: pnpm install --frozen-lockfile
+          pnpm-version: "12"
+          working-directory: exercise/workerstate
 
       # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
-      - uses: panyam/ci-actions/setup-browser@v0.1.0
+      - uses: panyam/ci-actions/setup-browser@v0.1.1
         with:
           working-directory: exercise/workerstate
 
@@ -170,22 +134,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      # Go, pnpm and Node, then pnpm install in the exercise's folder (#198). The tour needs no Go,
+      # and setting it up anyway costs a few seconds from cache, for one shape across the jobs.
+      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.1
         with:
-          version: 12
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: pnpm
-          cache-dependency-path: exercise/tour/pnpm-lock.yaml
-
-      - name: Install packages
-        working-directory: exercise/tour
-        run: pnpm install --frozen-lockfile
+          pnpm-version: "12"
+          working-directory: exercise/tour
 
       # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
-      - uses: panyam/ci-actions/setup-browser@v0.1.0
+      - uses: panyam/ci-actions/setup-browser@v0.1.1
         with:
           working-directory: exercise/tour
 

@@ -17,10 +17,12 @@ import (
 )
 
 // refsPageSize is the default page size of ListRefs, and refsMaxPage the most GitHub returns in one
-// page of either API.
+// page of either API. anonTagsPage is the most tags a page holds with no connection, since each
+// costs a request against GitHub's limit of 60 an hour without a token.
 const (
 	refsPageSize = 30
 	refsMaxPage  = 100
+	anonTagsPage = 10
 )
 
 // tagsQuery lists a repo's tags newest first by their commit's date. An annotated tag's target is
@@ -43,12 +45,16 @@ const tagsQuery = `query($owner: String!, $name: String!, $first: Int!, $after: 
 
 // ListRefs lists the repo's tags, or a branch's commits, newest first.
 //
-// Tags come from one GraphQL query per page, ordered by their commit's date. The REST tags API
-// lists names and commits with no dates, so it can't order them. GitHub orders by the commit's day
-// only, then by name, so the driver sorts each page by time. Two tags made the same day on either
-// side of a page break can still come out of order. GitHub's GraphQL API refuses a
-// request with no token, so listing tags without a connection returns ErrInvalidArgument. A tag
-// on something other than a commit, such as a tree, is left out.
+// With a connection, tags come from one GraphQL query per page, ordered by their commit's date.
+// GitHub orders by the commit's day only, then by name, so the driver sorts each page by time. Two
+// tags made the same day on either side of a page break can still come out of order. A tag on
+// something other than a commit, such as a tree, is left out.
+//
+// GitHub's GraphQL API refuses a request with no token, so without a connection tags come from
+// the REST tags API, which GitHub orders by version, newest first (v1.10 before v1.9). It gives no
+// dates, so the driver reads each tag's commit too. Every request counts against GitHub's limit of
+// 60 an hour without a token, so a page holds at most 10 tags, and a refusal for the limit returns
+// ErrUnavailable saying a connection lifts it.
 //
 // Commits come from the REST commits API, following parents from the branch's head. An empty
 // Branch is the default branch. A missing branch returns ErrNotFound.
@@ -71,14 +77,22 @@ func (d *Driver) ListRefs(ctx context.Context, source string, req mounts.ListRef
 	return mounts.RefPage{}, fmt.Errorf("%w: GitHub lists tags or commits, not %q", mounts.ErrInvalidArgument, req.Kind)
 }
 
+// pageNumber reads a REST page token, which is the page's number. Empty is the first page.
+func pageNumber(token string) (int, error) {
+	if token == "" {
+		return 1, nil
+	}
+	n, err := strconv.Atoi(token)
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("%w: page token %q", mounts.ErrInvalidArgument, token)
+	}
+	return n, nil
+}
+
 func (d *Driver) listCommits(ctx context.Context, rp, branch string, size int, token string, ts oauth2.TokenSource) (mounts.RefPage, error) {
-	page := 1
-	if token != "" {
-		n, err := strconv.Atoi(token)
-		if err != nil || n < 1 {
-			return mounts.RefPage{}, fmt.Errorf("%w: page token %q", mounts.ErrInvalidArgument, token)
-		}
-		page = n
+	page, err := pageNumber(token)
+	if err != nil {
+		return mounts.RefPage{}, err
 	}
 	q := url.Values{"per_page": {strconv.Itoa(size)}, "page": {strconv.Itoa(page)}}
 	if branch != "" {
@@ -137,7 +151,7 @@ type gqlCommit struct {
 
 func (d *Driver) listTags(ctx context.Context, rp string, size int, token string, ts oauth2.TokenSource) (mounts.RefPage, error) {
 	if ts == nil {
-		return mounts.RefPage{}, fmt.Errorf("%w: listing GitHub tags needs a connection, since GitHub's GraphQL API refuses a request with no token", mounts.ErrInvalidArgument)
+		return d.listTagsREST(ctx, rp, min(size, anonTagsPage), token)
 	}
 	owner, name, _ := strings.Cut(strings.TrimPrefix(rp, "/repos/"), "/")
 	vars := map[string]any{"owner": owner, "name": name, "first": size}
@@ -236,3 +250,66 @@ var (
 	_ mounts.RefLister     = (*Driver)(nil)
 	_ mounts.SourceMatcher = (*Driver)(nil)
 )
+
+// listTagsREST lists a page of tags with no token: the REST tags API for names and commits, then
+// one commits request per tag for its date and message.
+func (d *Driver) listTagsREST(ctx context.Context, rp string, size int, token string) (mounts.RefPage, error) {
+	page, err := pageNumber(token)
+	if err != nil {
+		return mounts.RefPage{}, err
+	}
+	var tags []struct {
+		Name   string `json:"name"`
+		Commit struct {
+			SHA string `json:"sha"`
+		} `json:"commit"`
+	}
+	link, err := d.anonGet(ctx, rp+"/tags", url.Values{"per_page": {strconv.Itoa(size)}, "page": {strconv.Itoa(page)}}, &tags)
+	if err != nil {
+		return mounts.RefPage{}, err
+	}
+	var out mounts.RefPage
+	for _, t := range tags {
+		if !commitSHA.MatchString(t.Commit.SHA) {
+			return mounts.RefPage{}, fmt.Errorf("%w: GitHub listed tag %q at %q", mounts.ErrUnavailable, t.Name, t.Commit.SHA)
+		}
+		var c struct {
+			Commit struct {
+				Message   string `json:"message"`
+				Committer struct {
+					Date time.Time `json:"date"`
+				} `json:"committer"`
+			} `json:"commit"`
+		}
+		if _, err := d.anonGet(ctx, rp+"/commits/"+t.Commit.SHA, nil, &c); err != nil {
+			return mounts.RefPage{}, err
+		}
+		headline, _, _ := strings.Cut(c.Commit.Message, "\n")
+		out.Refs = append(out.Refs, mounts.Ref{Name: t.Name, Kind: mounts.RefTag, Version: t.Commit.SHA, Time: c.Commit.Committer.Date, Message: headline})
+	}
+	if hasNext(link) {
+		out.NextPageToken = strconv.Itoa(page + 1)
+	}
+	return out, nil
+}
+
+// anonGet sends a GET with no token and decodes the answer into out. It returns the Link header.
+// A refusal for GitHub's limit on requests with no token says that a connection lifts it.
+func (d *Driver) anonGet(ctx context.Context, p string, q url.Values, out any) (string, error) {
+	resp, err := d.send(ctx, nil, http.MethodGet, p, q, nil)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if err := status(resp, false); err != nil {
+		limited := resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests
+		if limited && resp.Header.Get("X-RateLimit-Remaining") == "0" {
+			return "", fmt.Errorf("%w; a connection lifts GitHub's limit of 60 requests an hour without a token", err)
+		}
+		return "", err
+	}
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return "", fmt.Errorf("%w: decoding %s: %v", mounts.ErrUnavailable, p, err)
+	}
+	return resp.Header.Get("Link"), nil
+}
