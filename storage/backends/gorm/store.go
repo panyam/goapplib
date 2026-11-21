@@ -29,6 +29,7 @@ type mountRow struct {
 	Version    string    `gorm:"column:version"`
 	Mode       string    `gorm:"column:mode;size:16"`
 	Connection string    `gorm:"column:connection;size:64"`
+	ConnOwner  string    `gorm:"column:connection_owner;size:256"`
 	Manifest   string    `gorm:"column:manifest;size:80"`
 	Created    time.Time `gorm:"column:created"`
 }
@@ -44,12 +45,12 @@ type generationRow struct {
 func (generationRow) TableName() string { return "goapplib_mount_generation" }
 
 func toMountRow(m mounts.Mount) mountRow {
-	return mountRow{m.Name, string(m.Kind), m.Source, m.Ref, m.Version, string(m.Mode), m.Connection, m.Manifest, m.Created.UTC()}
+	return mountRow{m.Name, string(m.Kind), m.Source, m.Ref, m.Version, string(m.Mode), m.Connection, m.ConnectionOwner, m.Manifest, m.Created.UTC()}
 }
 
 func (r mountRow) mount() mounts.Mount {
 	return mounts.Mount{Name: r.Name, Kind: mounts.Kind(r.Kind), Source: r.Source, Ref: r.Ref, Version: r.Version,
-		Mode: mounts.Mode(r.Mode), Connection: r.Connection, Manifest: r.Manifest, Created: r.Created.UTC()}
+		Mode: mounts.Mode(r.Mode), Connection: r.Connection, ConnectionOwner: r.ConnOwner, Manifest: r.Manifest, Created: r.Created.UTC()}
 }
 
 // MountStore is a mounts.RecordStore over a GORM database. Several servers can share one
@@ -141,13 +142,13 @@ func (s *MountStore) Generation(ctx context.Context) (string, error) {
 	return strconv.FormatInt(g.Counter, 10), nil
 }
 
-// connectionRow is a connection record's table row. It holds secret references, never secrets,
-// since PutConnection validates first.
+// connectionRow is a connection record's table row, keyed by owner and ID. It holds secret
+// references, never secrets, since PutConnection validates first.
 type connectionRow struct {
+	Owner          string    `gorm:"column:owner;primaryKey;size:256"`
 	ID             string    `gorm:"column:id;primaryKey;size:64"`
 	Kind           string    `gorm:"column:kind;size:32"`
 	Scope          string    `gorm:"column:scope;size:16"`
-	Owner          string    `gorm:"column:owner;size:256;index"`
 	Name           string    `gorm:"column:name"`
 	BaseURL        string    `gorm:"column:base_url"`
 	AppID          string    `gorm:"column:app_id;size:64"`
@@ -161,10 +162,25 @@ type connectionRow struct {
 	LastUsed       time.Time `gorm:"column:last_used"`
 }
 
-func (connectionRow) TableName() string { return "goapplib_connections" }
+// ConnectionTable is the table connection records live in. GORM can't change a table's primary
+// key, so keying records by owner and ID took a new table. Before goapplib 0.7.23 they were in
+// OldConnectionTable, keyed by ID alone.
+const ConnectionTable = "goapplib_connections_v2"
+
+// OldConnectionTable is where connection records were before goapplib 0.7.23. NewConnectionStore
+// copies its rows into ConnectionTable once and leaves it in place, so an older server can still
+// read it during a rollout. Drop it by hand once every server runs 0.7.23 or later.
+const OldConnectionTable = "goapplib_connections"
+
+func (connectionRow) TableName() string { return ConnectionTable }
+
+// oldConnectionRow is a row of OldConnectionTable. Its columns match connectionRow's.
+type oldConnectionRow connectionRow
+
+func (oldConnectionRow) TableName() string { return OldConnectionTable }
 
 func toConnectionRow(c connections.Connection) connectionRow {
-	return connectionRow{c.ID, string(c.Kind), string(c.Scope), c.Owner, c.Name, c.BaseURL, c.AppID,
+	return connectionRow{c.Owner, c.ID, string(c.Kind), string(c.Scope), c.Name, c.BaseURL, c.AppID,
 		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC()}
 }
 
@@ -178,18 +194,40 @@ func (r connectionRow) connection() connections.Connection {
 // ConnectionStore is a connections.Store over a GORM database.
 type ConnectionStore struct{ db *gorm.DB }
 
-// NewConnectionStore migrates the goapplib_connections table in db and returns a store over it.
+// NewConnectionStore migrates ConnectionTable in db and returns a store over it. When
+// ConnectionTable is empty and OldConnectionTable exists, it copies the old table's rows in one
+// transaction first, so records saved before goapplib 0.7.23 read back as they were.
 func NewConnectionStore(db *gorm.DB) (*ConnectionStore, error) {
 	if err := db.AutoMigrate(&connectionRow{}); err != nil {
 		return nil, err
 	}
+	if db.Migrator().HasTable(OldConnectionTable) {
+		err := db.Transaction(func(tx *gorm.DB) error {
+			var n int64
+			if err := tx.Model(&connectionRow{}).Count(&n).Error; err != nil || n > 0 {
+				return err
+			}
+			var old []oldConnectionRow
+			if err := tx.Find(&old).Error; err != nil || len(old) == 0 {
+				return err
+			}
+			rows := make([]connectionRow, len(old))
+			for i, r := range old {
+				rows[i] = connectionRow(r)
+			}
+			return tx.CreateInBatches(rows, 100).Error
+		})
+		if err != nil {
+			return nil, fmt.Errorf("gormstore: copying %s into %s: %w", OldConnectionTable, ConnectionTable, err)
+		}
+	}
 	return &ConnectionStore{db: db}, nil
 }
 
-// GetConnection returns the record with that ID, or connections.ErrNotFound.
-func (s *ConnectionStore) GetConnection(ctx context.Context, id string) (connections.Connection, error) {
+// GetConnection returns owner's record with that ID, or connections.ErrNotFound.
+func (s *ConnectionStore) GetConnection(ctx context.Context, owner, id string) (connections.Connection, error) {
 	var r connectionRow
-	err := s.db.WithContext(ctx).Where("id = ?", id).Take(&r).Error
+	err := s.db.WithContext(ctx).Where("owner = ? AND id = ?", owner, id).Take(&r).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return connections.Connection{}, fmt.Errorf("%w: connection %q", connections.ErrNotFound, id)
 	}
@@ -213,8 +251,8 @@ func (s *ConnectionStore) ListConnections(ctx context.Context, owner string) ([]
 	return out, nil
 }
 
-// PutConnection validates c, then inserts it or replaces the row with c.ID. An invalid record
-// returns connections.ErrInvalid and writes nothing.
+// PutConnection validates c, then inserts it or replaces the row with c.Owner and c.ID. An invalid
+// record returns connections.ErrInvalid and writes nothing.
 func (s *ConnectionStore) PutConnection(ctx context.Context, c connections.Connection) error {
 	if err := c.Validate(); err != nil {
 		return err
@@ -223,9 +261,9 @@ func (s *ConnectionStore) PutConnection(ctx context.Context, c connections.Conne
 	return s.db.WithContext(ctx).Clauses(clause.OnConflict{UpdateAll: true}).Create(&row).Error
 }
 
-// DeleteConnection removes the row with that ID. Deleting a missing row is not an error.
-func (s *ConnectionStore) DeleteConnection(ctx context.Context, id string) error {
-	return s.db.WithContext(ctx).Where("id = ?", id).Delete(&connectionRow{}).Error
+// DeleteConnection removes owner's row with that ID. Deleting a missing row is not an error.
+func (s *ConnectionStore) DeleteConnection(ctx context.Context, owner, id string) error {
+	return s.db.WithContext(ctx).Where("owner = ? AND id = ?", owner, id).Delete(&connectionRow{}).Error
 }
 
 var (

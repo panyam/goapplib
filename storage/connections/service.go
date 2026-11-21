@@ -41,7 +41,8 @@ type Service struct {
 	check     ReadCheck
 	accessTTL time.Duration
 
-	mu      sync.Mutex
+	mu sync.Mutex
+	// entries is keyed by connKey, since two owners can each have a connection with one ID.
 	entries map[string]*entry
 	key     string
 	access  map[string]answer
@@ -93,12 +94,15 @@ func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
 }
 
-// TokenSource returns the token source for connection id. A mounts driver wraps it in an
-// oauth2.Transport. Its signature fits the mounts registry's WithCredentials option.
+// TokenSource returns the token source for owner's connection id. An empty owner names a server
+// connection. A mounts driver wraps the source in an oauth2.Transport. The signature fits the
+// mounts registry's WithCredentials option.
 //
-// A ScopePerson connection gives a source only when Viewer(ctx) is its Owner, and returns
-// ErrNotOwner otherwise, a request with no viewer included. A missing connection returns
-// ErrNotFound. A user connection without WithUserTokens returns ErrNotConfigured.
+// A person's connection gives a source only when Viewer(ctx) is owner. Otherwise TokenSource
+// returns ErrNotOwner without reading the store, so the error says nothing about whether owner
+// has a connection with that ID. A request with no viewer gets ErrNotOwner too. A missing
+// connection returns ErrNotFound. A user connection without WithUserTokens returns
+// ErrNotConfigured.
 //
 // The returned source's Token returns ErrReconnect, wrapping outbound.ErrReconnect, when a
 // person's token can't be refreshed, and sets the record's Status to StatusReconnect. Any other
@@ -106,13 +110,13 @@ func WithClock(now func() time.Time) Option {
 // token that works sets Status back to StatusOK.
 //
 // TokenSource also stamps the record's LastUsed, at most once per LastUsedEvery.
-func (s *Service) TokenSource(ctx context.Context, id string) (oauth2.TokenSource, error) {
-	c, err := s.store.GetConnection(ctx, id)
+func (s *Service) TokenSource(ctx context.Context, owner, id string) (oauth2.TokenSource, error) {
+	if owner != "" && Viewer(ctx) != owner {
+		return nil, fmt.Errorf("%w: %q", ErrNotOwner, id)
+	}
+	c, err := s.store.GetConnection(ctx, owner, id)
 	if err != nil {
 		return nil, err
-	}
-	if c.Scope == ScopePerson && Viewer(ctx) != c.Owner {
-		return nil, fmt.Errorf("%w: %q", ErrNotOwner, id)
 	}
 	e, err := s.entry(c)
 	if err != nil {
@@ -127,40 +131,40 @@ func (s *Service) TokenSource(ctx context.Context, id string) (oauth2.TokenSourc
 	if c.Status != StatusOK {
 		e.failed.Store(true)
 	}
-	return &statusSource{svc: s, id: id, e: e}, nil
+	return &statusSource{svc: s, owner: owner, id: id, e: e}, nil
 }
 
-// SaveUserToken keeps tok as the token of KindGitHubUser connection id, sealed, and sets the
-// record's status back to StatusOK. The app calls it from its OAuth callback after a person
-// connects, with the viewer set as for TokenSource. The token must come from the app's own OAuth
+// SaveUserToken keeps tok as the token of owner's KindGitHubUser connection id, sealed, and sets
+// the record's status back to StatusOK. The app calls it from its OAuth callback after a person
+// connects, with the viewer set to owner. Any other viewer gets ErrNotOwner. The token must come from the app's own OAuth
 // flow, since Disconnect revokes it through the app. A pasted token goes through SavePastedToken.
 // Once the token is saved, CanRead forgets the owner's kept answers, so a no from before the
 // person connected doesn't outlive the connection.
-func (s *Service) SaveUserToken(ctx context.Context, id string, tok *oauth2.Token) error {
-	return s.saveToken(ctx, id, tok, false)
+func (s *Service) SaveUserToken(ctx context.Context, owner, id string, tok *oauth2.Token) error {
+	return s.saveToken(ctx, owner, id, tok, false)
 }
 
-// SavePastedToken keeps tok as the token of KindGitHubUser connection id, as SaveUserToken does,
+// SavePastedToken keeps tok as the token of owner's KindGitHubUser connection id, as SaveUserToken does,
 // for a token the person pasted rather than one the app's OAuth flow issued. It sets the record's
 // Pasted, so Disconnect deletes the token without asking GitHub to revoke it. GitHub refuses that
 // revoke for a token the app didn't issue. A later SaveUserToken clears Pasted.
-func (s *Service) SavePastedToken(ctx context.Context, id string, tok *oauth2.Token) error {
-	return s.saveToken(ctx, id, tok, true)
+func (s *Service) SavePastedToken(ctx context.Context, owner, id string, tok *oauth2.Token) error {
+	return s.saveToken(ctx, owner, id, tok, true)
 }
 
 // saveToken writes the sealed token and the record's Pasted in an order that leaves the record
 // saying the app issued the token when the second write fails. Disconnect then tries the revoke
 // and returns its error, rather than skip the revoke of a live app token.
-func (s *Service) saveToken(ctx context.Context, id string, tok *oauth2.Token, pasted bool) error {
-	c, err := s.store.GetConnection(ctx, id)
+func (s *Service) saveToken(ctx context.Context, owner, id string, tok *oauth2.Token, pasted bool) error {
+	if owner == "" || Viewer(ctx) != owner {
+		return fmt.Errorf("%w: %q", ErrNotOwner, id)
+	}
+	c, err := s.store.GetConnection(ctx, owner, id)
 	if err != nil {
 		return err
 	}
 	if c.Kind != KindGitHubUser {
 		return fmt.Errorf("%w: %q is a %s connection, which has no stored user token", ErrInvalid, id, c.Kind)
-	}
-	if Viewer(ctx) != c.Owner {
-		return fmt.Errorf("%w: %q", ErrNotOwner, id)
 	}
 	e, err := s.entry(c)
 	if err != nil {
@@ -183,15 +187,16 @@ func (s *Service) saveToken(ctx context.Context, id string, tok *oauth2.Token, p
 	return nil
 }
 
-// Disconnect removes connection id. For a KindGitHubUser connection it first revokes the token at
+// Disconnect removes owner's connection id, where an empty owner names a server connection. It
+// doesn't check the viewer, so the app decides who may disconnect what. For a KindGitHubUser connection it first revokes the token at
 // GitHub and deletes it from the user-token store, through oneauth's UserTokens.Revoke. When the
 // revoke fails it returns the error and keeps both the token and the record, so the app can
 // retry. When the record's Pasted is set, it deletes the token with no call to GitHub, since the
 // app didn't issue it and can't revoke it. Other kinds have nothing to revoke here: an App
 // installation is removed on GitHub, and a fixed token by whoever issued it. A missing connection
 // is not an error. Once the record is gone, CanRead forgets the owner's kept answers.
-func (s *Service) Disconnect(ctx context.Context, id string) error {
-	c, err := s.store.GetConnection(ctx, id)
+func (s *Service) Disconnect(ctx context.Context, owner, id string) error {
+	c, err := s.store.GetConnection(ctx, owner, id)
 	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
@@ -212,9 +217,9 @@ func (s *Service) Disconnect(ctx context.Context, id string) error {
 		}
 	}
 	s.mu.Lock()
-	delete(s.entries, id)
+	delete(s.entries, connKey(owner, id))
 	s.mu.Unlock()
-	if err := s.store.DeleteConnection(ctx, id); err != nil {
+	if err := s.store.DeleteConnection(ctx, owner, id); err != nil {
 		return err
 	}
 	s.ForgetAccess(c.Owner)
@@ -226,7 +231,7 @@ func (s *Service) Disconnect(ctx context.Context, id string) error {
 func (s *Service) entry(c Connection) (*entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if e, ok := s.entries[c.ID]; ok && sameSignIn(e.conn, c) {
+	if e, ok := s.entries[connKey(c.Owner, c.ID)]; ok && sameSignIn(e.conn, c) {
 		return e, nil
 	}
 	e := &entry{conn: c}
@@ -271,8 +276,13 @@ func (s *Service) entry(c Connection) (*entry, error) {
 	default:
 		return nil, fmt.Errorf("%w: unknown kind %q", ErrInvalid, c.Kind)
 	}
-	s.entries[c.ID] = e
+	s.entries[connKey(c.Owner, c.ID)] = e
 	return e, nil
+}
+
+// connKey is a connection's key in maps: its owner and ID, which can't contain a NUL.
+func connKey(owner, id string) string {
+	return owner + "\x00" + id
 }
 
 // masterKey resolves the master key's reference once. Callers hold s.mu.
@@ -303,9 +313,9 @@ func sameSignIn(a, b Connection) bool {
 // Status and LastError. The next success after one sets Status back to StatusOK. A failed record
 // write doesn't fail the token request.
 type statusSource struct {
-	svc *Service
-	id  string
-	e   *entry
+	svc       *Service
+	owner, id string
+	e         *entry
 }
 
 func (t *statusSource) Token() (*oauth2.Token, error) {
@@ -322,7 +332,7 @@ func (t *statusSource) Token() (*oauth2.Token, error) {
 		return tok, nil
 	}
 	ctx := context.Background()
-	if c, gerr := t.svc.store.GetConnection(ctx, t.id); gerr == nil && (c.Status != status || c.LastError != msg) {
+	if c, gerr := t.svc.store.GetConnection(ctx, t.owner, t.id); gerr == nil && (c.Status != status || c.LastError != msg) {
 		c.Status, c.LastError = status, msg
 		_ = t.svc.store.PutConnection(ctx, c)
 	}

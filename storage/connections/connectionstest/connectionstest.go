@@ -38,6 +38,10 @@ func RunAll(t *testing.T, factory Factory) {
 		{"PutValidates", testPutValidates},
 		{"ListByOwner", testListByOwner},
 		{"DeleteIsIdempotent", testDeleteIsIdempotent},
+		{"OwnersShareAnID", testOwnersShareAnID},
+		{"ServerAndPersonShareAnID", testServerAndPersonShareAnID},
+		{"WrongOwnerIsNotFound", testWrongOwnerIsNotFound},
+		{"DeleteLeavesOtherOwners", testDeleteLeavesOtherOwners},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) { tc.run(t, factory(t)) })
@@ -63,7 +67,7 @@ func Person(id, owner string) connections.Connection {
 }
 
 func testGetMissing(t *testing.T, s connections.Store) {
-	if _, err := s.GetConnection(context.Background(), "nope"); !errors.Is(err, connections.ErrNotFound) {
+	if _, err := s.GetConnection(context.Background(), "", "nope"); !errors.Is(err, connections.ErrNotFound) {
 		t.Fatalf("GetConnection(missing) = %v, want ErrNotFound", err)
 	}
 }
@@ -80,7 +84,7 @@ func testPutThenGet(t *testing.T, s connections.Store) {
 	if err := s.PutConnection(ctx, want); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.GetConnection(ctx, "acme")
+	got, err := s.GetConnection(ctx, "", "acme")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +104,7 @@ func testPastedRoundTrips(t *testing.T, s connections.Store) {
 	if err := s.PutConnection(ctx, c); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.GetConnection(ctx, "bob-gh")
+	got, err := s.GetConnection(ctx, "bob", "bob-gh")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +115,7 @@ func testPastedRoundTrips(t *testing.T, s connections.Store) {
 	if err := s.PutConnection(ctx, c); err != nil {
 		t.Fatal(err)
 	}
-	if got, err = s.GetConnection(ctx, "bob-gh"); err != nil || got.Pasted {
+	if got, err = s.GetConnection(ctx, "bob", "bob-gh"); err != nil || got.Pasted {
 		t.Errorf("after clearing, Pasted = %v (err %v), want false", got.Pasted, err)
 	}
 }
@@ -126,7 +130,7 @@ func testPutReplaces(t *testing.T, s connections.Store) {
 	if err := s.PutConnection(ctx, c); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.GetConnection(ctx, "ci")
+	got, err := s.GetConnection(ctx, "", "ci")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +146,7 @@ func testPutValidates(t *testing.T, s connections.Store) {
 	if err := s.PutConnection(ctx, c); !errors.Is(err, connections.ErrInvalid) {
 		t.Fatalf("PutConnection(raw token) = %v, want ErrInvalid", err)
 	}
-	if _, err := s.GetConnection(ctx, "ci"); !errors.Is(err, connections.ErrNotFound) {
+	if _, err := s.GetConnection(ctx, "", "ci"); !errors.Is(err, connections.ErrNotFound) {
 		t.Errorf("an invalid record was stored: GetConnection = %v", err)
 	}
 }
@@ -190,11 +194,87 @@ func testDeleteIsIdempotent(t *testing.T, s connections.Store) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 2; i++ {
-		if err := s.DeleteConnection(ctx, "ci"); err != nil {
+		if err := s.DeleteConnection(ctx, "", "ci"); err != nil {
 			t.Fatalf("DeleteConnection #%d = %v", i+1, err)
 		}
 	}
-	if _, err := s.GetConnection(ctx, "ci"); !errors.Is(err, connections.ErrNotFound) {
+	if _, err := s.GetConnection(ctx, "", "ci"); !errors.Is(err, connections.ErrNotFound) {
 		t.Errorf("after delete, GetConnection = %v, want ErrNotFound", err)
+	}
+}
+
+func put(t *testing.T, s connections.Store, cs ...connections.Connection) {
+	t.Helper()
+	for _, c := range cs {
+		if err := s.PutConnection(context.Background(), c); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func testOwnersShareAnID(t *testing.T, s connections.Store) {
+	ctx := context.Background()
+	put(t, s, Person("gh", "alice"), Person("gh", "bob"))
+	for _, owner := range []string{"alice", "bob"} {
+		got, err := s.GetConnection(ctx, owner, "gh")
+		if err != nil {
+			t.Fatalf("GetConnection(%s, gh) = %v", owner, err)
+		}
+		if got.Owner != owner || got.Name != owner+"'s GitHub" {
+			t.Errorf("GetConnection(%s, gh) = %+v, want %s's own", owner, got, owner)
+		}
+		list, err := s.ListConnections(ctx, owner)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(list) != 1 || list[0].Owner != owner {
+			t.Errorf("ListConnections(%s) = %+v, want only %s's gh", owner, list, owner)
+		}
+	}
+}
+
+func testServerAndPersonShareAnID(t *testing.T, s connections.Store) {
+	ctx := context.Background()
+	put(t, s, Server("ci"), Person("ci", "alice"))
+	srv, err := s.GetConnection(ctx, "", "ci")
+	if err != nil || srv.Scope != connections.ScopeServer {
+		t.Errorf("GetConnection(\"\", ci) = %+v, %v; want the server's", srv, err)
+	}
+	mine, err := s.GetConnection(ctx, "alice", "ci")
+	if err != nil || mine.Owner != "alice" {
+		t.Errorf("GetConnection(alice, ci) = %+v, %v; want alice's", mine, err)
+	}
+	list, err := s.ListConnections(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Scope != connections.ScopeServer {
+		t.Errorf("ListConnections(\"\") = %+v, want only the server's ci", list)
+	}
+}
+
+func testWrongOwnerIsNotFound(t *testing.T, s connections.Store) {
+	ctx := context.Background()
+	put(t, s, Person("alice-gh", "alice"), Server("ci"))
+	for _, k := range [][2]string{{"bob", "alice-gh"}, {"", "alice-gh"}, {"alice", "ci"}} {
+		if _, err := s.GetConnection(ctx, k[0], k[1]); !errors.Is(err, connections.ErrNotFound) {
+			t.Errorf("GetConnection(%q, %q) = %v, want ErrNotFound", k[0], k[1], err)
+		}
+	}
+}
+
+func testDeleteLeavesOtherOwners(t *testing.T, s connections.Store) {
+	ctx := context.Background()
+	put(t, s, Person("gh", "alice"), Person("gh", "bob"), Server("gh"))
+	if err := s.DeleteConnection(ctx, "bob", "gh"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetConnection(ctx, "bob", "gh"); !errors.Is(err, connections.ErrNotFound) {
+		t.Errorf("bob's gh after delete: %v, want ErrNotFound", err)
+	}
+	for _, owner := range []string{"alice", ""} {
+		if _, err := s.GetConnection(ctx, owner, "gh"); err != nil {
+			t.Errorf("GetConnection(%q, gh) after deleting bob's = %v", owner, err)
+		}
 	}
 }

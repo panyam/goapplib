@@ -1,10 +1,13 @@
 package gormstore_test
 
 import (
+	"context"
+	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"github.com/panyam/goapplib/storage/backends/gorm"
+	gormstore "github.com/panyam/goapplib/storage/backends/gorm"
 	"github.com/panyam/goapplib/storage/connections"
 	"github.com/panyam/goapplib/storage/connections/connectionstest"
 	"github.com/panyam/goapplib/storage/mounts"
@@ -62,4 +65,60 @@ func TestConnectionStoreContract(t *testing.T) {
 		}
 		return s
 	})
+}
+
+// oldRow is a row of the connection table as goapplib 0.7.22 and before made it, keyed by ID.
+type oldRow struct {
+	ID       string    `gorm:"column:id;primaryKey;size:64"`
+	Kind     string    `gorm:"column:kind;size:32"`
+	Scope    string    `gorm:"column:scope;size:16"`
+	Owner    string    `gorm:"column:owner;size:256;index"`
+	Name     string    `gorm:"column:name"`
+	TokenRef string    `gorm:"column:token_ref"`
+	Status   string    `gorm:"column:status;size:16"`
+	Created  time.Time `gorm:"column:created"`
+}
+
+func (oldRow) TableName() string { return gormstore.OldConnectionTable }
+
+func TestRecordsFromTheOldTableCopyAcrossOnce(t *testing.T) {
+	db := open(t, filepath.Join(t.TempDir(), "old.db"))
+	if err := db.AutoMigrate(&oldRow{}); err != nil {
+		t.Fatal(err)
+	}
+	created := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	if err := db.Create([]oldRow{
+		{ID: "ci", Kind: "github-token", Scope: "server", Name: "CI", TokenRef: "env:CI", Status: "ok", Created: created},
+		{ID: "gh", Kind: "github-user", Scope: "person", Owner: "alice", Name: "old", Status: "ok", Created: created},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	s, err := gormstore.NewConnectionStore(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, err := s.GetConnection(ctx, "", "ci"); err != nil || c.TokenRef != "env:CI" || !c.Created.Equal(created) {
+		t.Errorf("the server's ci = %+v, %v", c, err)
+	}
+	if c, err := s.GetConnection(ctx, "alice", "gh"); err != nil || c.Name != "old" {
+		t.Errorf("alice's gh = %+v, %v", c, err)
+	}
+	// bob can now make his own gh, and opening the store again doesn't copy the old rows over it.
+	if err := s.PutConnection(ctx, connectionstest.Person("gh", "bob")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteConnection(ctx, "", "ci"); err != nil {
+		t.Fatal(err)
+	}
+	s2, err := gormstore.NewConnectionStore(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s2.GetConnection(ctx, "", "ci"); !errors.Is(err, connections.ErrNotFound) {
+		t.Errorf("the deleted ci came back on reopening: %v", err)
+	}
+	if _, err := s2.GetConnection(ctx, "bob", "gh"); err != nil {
+		t.Errorf("bob's gh after reopening: %v", err)
+	}
 }
