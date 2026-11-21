@@ -2,6 +2,8 @@ module github.com/panyam/goapplib
 
 go 1.26.9
 
+toolchain go1.27.4
+
 require (
 	cloud.google.com/go/datastore v1.21.0
 	connectrpc.com/connect v1.19.1
@@ -50,7 +52,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
