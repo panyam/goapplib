@@ -87,7 +87,7 @@ func (s *Service) CanRead(ctx context.Context, source string) (string, error) {
 	var failed error
 	found := ""
 	for _, c := range conns {
-		ts, err := s.TokenSource(ctx, c.ID)
+		ts, err := s.TokenSource(ctx, viewer, c.ID)
 		if err == nil {
 			var yes bool
 			if yes, err = s.check(ctx, c.BaseURL, source, ts); err == nil && yes {

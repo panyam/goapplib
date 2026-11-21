@@ -155,7 +155,7 @@ func TestTheRegistryReadsAPrivateRepoAtAVersionThroughItsConnection(t *testing.T
 		t.Fatal(err)
 	}
 	drv := github.New(e.blobs, github.WithBaseURL(e.gh.URL), github.WithRawURL(e.gh.RawURL()))
-	reg := mounts.NewRegistry(store, []mounts.Driver{drv}, mounts.WithCredentials(func(_ context.Context, conn string) (oauth2.TokenSource, error) {
+	reg := mounts.NewRegistry(store, []mounts.Driver{drv}, mounts.WithCredentials(func(_ context.Context, _, conn string) (oauth2.TokenSource, error) {
 		return static("ghs_installation"), nil
 	}))
 	if _, err := reg.Create(e.ctx, mounts.Mount{Name: "board", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeLive, Connection: "acme-app"}); err != nil {

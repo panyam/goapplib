@@ -20,7 +20,7 @@ A mount is a named place an app's files live: a folder, a GitHub repo, and later
 
 ## The record and the two modes
 
-`Mount` keeps the name, the kind, the source, the ref it was asked for, the version that ref resolved to, the mode, the connection, and for a snapshot the hash of its manifest. The library owns those fields. An app keeps anything else in its own records, keyed by the mount's name.
+`Mount` keeps the name, the kind, the source, the ref it was asked for, the version that ref resolved to, the mode, the connection and its owner, and for a snapshot the hash of its manifest. `ConnectionOwner` is empty for a server connection. For a person's connection it names the person, and only they can open the mount, since only they get its token. The library owns those fields. An app keeps anything else in its own records, keyed by the mount's name.
 
 - **Snapshot.** The driver resolves the ref to a version when the mount is made, then serves the files at that version for as long as the mount exists. A GitHub snapshot downloads the commit's tarball into the blob store ([#154](https://github.com/panyam/goapplib/issues/154)). It then writes a manifest of paths and hashes, and keeps the manifest's hash in the record. After a restart, the manifest rebuilds the view. agni keeps its file list in the record today, and that list can run to 100,000 entries, past Datastore's 1 MB entity limit. So the list moves into a blob.
 - **Live.** Each open reads the source's latest version. A driver that implements `Writer` can change it. A GitHub write goes through the Contents API, and each `Put` or `Delete` is one commit. GitHub refuses a write whose file sha isn't the current one, and the driver returns `ErrConflict`, so two people saving the same notation can't silently overwrite each other.
@@ -99,11 +99,11 @@ reg := mounts.NewRegistry(store, []mounts.Driver{folder.New(), github},
 )
 ```
 
-- `Create` resolves the ref, calls `Prepare`, sets `Version` and `Created`, and writes the record. It refuses `KindFolder`, a mode the driver doesn't serve, and a name a fixed mount has.
+- `Create` resolves the ref, calls `Prepare`, sets `Version` and `Created`, and writes the record. It refuses `KindFolder`, a mode the driver doesn't serve, a name a fixed mount has, and a `ConnectionOwner` with no `Connection`.
 - `Delete` refuses a fixed mount with `ErrFixed`. It asks the app's `WithInUse` check whether records still point into the mount, and refuses with `ErrInUse` when they do. agni#1735 wanted this, and agni doesn't check it yet.
 - `Open`, `Stat`, `HostPath`, `Put` and `Remove` work on one file. A write to a snapshot mount returns `ErrReadOnly` before it reaches the driver, and one over `WithLimits`' `MaxBytes` returns `ErrTooLarge`.
 - `FS(ctx)` returns every mount as one `fs.FS` through goutils' `mountfs`, with each mount's driver opened when a path first reaches it. It keeps `ctx` for those opens, because a person's connection gives a token only to its owner. An app calls `FS` per request. A background job that needs a person's mount passes that person's context.
-- `WithCredentials` takes the [connections](../connections/) service's `TokenSource` method, so the registry asks for a mount's token without importing connections.
+- `WithCredentials` takes the [connections](../connections/) service's `TokenSource` method, so the registry asks for a mount's token without importing connections. It passes the mount's `ConnectionOwner` and `Connection`.
 - Before using its list, the registry compares the store's `Generation` with the last one it read, at most once a second (`WithRecheck` changes that). It lists again only when they differ. A registry sees its own creates and deletes at once. If the store fails after a good read, the registry keeps serving the last good list.
 - `ResolveAt`, `ListAt` and `FetchAt` call a `VersionReader` driver with the mount's token, so an app reads a private repo at any commit through the mount's connection. A driver that can't read versions returns `ErrInvalidArgument`.
 - `ListRefs` calls a `RefLister` driver the same way.

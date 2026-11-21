@@ -39,7 +39,7 @@ func hookRegistry(t *testing.T, gh mounts.Driver) (*mounts.Registry, context.Con
 	}
 	reg := mounts.NewRegistry(store, []mounts.Driver{folder.New(), gh},
 		mounts.WithFixed(mounts.Mount{Name: "notes", Kind: mounts.KindFolder, Source: t.TempDir(), Mode: mounts.ModeLive}),
-		mounts.WithCredentials(func(_ context.Context, conn string) (oauth2.TokenSource, error) {
+		mounts.WithCredentials(func(_ context.Context, _, conn string) (oauth2.TokenSource, error) {
 			return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "tok-" + conn}), nil
 		}))
 	ctx := context.Background()

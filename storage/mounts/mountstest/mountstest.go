@@ -25,15 +25,16 @@ type SharedFactory func(t *testing.T) (a, b mounts.RecordStore)
 // Sample returns a record with every field set, so a round trip checks that none is dropped.
 func Sample(name string) mounts.Mount {
 	return mounts.Mount{
-		Name:       name,
-		Kind:       mounts.KindGitHub,
-		Source:     "github://acme/" + name,
-		Ref:        "main",
-		Version:    "0123456789abcdef0123456789abcdef01234567",
-		Mode:       mounts.ModeSnapshot,
-		Connection: "acme-app",
-		Manifest:   "sha256:" + fmt.Sprintf("%064x", len(name)),
-		Created:    time.Date(2026, 11, 18, 9, 30, 0, 0, time.UTC),
+		Name:            name,
+		Kind:            mounts.KindGitHub,
+		Source:          "github://acme/" + name,
+		Ref:             "main",
+		Version:         "0123456789abcdef0123456789abcdef01234567",
+		Mode:            mounts.ModeSnapshot,
+		Connection:      "acme-app",
+		ConnectionOwner: "alice",
+		Manifest:        "sha256:" + fmt.Sprintf("%064x", len(name)),
+		Created:         time.Date(2026, 11, 18, 9, 30, 0, 0, time.UTC),
 	}
 }
 

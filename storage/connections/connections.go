@@ -62,14 +62,16 @@ const (
 // Connection is the record of one sign-in. Which fields apply depends on Kind, and Validate
 // checks them.
 type Connection struct {
-	// ID names the connection in mount records. It follows the mount name rule.
+	// ID names the connection in mount records, beside Owner. It follows the mount name rule.
+	// IDs are unique per owner, so two people can each keep a connection named "gh", and a server
+	// connection can share an ID with a person's.
 	ID string
 
 	Kind  Kind
 	Scope Scope
 
 	// Owner is the subject of the person a ScopePerson connection belongs to, as the app's
-	// auth knows them. It is empty for ScopeServer.
+	// auth knows them. It is empty for ScopeServer. A connection's key is Owner and ID together.
 	Owner string
 
 	// Name is what a settings page shows, such as "acme org (App)".
@@ -112,22 +114,25 @@ func UserTokenProvider(connectionID string) string {
 	return "goapplib-connection:" + connectionID
 }
 
-// Store keeps connection records. Several processes may share one.
+// Store keeps connection records, keyed by owner and ID. An empty owner names a ScopeServer
+// connection. Several processes may share one store.
 type Store interface {
-	// GetConnection returns the record with that ID, or ErrNotFound.
-	GetConnection(ctx context.Context, id string) (Connection, error)
+	// GetConnection returns owner's record with that ID, or ErrNotFound. Another owner's record
+	// with the same ID is also ErrNotFound.
+	GetConnection(ctx context.Context, owner, id string) (Connection, error)
 
 	// ListConnections returns the connections owned by owner, in ID order. An empty owner lists
 	// the ScopeServer ones.
 	ListConnections(ctx context.Context, owner string) ([]Connection, error)
 
-	// PutConnection creates c, or replaces the record with c.ID. It calls Validate first.
+	// PutConnection creates c, or replaces the record with c.Owner and c.ID. It calls Validate
+	// first.
 	PutConnection(ctx context.Context, c Connection) error
 
-	// DeleteConnection removes the record with that ID. Deleting a missing record is not an
-	// error. Revoking a person's token and deleting it from the user-token store is the
-	// caller's job, before this.
-	DeleteConnection(ctx context.Context, id string) error
+	// DeleteConnection removes owner's record with that ID. Deleting a missing record is not an
+	// error. Revoking a person's token and deleting it from the user-token store is the caller's
+	// job, before this.
+	DeleteConnection(ctx context.Context, owner, id string) error
 }
 
 type viewerKey struct{}

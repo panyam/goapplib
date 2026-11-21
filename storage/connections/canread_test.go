@@ -181,7 +181,7 @@ func newUserAccess(t *testing.T) *access {
 }
 
 func TestCanReadForgetsANoWhenTheViewerSavesAToken(t *testing.T) {
-	for name, save := range map[string]func(*connections.Service, context.Context, string, *oauth2.Token) error{
+	for name, save := range map[string]func(*connections.Service, context.Context, string, string, *oauth2.Token) error{
 		"SaveUserToken":   (*connections.Service).SaveUserToken,
 		"SavePastedToken": (*connections.Service).SavePastedToken,
 	} {
@@ -197,7 +197,7 @@ func TestCanReadForgetsANoWhenTheViewerSavesAToken(t *testing.T) {
 				t.Fatal(err)
 			}
 			tok := &oauth2.Token{AccessToken: "ghu_alice", Expiry: time.Now().Add(time.Hour)}
-			if err := save(a.svc, a.as("alice"), "alice-gh", tok); err != nil {
+			if err := save(a.svc, a.as("alice"), "alice", "alice-gh", tok); err != nil {
 				t.Fatal(err)
 			}
 			if id, err := a.svc.CanRead(a.as("alice"), a.src); err != nil || id != "alice-gh" {
@@ -213,7 +213,7 @@ func TestCanReadForgetsAYesWhenTheViewerDisconnects(t *testing.T) {
 	if id, err := a.svc.CanRead(a.as("alice"), a.src); err != nil || id != "alice-gh" {
 		t.Fatalf("CanRead = %q, %v; want alice-gh", id, err)
 	}
-	if err := a.svc.Disconnect(a.ctx, "alice-gh"); err != nil {
+	if err := a.svc.Disconnect(a.ctx, "alice", "alice-gh"); err != nil {
 		t.Fatal(err)
 	}
 	if id, err := a.svc.CanRead(a.as("alice"), a.src); !errors.Is(err, connections.ErrNoAccess) {

@@ -3,7 +3,7 @@ title: "Connections"
 description: "The design of the storage module's connections: server-held sign-ins to GitHub, as the server or for one person, built on oneauth's outbound token sources, with where a secret can and can't end up."
 ---
 
-Picture an agni server with three private repos mounted from one org. The org installed agni's GitHub App, so one installation covers all three repos, and the server signs in as that installation. Now an engineer mounts a repo of their own with a personal token, and a notation user connects their own GitHub account so notation can commit for them. Each of those is a connection: a sign-in the server holds for a third-party service. A mount names one by ID, and the driver reads through it.
+Picture an agni server with three private repos mounted from one org. The org installed agni's GitHub App, so one installation covers all three repos, and the server signs in as that installation. Now an engineer mounts a repo of their own with a personal token, and a notation user connects their own GitHub account so notation can commit for them. Each of those is a connection: a sign-in the server holds for a third-party service. A mount names one by its owner and ID, and the driver reads through it.
 
 This page is the design for [#153](https://github.com/panyam/goapplib/issues/153). The `storage/connections` package holds the record, its validation and the store interface, rendered at the bottom of the page from the source. So does `Service`, which builds each connection's token source, and a folder `Store` in `storage/connections/fsstore`. The tokens themselves come from oneauth's `outbound` package, from v0.3.6 ([oneauth#467](https://github.com/panyam/oneauth/issues/467)). This module keeps what oneauth leaves out on purpose: the record, its scope, which mounts use it, and which token source it builds. [Mounts](../mounts/) covers the other side.
 
@@ -16,7 +16,7 @@ This page is the design for [#153](https://github.com/panyam/goapplib/issues/153
 | `github-user` | person | the person's own OAuth token, sealed and refreshed | `outbound.UserTokens` | notation |
 
 - **Server scope.** Anyone the app lets read a mount reads it through the connection. So the app's own sharing decides who sees what. agni#1728 calls this out for links made through the server's identity.
-- **Person scope.** The connection gives a token only to a request whose viewer is its `Owner`. The app sets the viewer with `WithViewer` from its own auth, and a request with no viewer, or a different one, gets `ErrNotOwner`. So GitHub decides what that person can read.
+- **Person scope.** The connection gives a token only to a request whose viewer is its `Owner`. The app sets the viewer with `WithViewer` from its own auth, and a request with no viewer, or a different one, gets `ErrNotOwner`. The service refuses before it reads the store, so the error says nothing about whether the owner has a connection with that ID. GitHub then decides what that person can read.
 
 Later kinds are the server's own cloud identity for S3 and GCS (agni#1730), and Entra for SharePoint (agni#1729). They add a `Kind` and a token source, and the record shape holds them.
 
@@ -24,9 +24,17 @@ Later kinds are the server's own cloud identity for S3 and GCS (agni#1730), and 
 
 `Connection` keeps the ID, kind, scope and owner, a display name, the API base URL, and the fields for its kind. It also keeps a `Status` and `LastError`, so a settings page can show "connect again" without opening a token. `Validate` checks that the fields fit the kind and scope. It refuses an App installation with a person scope, and a user connection that carries a secret reference.
 
+A connection's key is its owner and ID. A server connection's owner is empty. Say alice keeps a connection named `gh`. bob can still make his own `gh`, and the server can have a `gh` of its own, and they are three records. Every call that names a connection takes the owner beside the ID: `GetConnection(ctx, owner, id)`, `TokenSource(ctx, owner, id)`, `Disconnect(ctx, owner, id)`, and a mount's `ConnectionOwner` beside its `Connection` (#197). The service never works out an owner from the viewer, so a call means the same record whoever makes it.
+
 `Store` gets, lists, puts and deletes records. `ListConnections(owner)` gives a person's connections for a settings page, and the server's with an empty owner. `CanRead`, below, uses the same list to answer whether a viewer can read a source.
 
-`storage/connections/fsstore` keeps one YAML file per connection, written through a temp file and a rename. Several processes can share its folder. `PutConnection` runs `Validate`, so an invalid record never reaches disk. `storage/connections/connectionstest` is the contract suite every `Store` backend runs. For several servers without a shared folder, `gormstore.NewConnectionStore(db)` keeps connections in a `goapplib_connections` table, and `gaestore.NewConnectionStore(client, namespace)` keeps them as `GoapplibConnection` entities. Each is in its own module, `storage/backends/gorm` or `storage/backends/gae`, and each runs `connectionstest`. Both index the owner, for `ListConnections`.
+`storage/connections/fsstore` keeps one YAML file per connection, written through a temp file and a rename. A server connection is `<id>.yaml`, and a person's is `people/<owner>/<id>.yaml`, with the owner's subject base64url-encoded so no subject can name a path. Several processes can share its folder. `PutConnection` runs `Validate`, so an invalid record never reaches disk. `storage/connections/connectionstest` is the contract suite every `Store` backend runs. For several servers without a shared folder, `gormstore.NewConnectionStore(db)` keeps connections in a `goapplib_connections_v2` table keyed on owner and ID, and `gaestore.NewConnectionStore(client, namespace)` keeps them as `GoapplibConnection` entities, a person's under a `GoapplibConnectionOwner` parent key. Each is in its own module, `storage/backends/gorm` or `storage/backends/gae`, and each runs `connectionstest`.
+
+Before v0.7.23 the key was the ID alone, and each store reads what it wrote then:
+
+- **Folder.** A person's `<id>.yaml` at the top still reads back as its owner's. The next write to that ID moves it under `people/`, so a server connection with the same ID can't overwrite it.
+- **GORM.** GORM can't change a table's primary key, so the records moved to a new table. `NewConnectionStore` copies the old `goapplib_connections` table into the new one, once, when the new one is empty. It leaves the old table for servers still on an older version, and you drop it by hand afterwards. The copy doesn't run again, so a record an older server writes to the old table after it isn't seen. Move every server to v0.7.23 before people add connections.
+- **Datastore.** A person's entity with no parent still reads back as its owner's, and the next write to that ID moves it under the parent in one transaction.
 
 ## Secrets
 
@@ -46,10 +54,10 @@ An app builds one `Service` over its store. `WithUserTokens` gives it oneauth's 
 ```go
 svc := connections.NewService(store,
 	connections.WithUserTokens(fs.NewFSUserTokenStore(dir), "env:CONNECTIONS_KEY", githubOAuth))
-ts, err := svc.TokenSource(connections.WithViewer(ctx, subject), "alice-gh")
+ts, err := svc.TokenSource(connections.WithViewer(ctx, subject), subject, "alice-gh")
 ```
 
-`TokenSource` has the signature the mounts registry's `WithCredentials` takes. For each kind:
+`TokenSource` has the signature the mounts registry's `WithCredentials` takes, which passes a mount's `ConnectionOwner` and `Connection`. For each kind:
 
 - `github-app`: one `outbound.GitHubAppInstallation` per connection, built on first use and kept. Every mount on the connection shares its cached token, which oneauth refreshes five minutes before it expires. Installation tokens live only in memory.
 - `github-token`: `outbound.NewStatic(TokenRef)`.

@@ -8,8 +8,10 @@ package gaestore
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -23,6 +25,8 @@ const (
 	mountKind      = "GoapplibMount"
 	generationKind = "GoapplibMountGeneration"
 	connectionKind = "GoapplibConnection"
+	// ownerKind is the parent key of a person's connections. It has no entities of its own.
+	ownerKind = "GoapplibConnectionOwner"
 )
 
 // maxAttempts is how often a contended transaction is tried before it fails. Every create and
@@ -39,6 +43,7 @@ type mountEntity struct {
 	Version    string    `datastore:"version,noindex"`
 	Mode       string    `datastore:"mode,noindex"`
 	Connection string    `datastore:"connection,noindex"`
+	ConnOwner  string    `datastore:"connection_owner,noindex"`
 	Manifest   string    `datastore:"manifest,noindex"`
 	Created    time.Time `datastore:"created,noindex"`
 }
@@ -48,12 +53,12 @@ type generationEntity struct {
 }
 
 func toMountEntity(m mounts.Mount) *mountEntity {
-	return &mountEntity{string(m.Kind), m.Source, m.Ref, m.Version, string(m.Mode), m.Connection, m.Manifest, m.Created.UTC()}
+	return &mountEntity{string(m.Kind), m.Source, m.Ref, m.Version, string(m.Mode), m.Connection, m.ConnectionOwner, m.Manifest, m.Created.UTC()}
 }
 
 func (e *mountEntity) mount(name string) mounts.Mount {
 	return mounts.Mount{Name: name, Kind: mounts.Kind(e.Kind), Source: e.Source, Ref: e.Ref, Version: e.Version,
-		Mode: mounts.Mode(e.Mode), Connection: e.Connection, Manifest: e.Manifest, Created: e.Created.UTC()}
+		Mode: mounts.Mode(e.Mode), Connection: e.Connection, ConnectionOwner: e.ConnOwner, Manifest: e.Manifest, Created: e.Created.UTC()}
 }
 
 // MountStore is a mounts.RecordStore over Datastore. Several servers can share one namespace: a
@@ -180,7 +185,10 @@ func (s *MountStore) Generation(ctx context.Context) (string, error) {
 	return strconv.FormatInt(g.Counter, 10), nil
 }
 
-// connectionEntity is a connection record. Its key's name is the connection's ID. It holds secret
+// connectionEntity is a connection record. Its key's name is the connection's ID. A server
+// connection's key has no parent, and a person's has an ownerKind parent named for the owner.
+// Before goapplib 0.7.23 a person's connection had no parent either; such an entity still reads
+// back as its owner's, and the next write to that ID moves it under the parent. It holds secret
 // references, never secrets, since PutConnection validates first. Only Owner is indexed, for
 // ListConnections.
 type connectionEntity struct {
@@ -224,24 +232,45 @@ func NewConnectionStore(client *datastore.Client, namespace string) *ConnectionS
 	return &ConnectionStore{client: client, namespace: namespace}
 }
 
-func (s *ConnectionStore) key(id string) *datastore.Key {
-	k := datastore.NameKey(connectionKind, id, nil)
+// key is owner's connection id. The owner's subject is base64url-encoded in the parent's name,
+// since Datastore refuses some names, such as ones of the form __x__.
+func (s *ConnectionStore) key(owner, id string) *datastore.Key {
+	var parent *datastore.Key
+	if owner != "" {
+		parent = datastore.NameKey(ownerKind, base64.RawURLEncoding.EncodeToString([]byte(owner)), nil)
+		parent.Namespace = s.namespace
+	}
+	k := datastore.NameKey(connectionKind, id, parent)
 	k.Namespace = s.namespace
 	return k
 }
 
-// GetConnection returns the record with that ID, or connections.ErrNotFound.
-func (s *ConnectionStore) GetConnection(ctx context.Context, id string) (connections.Connection, error) {
+// GetConnection returns owner's record with that ID, or connections.ErrNotFound. With no record
+// under the owner's parent, it falls back to an entity from before parents existed.
+func (s *ConnectionStore) GetConnection(ctx context.Context, owner, id string) (connections.Connection, error) {
 	if id == "" {
 		return connections.Connection{}, fmt.Errorf("%w: empty connection ID", connections.ErrNotFound)
 	}
+	notFound := fmt.Errorf("%w: connection %q", connections.ErrNotFound, id)
 	var e connectionEntity
-	err := s.client.Get(ctx, s.key(id), &e)
+	if owner != "" {
+		err := s.client.Get(ctx, s.key(owner, id), &e)
+		if err == nil {
+			return e.connection(id), nil
+		}
+		if !errors.Is(err, datastore.ErrNoSuchEntity) {
+			return connections.Connection{}, err
+		}
+	}
+	err := s.client.Get(ctx, s.key("", id), &e)
 	if errors.Is(err, datastore.ErrNoSuchEntity) {
-		return connections.Connection{}, fmt.Errorf("%w: connection %q", connections.ErrNotFound, id)
+		return connections.Connection{}, notFound
 	}
 	if err != nil {
 		return connections.Connection{}, err
+	}
+	if e.Owner != owner {
+		return connections.Connection{}, notFound
 	}
 	return e.connection(id), nil
 }
@@ -249,35 +278,86 @@ func (s *ConnectionStore) GetConnection(ctx context.Context, id string) (connect
 // ListConnections returns the connections owned by owner, in ID order. An empty owner lists the
 // server-scoped ones.
 func (s *ConnectionStore) ListConnections(ctx context.Context, owner string) ([]connections.Connection, error) {
-	q := datastore.NewQuery(connectionKind).Namespace(s.namespace).FilterField("owner", "=", owner).Order("__key__")
+	q := datastore.NewQuery(connectionKind).Namespace(s.namespace).FilterField("owner", "=", owner)
 	var es []*connectionEntity
 	keys, err := s.client.GetAll(ctx, q, &es)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]connections.Connection, len(es))
+	// An owner can have an old parentless entity and a new one under their parent for one ID while
+	// a move is in flight. The one under the parent is newer.
+	byID := map[string]connections.Connection{}
 	for i, e := range es {
-		out[i] = e.connection(keys[i].Name)
+		if _, seen := byID[keys[i].Name]; seen && keys[i].Parent == nil {
+			continue
+		}
+		byID[keys[i].Name] = e.connection(keys[i].Name)
 	}
+	out := make([]connections.Connection, 0, len(byID))
+	for _, c := range byID {
+		out = append(out, c)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
 }
 
-// PutConnection validates c, then writes it, replacing any record with c.ID. An invalid record
-// returns connections.ErrInvalid and writes nothing.
+// PutConnection validates c, then writes it, replacing owner's record with c.ID. An invalid record
+// returns connections.ErrInvalid and writes nothing. A person's entity from before parents existed
+// with the same ID moves under its owner's parent in the same transaction, so a server record can't
+// overwrite it.
 func (s *ConnectionStore) PutConnection(ctx context.Context, c connections.Connection) error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
-	_, err := s.client.Put(ctx, s.key(c.ID), toConnectionEntity(c))
+	_, err := s.client.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
+		if err := s.moveOld(tx, c.ID); err != nil {
+			return err
+		}
+		_, err := tx.Put(s.key(c.Owner, c.ID), toConnectionEntity(c))
+		return err
+	})
 	return err
 }
 
-// DeleteConnection removes the record with that ID. Deleting a missing record is not an error.
-func (s *ConnectionStore) DeleteConnection(ctx context.Context, id string) error {
+// moveOld moves a person's parentless entity id, from before parents existed, under its owner's
+// parent. When the owner already has a record there, that newer one wins and the old one goes.
+func (s *ConnectionStore) moveOld(tx *datastore.Transaction, id string) error {
+	var e connectionEntity
+	err := tx.Get(s.key("", id), &e)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if e.Owner == "" {
+		return nil
+	}
+	var mine connectionEntity
+	err = tx.Get(s.key(e.Owner, id), &mine)
+	if errors.Is(err, datastore.ErrNoSuchEntity) {
+		if _, err := tx.Put(s.key(e.Owner, id), &e); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	return tx.Delete(s.key("", id))
+}
+
+// DeleteConnection removes owner's record with that ID, including one from before parents existed.
+// Deleting a missing record is not an error.
+func (s *ConnectionStore) DeleteConnection(ctx context.Context, owner, id string) error {
 	if id == "" {
 		return nil
 	}
-	return s.client.Delete(ctx, s.key(id))
+	_, err := s.client.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
+		if err := s.moveOld(tx, id); err != nil {
+			return err
+		}
+		return tx.Delete(s.key(owner, id))
+	})
+	return err
 }
 
 var (
