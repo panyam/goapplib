@@ -19,6 +19,7 @@ Each of these directories has a CLAUDE.md with its own gotchas, loaded when a se
 - `make setup` sets up the git hooks. `make test` runs the Go tests, the wasmhost tests as wasm under Node (`make wasm-test`, needs `node`), and each TS package's tests.
 - `make go-test` runs the Go tests of the root and of every nested module (`scripts/go-modules.sh`). The pre-push hook runs it.
 - `make exercise-<name>` runs one browser exercise in headless Chromium; CI runs all of them on every PR.
+- `make vulncheck` scans the root and each published module with a pinned govulncheck. A weekly workflow runs it and files a P1 issue on a finding. Each go.mod keeps `go 1.26.9` as the floor for importers and builds on `toolchain go1.27.4`.
 - `~/.claude/skills/retriage/queue.sh` shows what's next.
 
 ## Versions and releases

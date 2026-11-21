@@ -2,6 +2,8 @@ module github.com/panyam/goapplib/storage
 
 go 1.26.9
 
+toolchain go1.27.4
+
 require (
 	github.com/panyam/goutils v0.1.14
 	github.com/panyam/oneauth v0.3.13

@@ -2,6 +2,8 @@ module github.com/panyam/goapplib/docsite
 
 go 1.26.9
 
+toolchain go1.27.4
+
 require github.com/panyam/s3gen v0.1.6
 
 require (
@@ -28,7 +30,7 @@ require (
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
