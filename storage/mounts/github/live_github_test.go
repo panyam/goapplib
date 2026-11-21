@@ -71,6 +71,16 @@ func TestLiveGitHub(t *testing.T) {
 	if err != nil || len(commits.Refs) != 1 || commits.Refs[0].Version != v || commits.Refs[0].Time.IsZero() || commits.NextPageToken != "2" {
 		t.Errorf("commits on the default branch = %+v, %v; want %s first, dated, and a next page", commits, err, v)
 	}
+	// With no token, tags come from the REST tags API, which orders goapplib's by version.
+	anon, err := d.ListRefs(ctx, "github://panyam/goapplib", mounts.ListRefsRequest{Kind: mounts.RefTag, PageSize: 3}, nil)
+	if err != nil || len(anon.Refs) != 3 || anon.NextPageToken != "2" {
+		t.Fatalf("goapplib tags with no token = %+v, %v; want three and a next page", anon, err)
+	}
+	for _, r := range anon.Refs {
+		if !strings.HasPrefix(r.Name, "v") || len(r.Version) != 40 || r.Time.IsZero() {
+			t.Errorf("tag with no token = %+v; want a v tag, its commit and a date", r)
+		}
+	}
 	tok := os.Getenv("STORAGE_LIVE_GITHUB_TOKEN")
 	if tok == "" {
 		t.Log("STORAGE_LIVE_GITHUB_TOKEN unset, so tags aren't listed")

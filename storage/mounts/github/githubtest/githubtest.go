@@ -1,6 +1,6 @@
 // Package githubtest is a fake GitHub for tests of code that reads and writes repos: the mounts
 // GitHub driver, the storage example app, and consumers' own tests. It serves the REST routes the
-// driver uses (a repo, a commit, a branch's commits, a tarball, and the Contents API) and the
+// driver uses (a repo, a commit, a branch's commits, the tags, a tarball, and the Contents API) and the
 // GraphQL tags query over repos held in memory, and each write makes a real commit on its branch.
 // It serves the hooks API too, and Push delivers a signed push to each hook made through it.
 // PushRequest and SignedRequest build signed webhook deliveries for an app's handler.
@@ -429,6 +429,8 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"full_name": r.Owner + "/" + r.Name, "private": r.Private, "default_branch": r.defaultBranch})
 	case len(parts) == 3 && parts[2] == "commits" && req.Method == http.MethodGet:
 		r.listCommits(w, req)
+	case len(parts) == 3 && parts[2] == "tags" && req.Method == http.MethodGet:
+		r.listTags(w, req)
 	case len(parts) == 4 && parts[2] == "commits" && req.Method == http.MethodGet:
 		r.getCommit(w, parts[3])
 	case len(parts) == 4 && parts[2] == "tarball" && req.Method == http.MethodGet:
@@ -604,7 +606,16 @@ func (r *Repo) getCommit(w http.ResponseWriter, ref string) {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"message": "No commit found for SHA: " + ref})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"sha": c.sha})
+	writeJSON(w, http.StatusOK, commitJSON(c))
+}
+
+// commitJSON is a commit as GitHub's commits API shows it, with the fields the driver reads.
+func commitJSON(c *commit) map[string]any {
+	return map[string]any{"sha": c.sha, "commit": map[string]any{
+		"message":   c.message,
+		"author":    map[string]any{"name": "githubtest", "date": c.date.Format(time.RFC3339)},
+		"committer": map[string]any{"name": "githubtest", "date": c.date.Format(time.RFC3339)},
+	}}
 }
 
 func (r *Repo) tarball(w http.ResponseWriter, ref string) {
@@ -808,13 +819,77 @@ func (r *Repo) listCommits(w http.ResponseWriter, req *http.Request) {
 	r.s.mu.Lock()
 	var all []map[string]any
 	for ; c != nil; c = r.commits[c.parent] {
-		all = append(all, map[string]any{"sha": c.sha, "commit": map[string]any{
-			"message":   c.message,
-			"author":    map[string]any{"name": "githubtest", "date": c.date.Format(time.RFC3339)},
-			"committer": map[string]any{"name": "githubtest", "date": c.date.Format(time.RFC3339)},
-		}})
+		all = append(all, commitJSON(c))
 	}
 	r.s.mu.Unlock()
+	r.writePage(w, req, all, page, per)
+}
+
+// listTags answers GET /repos/{o}/{r}/tags, with per_page, page and a Link header as GitHub pages.
+// It orders tags by version, newest first, as GitHub does, so v1.10 comes before v1.9. Each
+// tag's commit is the one it points at, annotated or not.
+func (r *Repo) listTags(w http.ResponseWriter, req *http.Request) {
+	q := req.URL.Query()
+	per, _ := strconv.Atoi(q.Get("per_page"))
+	if per <= 0 {
+		per = 30
+	}
+	page, _ := strconv.Atoi(q.Get("page"))
+	if page <= 0 {
+		page = 1
+	}
+	r.s.mu.Lock()
+	names := make([]string, 0, len(r.tags))
+	for name := range r.tags {
+		names = append(names, name)
+	}
+	sort.Slice(names, func(i, j int) bool { return versionLess(names[j], names[i]) })
+	all := make([]map[string]any, len(names))
+	for i, name := range names {
+		all[i] = map[string]any{"name": name, "commit": map[string]any{"sha": r.tags[name].sha}}
+	}
+	r.s.mu.Unlock()
+	r.writePage(w, req, all, page, per)
+}
+
+// versionLess compares two tag names by their runs of digits and non-digits, reading each run of
+// digits as a number, so v1.9 sorts before v1.10.
+func versionLess(a, b string) bool {
+	for a != "" && b != "" {
+		ra, rb := run(a), run(b)
+		a, b = a[len(ra):], b[len(rb):]
+		if ra == rb {
+			continue
+		}
+		if isDigit(ra[0]) && isDigit(rb[0]) {
+			na, nb := strings.TrimLeft(ra, "0"), strings.TrimLeft(rb, "0")
+			if len(na) != len(nb) {
+				return len(na) < len(nb)
+			}
+			if na != nb {
+				return na < nb
+			}
+			continue
+		}
+		return ra < rb
+	}
+	return len(a) < len(b)
+}
+
+// run returns s's first run of digits, or of other bytes.
+func run(s string) string {
+	i := 1
+	for i < len(s) && isDigit(s[i]) == isDigit(s[0]) {
+		i++
+	}
+	return s[:i]
+}
+
+func isDigit(c byte) bool { return '0' <= c && c <= '9' }
+
+// writePage writes page page of all, per to a page, with a Link header naming the next page.
+func (r *Repo) writePage(w http.ResponseWriter, req *http.Request, all []map[string]any, page, per int) {
+	q := req.URL.Query()
 	lo := min((page-1)*per, len(all))
 	hi := min(lo+per, len(all))
 	if hi < len(all) {

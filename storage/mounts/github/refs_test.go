@@ -3,6 +3,8 @@ package github_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -65,8 +67,9 @@ func TestTagsListNewestFirstByCommitDate(t *testing.T) {
 		t.Errorf("two tags from one day = %v, %v; want %v, by time", got, err, want)
 	}
 
-	if _, err := e.drv.ListRefs(e.ctx, e.repo.Source(), mounts.ListRefsRequest{Kind: mounts.RefTag}, nil); !errors.Is(err, mounts.ErrInvalidArgument) {
-		t.Errorf("tags with no token = %v, want ErrInvalidArgument", err)
+	// The repo is private, and GitHub's REST tags API answers 404 to a request with no token.
+	if _, err := e.drv.ListRefs(e.ctx, e.repo.Source(), mounts.ListRefsRequest{Kind: mounts.RefTag}, nil); !errors.Is(err, mounts.ErrNotFound) {
+		t.Errorf("a private repo's tags with no token = %v, want ErrNotFound", err)
 	}
 	if _, err := e.drv.ListRefs(e.ctx, "github://acme/nope", mounts.ListRefsRequest{Kind: mounts.RefTag}, ts); !errors.Is(err, mounts.ErrNotFound) {
 		t.Errorf("tags of a missing repo = %v, want ErrNotFound", err)
@@ -189,5 +192,64 @@ func TestAPushReachesTheMountsFollowingItThroughTheRegistry(t *testing.T) {
 	}
 	if v, _, err := reg.ResolveAt(e.ctx, "board", ms[0].Ref); err != nil || v != head || v != p.Version {
 		t.Errorf("ResolveAt after the push = %q, %v; want the pushed %s", v, err, head)
+	}
+}
+
+func TestAPublicRepoListsTagsWithNoConnection(t *testing.T) {
+	e := newEnv(t, false)
+	c1 := e.repo.Head("main")
+	c2 := e.repo.Commit("main", map[string]string{"x": "2"}, nil)
+	when := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	e.repo.SetCommitTime(c2, when)
+	// GitHub's REST tags API orders by version, so v1.10 comes before v1.9.
+	e.repo.Tag("v1.10", c2, true)
+	for i := 0; i <= 9; i++ {
+		e.repo.Tag(fmt.Sprintf("v1.%d", i), c1, false)
+	}
+
+	page, err := e.drv.ListRefs(e.ctx, e.repo.Source(), mounts.ListRefsRequest{Kind: mounts.RefTag}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"v1.10", "v1.9", "v1.8", "v1.7", "v1.6", "v1.5", "v1.4", "v1.3", "v1.2", "v1.1"}
+	if got := names(page.Refs); !slices.Equal(got, want) {
+		t.Errorf("first page = %v, want %v (ten, the most a page holds with no connection)", got, want)
+	}
+	top := page.Refs[0]
+	if top.Kind != mounts.RefTag || top.Version != c2 || !top.Time.Equal(when) || !strings.HasPrefix(top.Message, "commit 2") {
+		t.Errorf("annotated tag = %+v; want its commit %s, dated %v, with the commit's first line", top, c2, when)
+	}
+	if page.NextPageToken == "" {
+		t.Fatal("first page has no next token, want one for v1.0")
+	}
+	page, err = e.drv.ListRefs(e.ctx, e.repo.Source(), mounts.ListRefsRequest{Kind: mounts.RefTag, PageToken: page.NextPageToken}, nil)
+	if err != nil || !slices.Equal(names(page.Refs), []string{"v1.0"}) || page.NextPageToken != "" || page.Refs[0].Version != c1 || page.Refs[0].Time.IsZero() {
+		t.Errorf("second page = %+v, %v; want v1.0 at %s with its date, and no next token", page, err, c1)
+	}
+	if _, err := e.drv.ListRefs(e.ctx, e.repo.Source(), mounts.ListRefsRequest{Kind: mounts.RefTag, PageToken: "x"}, nil); !errors.Is(err, mounts.ErrInvalidArgument) {
+		t.Errorf("a bad page token = %v, want ErrInvalidArgument", err)
+	}
+	for _, r := range e.gh.Requests() {
+		if r.Path == "/graphql" {
+			t.Errorf("listing with no connection sent %+v, want only REST requests", r)
+		}
+	}
+}
+
+// rateLimited answers every request as GitHub does once a caller with no token has used its
+// requests for the hour.
+type rateLimited struct{}
+
+func (rateLimited) RoundTrip(req *http.Request) (*http.Response, error) {
+	h := http.Header{"X-Ratelimit-Remaining": {"0"}, "Content-Type": {"application/json"}}
+	return &http.Response{StatusCode: http.StatusForbidden, Header: h, Request: req,
+		Body: io.NopCloser(strings.NewReader(`{"message":"API rate limit exceeded for 203.0.113.7."}`))}, nil
+}
+
+func TestTagsWithNoConnectionSayAConnectionLiftsTheRateLimit(t *testing.T) {
+	d := github.New(nil, github.WithHTTPClient(&http.Client{Transport: rateLimited{}}))
+	_, err := d.ListRefs(context.Background(), "github://acme/board", mounts.ListRefsRequest{Kind: mounts.RefTag}, nil)
+	if !errors.Is(err, mounts.ErrUnavailable) || !strings.Contains(err.Error(), "connection") {
+		t.Errorf("rate-limited tags = %v, want ErrUnavailable saying a connection lifts the limit", err)
 	}
 }
