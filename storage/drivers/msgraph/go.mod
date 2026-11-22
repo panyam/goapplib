@@ -5,7 +5,7 @@ go 1.26.9
 toolchain go1.27.4
 
 require (
-	github.com/panyam/goapplib/storage v0.7.27
+	github.com/panyam/goapplib/storage v0.7.28
 	golang.org/x/oauth2 v0.38.0
 )
 
@@ -15,7 +15,7 @@ require (
 	github.com/fernet/fernet-go v0.0.0-20240119011108-303da6aec611 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/panyam/goutils v0.1.14 // indirect
-	github.com/panyam/oneauth v0.3.16 // indirect
+	github.com/panyam/oneauth v0.3.17 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect

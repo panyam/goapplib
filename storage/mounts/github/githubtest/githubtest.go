@@ -34,8 +34,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path"
 	"sort"
 	"strconv"
@@ -45,7 +47,8 @@ import (
 	"time"
 )
 
-// Server is the fake. Its URL is the API base a driver is pointed at.
+// Server is the fake. Its URL is the API base a driver is pointed at, and the origin of every URL
+// the fake hands out.
 type Server struct {
 	*httptest.Server
 
@@ -70,6 +73,8 @@ type Server struct {
 	refresh        map[string]refreshGrant // unused refresh token -> grant
 	devices        map[string]*device      // device code -> sign-in
 	deviceInterval time.Duration
+
+	listenURL string
 }
 
 // Request is one request the fake answered.
@@ -134,15 +139,78 @@ type TarEntry struct {
 	Linkname string
 }
 
-// New starts a fake and stops it when the test ends.
-func New(t testing.TB) *Server {
+// Option configures a fake that New starts.
+type Option func(*options)
+
+type options struct {
+	listener net.Listener
+	baseURL  string
+}
+
+// WithListener serves the fake on l instead of a fresh 127.0.0.1 port. A test whose app runs in a
+// container listens on "0.0.0.0:0" or the docker bridge's gateway, so the container can reach it.
+// The fake closes l when the test ends.
+func WithListener(l net.Listener) Option { return func(o *options) { o.listener = l } }
+
+// WithBaseURL sets the origin the fake puts in every URL it hands out: Server.URL, RawURL, LFSURL,
+// the LFS batch hrefs, pagination Link headers and the device flow's verification_uri. Use an
+// address the app under test can reach, such as "http://host.docker.internal:<port>". u is a scheme,
+// a host and an optional port. New fails the test if u has a path, query or fragment. The test
+// process itself may not resolve u, so it reaches the fake through ListenURL.
+func WithBaseURL(u string) Option { return func(o *options) { o.baseURL = u } }
+
+// New starts a fake and stops it when the test ends. With no options it listens on a fresh
+// 127.0.0.1 port, and URL is that address.
+func New(t testing.TB, opts ...Option) *Server {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	base, err := parseBaseURL(o.baseURL)
+	if err != nil {
+		t.Fatalf("githubtest: %v", err)
+	}
 	s := &Server{repos: map[string]*Repo{}, tokens: map[string]bool{},
 		apps: map[string]string{}, users: map[string]*User{}, codes: map[string]authCode{}, access: map[string]*User{},
 		issuedBy: map[string]string{}, refresh: map[string]refreshGrant{}, devices: map[string]*device{},
 		deviceInterval: time.Second, lfs: lfsState{objects: map[string][]byte{}}}
-	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
+	s.Server = httptest.NewUnstartedServer(http.HandlerFunc(s.serve))
+	if o.listener != nil {
+		s.Server.Listener.Close()
+		s.Server.Listener = o.listener
+	}
+	s.Server.Start()
+	s.listenURL = s.Server.URL
+	if base != "" {
+		s.Server.URL = base
+	}
 	t.Cleanup(s.Close)
 	return s
+}
+
+// ListenURL is the address the fake listens on, as "http://host:port". It equals URL unless
+// WithBaseURL set another origin.
+func (s *Server) ListenURL() string { return s.listenURL }
+
+// parseBaseURL checks a WithBaseURL origin and drops a trailing slash. "" means no base URL.
+func parseBaseURL(raw string) (string, error) {
+	if raw == "" {
+		return "", nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("base URL %q: %v", raw, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", fmt.Errorf("base URL %q: scheme must be http or https", raw)
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("base URL %q has no host", raw)
+	}
+	if (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return "", fmt.Errorf("base URL %q must be only a scheme, host and port", raw)
+	}
+	return u.Scheme + "://" + u.Host, nil
 }
 
 // AddToken makes tok an accepted token.
