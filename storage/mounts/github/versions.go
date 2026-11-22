@@ -153,10 +153,20 @@ func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, creds mounts.Creden
 // lfsSizesCap caps how many small blobs' LFS answers a Driver keeps.
 const lfsSizesCap = 50_000
 
-// lfsSizesAt sets the Size of each Git LFS pointer in files to its object's size (#208). It reads
-// a small blob only when a .gitattributes file at commit has filter=lfs, and remembers each answer
-// by git blob id, so a later commit reads only the small blobs that changed. Its result goes into
-// treeAt's cache with the list, so one commit costs these reads once per token.
+// A Git LFS pointer with no extension lines is 125 to 144 bytes: the version line, the oid line,
+// and a size of 1 to 19 digits, with or without the last newline.
+const (
+	minLFSPointer = 125
+	maxLFSPointer = 144
+)
+
+// lfsSizesAt sets the Size of each Git LFS pointer in files to its object's size (#208), so ListAt
+// reports the size FetchAt keeps. When a .gitattributes file at commit has filter=lfs, it reads
+// every blob up to mounts.MaxLFSPointerSize. Without one, it reads only blobs of a pointer's size,
+// since LFS paths can be set outside the repo, in .git/info/attributes, and FetchAt swaps every
+// pointer it meets (#218). So a pointer with extension lines in such a repo keeps its own size. It
+// remembers each answer by git blob id, so a later commit reads only the small blobs that changed.
+// Its result goes into treeAt's cache with the list, so one commit costs these reads once per token.
 func (d *Driver) lfsSizesAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, commit string, files []mounts.File) error {
 	lfs := false
 	for _, f := range files {
@@ -172,11 +182,8 @@ func (d *Driver) lfsSizesAt(ctx context.Context, m mounts.Mount, creds mounts.Cr
 			break
 		}
 	}
-	if !lfs {
-		return nil
-	}
 	for i, f := range files {
-		if f.Size > mounts.MaxLFSPointerSize {
+		if f.Size > mounts.MaxLFSPointerSize || !lfs && (f.Size < minLFSPointer || f.Size > maxLFSPointer) {
 			continue
 		}
 		d.mu.Lock()
@@ -291,7 +298,9 @@ func (d *Driver) download(ctx context.Context, m mounts.Mount, creds mounts.Cred
 	if err := status(resp, false); err != nil {
 		return nil, err
 	}
-	b, err := io.ReadAll(io.LimitReader(resp.Body, f.Size+1))
+	// f.Size is an LFS object's size when ListAt found a pointer, and the object can be smaller
+	// than the pointer (#218). The blob id check after this catches anything cut short.
+	b, err := io.ReadAll(io.LimitReader(resp.Body, max(f.Size, mounts.MaxLFSPointerSize)+1))
 	if err != nil {
 		return nil, fmt.Errorf("%w: reading %s: %v", mounts.ErrUnavailable, f.Path, err)
 	}
