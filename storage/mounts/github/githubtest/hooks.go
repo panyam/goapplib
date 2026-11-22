@@ -64,26 +64,45 @@ func (r *Repo) Hooks() []Hook {
 }
 
 // Push commits put and del on branch, as Commit does, then delivers a signed push event to each
-// active hook that wants push events, one at a time, before it returns. GitHub delivers later and
+// active hook that wants push events, and to the webhook of each App installed on the repo that
+// wants them (apps.go), one at a time, before it returns. GitHub delivers later and
 // in the background; delivering first lets a test check the app's state right after Push. Each
 // delivery is JSON, whatever the hook's content type. Push returns the new commit, and the first
 // delivery that fails or answers other than 2xx.
 func (r *Repo) Push(branch string, put map[string]string, del []string) (string, error) {
 	sha := r.Commit(branch, put, del)
+	return sha, r.Deliver(branch)
+}
+
+// Deliver sends the push event for branch's head to the repo's hooks and to each installed App's
+// webhook, as Push does after its commit. It returns the first delivery that fails or answers
+// other than 2xx.
+func (r *Repo) Deliver(branch string) error {
+	c := r.s.hookClient
 	for _, h := range r.Hooks() {
 		if !h.Active || !slices.Contains(h.Events, "push") && !slices.Contains(h.Events, "*") {
 			continue
 		}
-		resp, err := http.DefaultClient.Do(r.PushRequest(h.URL, []byte(h.Secret), branch))
+		resp, err := c.Do(r.PushRequest(h.URL, []byte(h.Secret), branch))
 		if err != nil {
-			return sha, fmt.Errorf("githubtest: delivering hook %d: %w", h.ID, err)
+			return fmt.Errorf("githubtest: delivering hook %d: %w", h.ID, err)
 		}
 		resp.Body.Close()
 		if resp.StatusCode/100 != 2 {
-			return sha, fmt.Errorf("githubtest: hook %d at %s answered %d", h.ID, h.URL, resp.StatusCode)
+			return fmt.Errorf("githubtest: hook %d at %s answered %d", h.ID, h.URL, resp.StatusCode)
 		}
 	}
-	return sha, nil
+	for _, d := range r.appDeliveries() {
+		resp, err := c.Do(d.inst.PushRequest(r, d.hook.url, []byte(d.hook.secret), branch))
+		if err != nil {
+			return fmt.Errorf("githubtest: delivering to installation %d's App webhook: %w", d.inst.ID, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode/100 != 2 {
+			return fmt.Errorf("githubtest: App webhook %s answered %d", d.hook.url, resp.StatusCode)
+		}
+	}
+	return nil
 }
 
 // hookBody is a create or update request. Absent fields leave a hook's value as it is.
