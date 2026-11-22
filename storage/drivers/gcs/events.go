@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/oneauth/client"
 	"github.com/panyam/oneauth/keys"
@@ -78,18 +77,23 @@ func (g *GoogleVerifier) VerifyPush(ctx context.Context, token string) error {
 		g.keys = keys.NewJWKSKeyStore(u, opts...)
 	})
 	iss := g.Issuer
+	var claims *client.IDTokenClaims
+	var err error
 	if iss == "" {
-		// VerifyIDToken checks one exact issuer, so pick the form the token claims, from the two
-		// Google uses. VerifyIDToken then checks the signature and the issuer for real.
-		iss = GoogleIssuer
-		var c jwt.RegisteredClaims
-		if _, _, err := jwt.NewParser().ParseUnverified(token, &c); err == nil && c.Issuer == GoogleIssuerBare {
-			iss = GoogleIssuerBare
+		// Do not parse unverified claims from untrusted input.
+		// Instead, verify against the known Google issuer forms.
+		claims, err = client.VerifyIDToken(ctx, &client.VerifyIDTokenRequest{IDToken: token, Issuer: GoogleIssuer, ClientID: g.Audience, Keys: g.keys})
+		if err != nil {
+			claims, err = client.VerifyIDToken(ctx, &client.VerifyIDTokenRequest{IDToken: token, Issuer: GoogleIssuerBare, ClientID: g.Audience, Keys: g.keys})
+			if err != nil {
+				return err
+			}
 		}
-	}
-	claims, err := client.VerifyIDToken(ctx, &client.VerifyIDTokenRequest{IDToken: token, Issuer: iss, ClientID: g.Audience, Keys: g.keys})
-	if err != nil {
-		return err
+	} else {
+		claims, err = client.VerifyIDToken(ctx, &client.VerifyIDTokenRequest{IDToken: token, Issuer: iss, ClientID: g.Audience, Keys: g.keys})
+		if err != nil {
+			return err
+		}
 	}
 	if g.Email != "" && (claims.Email != g.Email || !claims.EmailVerified) {
 		return fmt.Errorf("token is for %q, not %q", claims.Email, g.Email)
