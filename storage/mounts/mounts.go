@@ -27,6 +27,11 @@ const (
 	// KindGCS is a prefix in a Google Cloud Storage bucket, "gs://<bucket>/<prefix>". The driver
 	// is in the storage/drivers/gcs module.
 	KindGCS Kind = "gcs"
+
+	// KindMSGraph is a folder in a SharePoint document library or a OneDrive, read through
+	// Microsoft Graph, such as "msgraph://sites/<site>/drives/<drive>/root/Boards" or
+	// "msgraph://me/drive/root/Boards". The driver is in the storage/drivers/msgraph module.
+	KindMSGraph Kind = "msgraph"
 )
 
 // Mode says whether a mount's files can change after it is made.
