@@ -30,8 +30,9 @@ const LastUsedEvery = time.Hour
 //   - KindGCP: a Google token source from the service account key at KeyRef, or Application
 //     Default Credentials when KeyRef is empty.
 //   - KindAWS: an AWS key pair, or the AWS default chain, which the S3 driver signs with.
-//   - KindEntra: a Microsoft Graph token from the tenant's token endpoint, for a client secret or
-//     a certificate, or from the host's managed identity endpoint.
+//   - KindEntra: a Microsoft Graph token from the tenant's token endpoint, for a client secret, a
+//     certificate or a workload identity's federated token, or from the host's managed identity
+//     endpoint.
 //   - KindEntraUser: oneauth's outbound.UserTokens, as for KindGitHubUser, refreshed at the
 //     tenant's token endpoint. It needs WithUserTokens for the store and the master key.
 //
@@ -46,6 +47,8 @@ type Service struct {
 	client *http.Client
 	now    func() time.Time
 	miURL  string
+	// idURL and idHeader are an App Service identity endpoint and its secret header.
+	idURL, idHeader string
 
 	check     ReadCheck
 	accessTTL time.Duration

@@ -1,12 +1,15 @@
 // Package entratest is a fake Microsoft Entra ID token service for tests of KindEntra and
 // KindEntraUser connections. It serves a tenant's v2 token endpoint at
 // "/{tenant}/oauth2/v2.0/token" for the client-credentials grant, with a client secret or a
-// certificate's client assertion, and for the refresh-token grant. It also serves an Azure
-// Instance Metadata Service managed identity endpoint at ManagedIdentityURL.
+// certificate's client assertion, or a workload identity's federated token, and for the
+// refresh-token grant. It also serves an Azure Instance Metadata Service managed identity endpoint
+// at ManagedIdentityURL, and an App Service identity endpoint at IdentityEndpoint.
 //
-// It checks what Entra checks: a client assertion must be an RS256 JWT signed by the registered
-// certificate's key, with that certificate's x5t thumbprint in its header, the token endpoint as
-// its aud, the client ID as iss and sub, a fresh jti, and a lifetime of at most ten minutes. Every
+// It checks what Entra checks. A certificate's client assertion must be an RS256 JWT signed by
+// the registered certificate's key, with that certificate's x5t thumbprint in its header, the
+// token endpoint as its aud, the client ID as iss and sub, a fresh jti, and a lifetime of at most
+// ten minutes. A federated token must be signed by the fake's own issuer (FederatedToken mints
+// one), name FederatedAudience as its aud, name the registered subject, and be unexpired. Every
 // access token it issues is recorded, so a fake Graph can trust them with ValidToken.
 package entratest
 
@@ -23,6 +26,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -36,6 +40,8 @@ type Server struct {
 	*httptest.Server
 
 	mu       sync.Mutex
+	fedKey   *rsa.PrivateKey
+	idHeader string
 	apps     map[string]*app // by tenant and client ID
 	mi       map[string]bool // accepted managed identity client IDs, "" for system-assigned
 	refresh  map[string]grant
@@ -48,6 +54,9 @@ type Server struct {
 type app struct {
 	secret string
 	cert   *x509.Certificate
+
+	// fedSubject is set for a workload identity app: the subject its federated credential trusts.
+	fedSubject string
 }
 
 type grant struct {
@@ -66,12 +75,20 @@ type Request struct {
 
 	// Metadata is the "Metadata" header, which the managed identity endpoint needs.
 	Metadata string
+
+	// IdentityHeader is the "X-IDENTITY-HEADER" header, which the App Service identity endpoint
+	// needs.
+	IdentityHeader string
 }
 
 // New starts a fake and stops it when the test ends.
 func New(t testing.TB) *Server {
-	s := &Server{apps: map[string]*app{}, mi: map[string]bool{}, refresh: map[string]grant{},
-		issued: map[string]string{}, jtis: map[string]bool{}}
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{fedKey: key, idHeader: "identity-header-" + randHex(), apps: map[string]*app{}, mi: map[string]bool{},
+		refresh: map[string]grant{}, issued: map[string]string{}, jtis: map[string]bool{}}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
 	t.Cleanup(s.Close)
 	return s
@@ -80,6 +97,42 @@ func New(t testing.TB) *Server {
 // ManagedIdentityURL is the fake's managed identity endpoint, for
 // connections.WithManagedIdentityURL.
 func (s *Server) ManagedIdentityURL() string { return s.URL + "/metadata/identity/oauth2/token" }
+
+// IdentityEndpoint is the fake's App Service identity endpoint and the secret header it expects,
+// as a host sets IDENTITY_ENDPOINT and IDENTITY_HEADER, for connections.WithIdentityEndpoint. It
+// answers for the identities AddManagedIdentity registers.
+func (s *Server) IdentityEndpoint() (endpoint, header string) {
+	return s.URL + "/msi/token", s.idHeader
+}
+
+// FederatedAudience is the aud Entra expects of a federated token from Kubernetes, as the AKS
+// workload identity webhook asks the cluster to mint it.
+const FederatedAudience = "api://AzureADTokenExchange"
+
+// FederatedIssuer is the iss of the tokens FederatedToken mints, standing in for a cluster's OIDC
+// issuer URL.
+func (s *Server) FederatedIssuer() string { return s.URL + "/oidc" }
+
+// FederatedToken mints a token as a cluster's OIDC issuer would for the service account subject,
+// such as "system:serviceaccount:agni:web", good until expires. It is what the AKS webhook writes
+// to the file at AZURE_FEDERATED_TOKEN_FILE.
+func (s *Server) FederatedToken(subject string, expires time.Time) string {
+	claims := jwt.RegisteredClaims{Issuer: s.FederatedIssuer(), Subject: subject, Audience: jwt.ClaimStrings{FederatedAudience},
+		IssuedAt: jwt.NewNumericDate(time.Now()), ExpiresAt: jwt.NewNumericDate(expires)}
+	tok, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(s.fedKey)
+	if err != nil {
+		panic(err)
+	}
+	return tok
+}
+
+// AddFederatedApp registers an app in tenant with a federated credential that trusts tokens from
+// FederatedIssuer for subject, as a workload identity's app registration does.
+func (s *Server) AddFederatedApp(tenant, clientID, subject string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.apps[tenant+"/"+clientID] = &app{fedSubject: subject}
+}
 
 // TokenURL is tenant's token endpoint, which a client assertion's aud must name.
 func (s *Server) TokenURL(tenant string) string { return s.URL + "/" + tenant + "/oauth2/v2.0/token" }
@@ -160,6 +213,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.managedIdentity(w, r)
 		return
 	}
+	if r.URL.Path == "/msi/token" {
+		s.identityEndpoint(w, r)
+		return
+	}
 	tenant, ok := strings.CutSuffix(strings.TrimPrefix(r.URL.Path, "/"), "/oauth2/v2.0/token")
 	if !ok || strings.Contains(tenant, "/") || r.Method != http.MethodPost {
 		http.NotFound(w, r)
@@ -209,6 +266,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 // registered with neither a secret nor a certificate is a public client.
 func (s *Server) checkClient(a *app, secret, assertionType, assertion, aud, clientID string) string {
 	switch {
+	case a.fedSubject != "":
+		if assertionType != "urn:ietf:params:oauth:client-assertion-type:jwt-bearer" || assertion == "" {
+			return "AADSTS7000218: the request body must contain client_assertion"
+		}
+		return s.checkFederated(a.fedSubject, assertion)
 	case a.cert != nil:
 		if assertionType != "urn:ietf:params:oauth:client-assertion-type:jwt-bearer" || assertion == "" {
 			return "AADSTS7000218: the request body must contain client_assertion"
@@ -243,6 +305,41 @@ func (s *Server) checkAssertion(cert *x509.Certificate, assertion, aud, clientID
 	}
 	s.jtis[claims.ID] = true
 	return ""
+}
+
+func (s *Server) checkFederated(subject, assertion string) string {
+	_, err := jwt.Parse(assertion, func(t *jwt.Token) (any, error) {
+		return &s.fedKey.PublicKey, nil
+	}, jwt.WithValidMethods([]string{"RS256"}), jwt.WithAudience(FederatedAudience), jwt.WithIssuer(s.FederatedIssuer()),
+		jwt.WithSubject(subject), jwt.WithExpirationRequired())
+	if err != nil {
+		return "AADSTS70021: no matching federated identity record found for presented assertion: " + err.Error()
+	}
+	return ""
+}
+
+// identityEndpoint answers as App Service and Container Apps do: the secret header is required,
+// and the answer carries expires_on, an epoch time as a string, with no expires_in.
+func (s *Server) identityEndpoint(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	s.mu.Lock()
+	s.requests = append(s.requests, Request{Path: r.URL.Path, ClientID: q.Get("client_id"), Scope: q.Get("resource"),
+		IdentityHeader: r.Header.Get("X-IDENTITY-HEADER")})
+	ok := s.mi[q.Get("client_id")]
+	s.mu.Unlock()
+	if r.Header.Get("X-IDENTITY-HEADER") != s.idHeader {
+		oauthError(w, http.StatusUnauthorized, "invalid_request", "X-IDENTITY-HEADER is missing or wrong")
+		return
+	}
+	if !ok || q.Get("resource") == "" || q.Get("api-version") != "2019-08-01" {
+		oauthError(w, http.StatusBadRequest, "invalid_request", "Identity not found")
+		return
+	}
+	s.mu.Lock()
+	tok := s.issueLocked(grant{"appservice", q.Get("client_id"), ""}, false)
+	s.mu.Unlock()
+	writeJSON(w, http.StatusOK, map[string]string{"access_token": tok.AccessToken, "token_type": "Bearer",
+		"expires_on": strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10), "resource": q.Get("resource")})
 }
 
 func (s *Server) managedIdentity(w http.ResponseWriter, r *http.Request) {

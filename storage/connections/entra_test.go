@@ -24,7 +24,7 @@ const (
 
 // entraFixture is a connections service over a folder store, with user tokens, pointed at a fake
 // Entra for both the authority and the managed identity endpoint.
-func entraFixture(t *testing.T) (*entratest.Server, *fsstore.Store, *connections.Service) {
+func entraFixture(t *testing.T, opts ...func(*entratest.Server) connections.Option) (*entratest.Server, *fsstore.Store, *connections.Service) {
 	t.Helper()
 	ent := entratest.New(t)
 	store, err := fsstore.New(t.TempDir())
@@ -32,9 +32,13 @@ func entraFixture(t *testing.T) (*entratest.Server, *fsstore.Store, *connections
 		t.Fatal(err)
 	}
 	t.Setenv("GOAPPLIB_TEST_CONN_KEY", masterKey)
-	svc := connections.NewService(store,
+	all := []connections.Option{
 		connections.WithUserTokens(oneauthfs.NewFSUserTokenStore(t.TempDir()), "env:GOAPPLIB_TEST_CONN_KEY", nil),
-		connections.WithManagedIdentityURL(ent.ManagedIdentityURL()))
+		connections.WithManagedIdentityURL(ent.ManagedIdentityURL())}
+	for _, o := range opts {
+		all = append(all, o(ent))
+	}
+	svc := connections.NewService(store, all...)
 	return ent, store, svc
 }
 
@@ -119,6 +123,109 @@ func TestEntraManagedIdentityAsksTheHostEndpoint(t *testing.T) {
 	}
 }
 
+func TestEntraManagedIdentityUsesTheAppServiceEndpoint(t *testing.T) {
+	ent, store, svc := entraFixture(t, func(e *entratest.Server) connections.Option {
+		return connections.WithIdentityEndpoint(e.IdentityEndpoint())
+	})
+	ent.AddManagedIdentity("")
+	putConn(t, store, connections.Connection{ID: "mi", Kind: connections.KindEntra, Scope: connections.ScopeServer,
+		EntraAuth: connections.EntraManagedIdentity})
+	creds, err := svc.Credentials(context.Background(), "", "mi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts, err := mounts.TokenSourceOf(creds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := ts.Token()
+	if err != nil {
+		t.Fatalf("Token: %v", err)
+	}
+	if !ent.ValidToken(tok.AccessToken) {
+		t.Errorf("token %q wasn't issued by the fake", tok.AccessToken)
+	}
+	// App Service sends expires_on, an epoch time, and no expires_in.
+	if left := time.Until(tok.Expiry); left < 50*time.Minute || left > 61*time.Minute {
+		t.Errorf("token expires in %v; want about an hour, from expires_on", left)
+	}
+	_, header := ent.IdentityEndpoint()
+	reqs := ent.Requests()
+	if len(reqs) != 1 || reqs[0].Path != "/msi/token" || reqs[0].IdentityHeader != header || reqs[0].Scope != connections.GraphResource {
+		t.Errorf("requests = %+v; want one identity endpoint request for Graph with the host's header", reqs)
+	}
+}
+
+func TestEntraIdentityEndpointNeedsTheHostsHeader(t *testing.T) {
+	ent, store, svc := entraFixture(t, func(e *entratest.Server) connections.Option {
+		endpoint, _ := e.IdentityEndpoint()
+		return connections.WithIdentityEndpoint(endpoint, "not-the-header")
+	})
+	ent.AddManagedIdentity("")
+	putConn(t, store, connections.Connection{ID: "mi", Kind: connections.KindEntra, Scope: connections.ScopeServer,
+		EntraAuth: connections.EntraManagedIdentity})
+	creds, err := svc.Credentials(context.Background(), "", "mi")
+	if err == nil {
+		_, err = mounts.BearerToken(creds)
+	}
+	if err == nil || !strings.Contains(err.Error(), "X-IDENTITY-HEADER") {
+		t.Errorf("token with the wrong header: %v; want the endpoint's refusal", err)
+	}
+}
+
+func TestEntraWorkloadIdentitySendsTheFederatedToken(t *testing.T) {
+	ent, store, svc := entraFixture(t)
+	const sa = "system:serviceaccount:agni:web"
+	ent.AddFederatedApp(tenant, clientID, sa)
+	tokenFile := filepath.Join(t.TempDir(), "azure-identity-token")
+	writeFile(t, os.WriteFile(tokenFile, []byte(ent.FederatedToken(sa, time.Now().Add(time.Hour))+"\n"), 0o600))
+	putConn(t, store, connections.Connection{ID: "wi", Kind: connections.KindEntra, Scope: connections.ScopeServer, BaseURL: ent.URL,
+		TenantID: tenant, ClientID: clientID, EntraAuth: connections.EntraWorkloadIdentity, KeyRef: "file:" + tokenFile})
+	if tok := entraToken(t, svc, context.Background(), "", "wi"); !ent.ValidToken(tok) {
+		t.Errorf("token %q wasn't issued by the fake", tok)
+	}
+	reqs := ent.Requests()
+	if len(reqs) != 1 || reqs[0].GrantType != "client_credentials" || !reqs[0].Assertion || reqs[0].Scope != connections.GraphScope {
+		t.Errorf("requests = %+v; want one client-credentials request with a client assertion", reqs)
+	}
+}
+
+func TestEntraWorkloadIdentityReadsTheRotatedFile(t *testing.T) {
+	ent, store, svc := entraFixture(t)
+	const sa = "system:serviceaccount:agni:web"
+	ent.AddFederatedApp(tenant, clientID, sa)
+	tokenFile := filepath.Join(t.TempDir(), "azure-identity-token")
+	writeFile(t, os.WriteFile(tokenFile, []byte(ent.FederatedToken(sa, time.Now().Add(-time.Minute))), 0o600))
+	putConn(t, store, connections.Connection{ID: "wi", Kind: connections.KindEntra, Scope: connections.ScopeServer, BaseURL: ent.URL,
+		TenantID: tenant, ClientID: clientID, EntraAuth: connections.EntraWorkloadIdentity, KeyRef: "file:" + tokenFile})
+	token := func() (string, error) {
+		creds, err := svc.Credentials(context.Background(), "", "wi")
+		if err != nil {
+			return "", err
+		}
+		return mounts.BearerToken(creds)
+	}
+	if _, err := token(); err == nil || !strings.Contains(err.Error(), "AADSTS70021") {
+		t.Errorf("token from an expired federated token: %v; want Entra's AADSTS70021 refusal", err)
+	}
+	// The cluster rotates the file. The same record reads the new token.
+	writeFile(t, os.WriteFile(tokenFile, []byte(ent.FederatedToken(sa, time.Now().Add(time.Hour))), 0o600))
+	if tok, err := token(); err != nil || !ent.ValidToken(tok) {
+		t.Errorf("token after the file rotated = %q, %v; want one from the fake", tok, err)
+	}
+	// A token for another service account doesn't match the federated credential.
+	writeFile(t, os.WriteFile(tokenFile, []byte(ent.FederatedToken("system:serviceaccount:agni:other", time.Now().Add(time.Hour))), 0o600))
+	putConn(t, store, connections.Connection{ID: "wi2", Kind: connections.KindEntra, Scope: connections.ScopeServer, BaseURL: ent.URL,
+		TenantID: tenant, ClientID: clientID, EntraAuth: connections.EntraWorkloadIdentity, KeyRef: "file:" + tokenFile})
+	creds, err := svc.Credentials(context.Background(), "", "wi2")
+	if err == nil {
+		_, err = mounts.BearerToken(creds)
+	}
+	if err == nil || !strings.Contains(err.Error(), "AADSTS70021") {
+		t.Errorf("token for another service account: %v; want Entra's AADSTS70021 refusal", err)
+	}
+}
+
 func TestEntraUserTokenIsRefreshedWithTheGraphScope(t *testing.T) {
 	ent, store, svc := entraFixture(t)
 	ent.AddSecretApp(tenant, clientID, "s3cret")
@@ -160,8 +267,18 @@ func TestEntraValidate(t *testing.T) {
 		"person scope":     func(c *connections.Connection) { c.Scope, c.Owner = connections.ScopePerson, "alice" },
 		"cert without ref": func(c *connections.Connection) { c.EntraAuth = connections.EntraCertificate },
 		"mi with a key":    func(c *connections.Connection) { c.EntraAuth = connections.EntraManagedIdentity },
-		"aws field":        func(c *connections.Connection) { c.Region = "eu-west-1" },
-		"plain http":       func(c *connections.Connection) { c.BaseURL = "http://login.example.com" },
+		"wi with env ref":  func(c *connections.Connection) { c.EntraAuth = connections.EntraWorkloadIdentity },
+		"wi without key": func(c *connections.Connection) {
+			c.EntraAuth, c.KeyRef = connections.EntraWorkloadIdentity, ""
+		},
+		"wi with cert": func(c *connections.Connection) {
+			c.EntraAuth, c.KeyRef, c.CertRef = connections.EntraWorkloadIdentity, "file:/t", "file:/c"
+		},
+		"wi without client": func(c *connections.Connection) {
+			c.EntraAuth, c.KeyRef, c.ClientID = connections.EntraWorkloadIdentity, "file:/t", ""
+		},
+		"aws field":  func(c *connections.Connection) { c.Region = "eu-west-1" },
+		"plain http": func(c *connections.Connection) { c.BaseURL = "http://login.example.com" },
 		"user with auth": func(c *connections.Connection) {
 			c.Kind, c.Scope, c.Owner = connections.KindEntraUser, connections.ScopePerson, "alice"
 		},
@@ -178,6 +295,11 @@ func TestEntraValidate(t *testing.T) {
 	mi := connections.Connection{ID: "mi", Kind: connections.KindEntra, Scope: connections.ScopeServer, EntraAuth: connections.EntraManagedIdentity}
 	if err := mi.Validate(); err != nil {
 		t.Errorf("Validate(system-assigned managed identity) = %v", err)
+	}
+	wi := base
+	wi.EntraAuth, wi.KeyRef = connections.EntraWorkloadIdentity, "file:/var/run/secrets/azure/tokens/azure-identity-token"
+	if err := wi.Validate(); err != nil {
+		t.Errorf("Validate(workload identity) = %v", err)
 	}
 	user := connections.Connection{ID: "od", Kind: connections.KindEntraUser, Scope: connections.ScopePerson, Owner: "alice", TenantID: tenant, ClientID: clientID}
 	if err := user.Validate(); err != nil {
