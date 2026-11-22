@@ -113,3 +113,39 @@ func ageStore(t *testing.T, d *blobs.Dir) {
 	}
 	blobstest.AgeDir(t, filepath.Dir(filepath.Dir(p)), time.Hour)
 }
+
+// TestOneFileWithoutAView gets a host file for one object of a snapshot, without WithViews, so
+// creating the mount downloads nothing and only that object is fetched.
+func TestOneFileWithoutAView(t *testing.T) {
+	ctx := context.Background()
+	d, b, store := newDriver(t, false, mountstest.DriverFiles)
+	recs, err := fsstore.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := mounts.NewRegistry(recs, []mounts.Driver{d})
+	m, err := reg.Create(ctx, mounts.Mount{Name: "jetson", Kind: mounts.KindS3, Source: "s3://designs/boards/jetson", Mode: mounts.ModeSnapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := reg.ListAt(ctx, m.Name, m.Version, "board/main.kicad_sch")
+	if err != nil || len(files) != 1 {
+		t.Fatalf("ListAt = %v, %v; want the one file", files, err)
+	}
+	h, _, err := reg.FetchAt(ctx, m.Name, m.Version, files[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.Put("boards/jetson/board/main.kicad_sch", []byte("changed after the fetch"))
+	to := filepath.Join(t.TempDir(), "main.kicad_sch")
+	if err := store.Link(h, to); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(to); err != nil || string(got) != mountstest.DriverFiles["board/main.kicad_sch"] {
+		t.Errorf("the linked file read %q, %v; want the pinned bytes", got, err)
+	}
+	other := blobs.HashOf([]byte(mountstest.DriverFiles["README.md"]))
+	if ok, _ := store.Has(ctx, other); ok {
+		t.Error("the store holds README.md, which nothing fetched")
+	}
+}
