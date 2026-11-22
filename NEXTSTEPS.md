@@ -14,5 +14,5 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 ## Across threads
 
 - Closed missions (#33, #34, #60, #74, #91, #150) keep their exercises in CI as regression checks. `mission_server_nav` (#40, #38) was considered on 2026-10-06 and not started, since no consumer asked for it.
-- goapplib requires oneauth v0.3.19, and storage requires oneauth/oauth2 v0.3.19. Every go.mod keeps `go 1.26.9` as importers' floor and builds on `toolchain go1.27.4`. thambura, diffpp and lilbattle get an upgrade ticket when they next bump goapplib.
+- goapplib requires oneauth v0.3.20, and storage requires oneauth/oauth2 v0.3.20. Every go.mod keeps `go 1.26.9` as importers' floor and builds on `toolchain go1.27.4`. thambura, diffpp and lilbattle get an upgrade ticket when they next bump goapplib.
 - CodeQL alert 9 (`go/request-forgery` on the SNS certificate fetch) is dismissed as a false positive, as alert 7 was. The URL is checked against `sns.<region>.amazonaws.com` before any request.
