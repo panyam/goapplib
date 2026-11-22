@@ -19,6 +19,14 @@
 // which Repo.GrantUser and Repo.HookManagerUsers name by login. Every API route also answers under
 // /api/v3, as on a GitHub Enterprise Server host.
 //
+// AddApp returns the App, and App.SetPermissions and App.Install model what a real App may do
+// (apps.go). Then a sign-in token through the App reads only repos the App is installed on, the
+// API answers 403 to a call the App has no permission for, and the fake issues installation
+// tokens to an App JWT. App.SetWebhook gives the App a webhook that Push delivers to.
+//
+// LoadSeed and Seed.Apply build a fake from a JSON seed file, and Seeded.Control answers a script
+// driving it from outside the process. cmd/fakegithub serves a seeded fake as a command.
+//
 // oneauth's outbound/githubtest mints installation tokens and user tokens for a connection, with
 // no sign-in or repos. A test that drives a connection end to end uses both, with AcceptToken
 // trusting the tokens the other mints.
@@ -63,8 +71,12 @@ type Server struct {
 	lfs      lfsState
 
 	// Sign-in state, in signin.go.
-	apps           map[string]string // client id -> secret
-	users          map[string]*User  // by lowercase login
+	apps           map[string]*App // by client id
+	appSeq         int64
+	installSeq     int64
+	accessApp      map[string]string       // sign-in access token -> the client id it was issued through
+	installTokens  map[string]installToken // installation token -> its installation
+	users          map[string]*User        // by lowercase login
 	userSeq        int64
 	signedIn       *User
 	codes          map[string]authCode
@@ -74,7 +86,8 @@ type Server struct {
 	devices        map[string]*device      // device code -> sign-in
 	deviceInterval time.Duration
 
-	listenURL string
+	listenURL  string
+	hookClient *http.Client
 }
 
 // Request is one request the fake answered.
@@ -143,8 +156,9 @@ type TarEntry struct {
 type Option func(*options)
 
 type options struct {
-	listener net.Listener
-	baseURL  string
+	listener   net.Listener
+	baseURL    string
+	hookClient *http.Client
 }
 
 // WithListener serves the fake on l instead of a fresh 127.0.0.1 port. A test whose app runs in a
@@ -159,6 +173,10 @@ func WithListener(l net.Listener) Option { return func(o *options) { o.listener 
 // process itself may not resolve u, so it reaches the fake through ListenURL.
 func WithBaseURL(u string) Option { return func(o *options) { o.baseURL = u } }
 
+// WithHookClient sets the client that Repo.Push delivers webhooks with, such as one that trusts a
+// test CA for a hook served over TLS. The default is http.DefaultClient.
+func WithHookClient(c *http.Client) Option { return func(o *options) { o.hookClient = c } }
+
 // New starts a fake and stops it when the test ends. With no options it listens on a fresh
 // 127.0.0.1 port, and URL is that address.
 func New(t testing.TB, opts ...Option) *Server {
@@ -171,9 +189,13 @@ func New(t testing.TB, opts ...Option) *Server {
 		t.Fatalf("githubtest: %v", err)
 	}
 	s := &Server{repos: map[string]*Repo{}, tokens: map[string]bool{},
-		apps: map[string]string{}, users: map[string]*User{}, codes: map[string]authCode{}, access: map[string]*User{},
+		apps: map[string]*App{}, accessApp: map[string]string{}, installTokens: map[string]installToken{}, users: map[string]*User{}, codes: map[string]authCode{}, access: map[string]*User{},
 		issuedBy: map[string]string{}, refresh: map[string]refreshGrant{}, devices: map[string]*device{},
 		deviceInterval: time.Second, lfs: lfsState{objects: map[string][]byte{}}}
+	s.hookClient = o.hookClient
+	if s.hookClient == nil {
+		s.hookClient = http.DefaultClient
+	}
 	s.Server = httptest.NewUnstartedServer(http.HandlerFunc(s.serve))
 	if o.listener != nil {
 		s.Server.Listener.Close()
@@ -284,7 +306,9 @@ func (r *Repo) GrantUser(logins ...string) {
 	}
 }
 
-// visible reports whether a request with tok, accepted or not, can see r.
+// visible reports whether a request with tok, accepted or not, can see r. An installation token sees
+// its installation's repos, and a sign-in token through a modelled App sees a private repo only
+// where the App is installed (apps.go).
 func (s *Server) visible(r *Repo, tok string, accepted bool) bool {
 	if r == nil {
 		return false
@@ -294,7 +318,16 @@ func (s *Server) visible(r *Repo, tok string, accepted bool) bool {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return accepted && allows(r.grants, r.userGrants, tok, s.userOf(tok))
+	if !accepted {
+		return false
+	}
+	if it, ok := s.installTokens[tok]; ok {
+		return it.inst.covers(r)
+	}
+	if a := s.tokenApp(tok); a != nil && !a.installedOn(r) {
+		return false
+	}
+	return allows(r.grants, r.userGrants, tok, s.userOf(tok))
 }
 
 // allows reports whether tok, held by u or by no one, passes a limit of tokens and logins. No
@@ -413,7 +446,7 @@ func blobSHA(b []byte) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func sortedKeys(m map[string]file) []string {
+func sortedKeys[V any](m map[string]V) []string {
 	ks := make([]string, 0, len(m))
 	for k := range m {
 		ks = append(ks, k)
@@ -444,7 +477,7 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 	if len(s.fail) > 0 {
 		fail, s.fail = s.fail[0], s.fail[1:]
 	}
-	accepted := tok != "" && (s.tokens[tok] || s.access[tok] != nil || s.accept != nil && s.accept(tok))
+	accepted := tok != "" && (s.tokens[tok] || s.access[tok] != nil || s.liveInstallToken(tok) || s.accept != nil && s.accept(tok))
 	s.mu.Unlock()
 
 	if fail != 0 {
@@ -459,15 +492,26 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 		s.serveSignIn(w, req)
 		return
 	}
-	if tok != "" && !accepted {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "Bad credentials"})
-		return
-	}
 	// A GitHub Enterprise Server host serves its API under /api/v3, so a client pointed at the
 	// fake as one reaches the same routes.
 	p := req.URL.Path
 	if rest, ok := strings.CutPrefix(p, "/api/v3/"); ok {
 		p = "/" + rest
+	}
+	// An App JWT is a bearer token the fake never accepts, so this route comes before the check.
+	if rest, ok := strings.CutPrefix(p, "/app/installations/"); ok && req.Method == http.MethodPost {
+		if id, ok := strings.CutSuffix(rest, "/access_tokens"); ok && !strings.Contains(id, "/") {
+			s.installationAccessToken(w, req, id)
+			return
+		}
+	}
+	if tok != "" && !accepted {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "Bad credentials"})
+		return
+	}
+	if p == "/installation/repositories" && req.Method == http.MethodGet {
+		s.installationRepos(w, tok)
+		return
 	}
 	if p == "/user" && req.Method == http.MethodGet {
 		s.serveUser(w, tok)
@@ -507,6 +551,16 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 	if !s.visible(r, tok, accepted) {
 		notFound(w)
 		return
+	}
+	if len(parts) > 2 && parts[2] != "hooks" {
+		level := "read"
+		if req.Method != http.MethodGet {
+			level = "write"
+		}
+		if !s.permitted(tok, "contents", level) {
+			notAccessible(w)
+			return
+		}
 	}
 	switch {
 	case len(parts) == 2 && req.Method == http.MethodGet:
@@ -570,7 +624,7 @@ func (s *Server) raw(w http.ResponseWriter, p, tok string, accepted bool) {
 	s.mu.Lock()
 	r := s.repos[strings.ToLower(parts[0]+"/"+parts[1])]
 	s.mu.Unlock()
-	if !s.visible(r, tok, accepted) {
+	if !s.visible(r, tok, accepted) || !s.permitted(tok, "contents", "read") {
 		notFound(w)
 		return
 	}
@@ -1085,6 +1139,11 @@ func SignedRequest(target string, secret []byte, event string, body []byte) *htt
 // PushRequest builds a signed push event to target for branch's head, with its parent as before,
 // as GitHub sends after a push of one commit. It panics on a missing branch.
 func (r *Repo) PushRequest(target string, secret []byte, branch string) *http.Request {
+	return SignedRequest(target, secret, "push", r.pushBody(branch, nil))
+}
+
+// pushBody is the push event for branch's head, with the installation when inst is set.
+func (r *Repo) pushBody(branch string, inst *Installation) []byte {
 	r.s.mu.Lock()
 	head, ok := r.branches[branch]
 	var before string
@@ -1099,13 +1158,17 @@ func (r *Repo) PushRequest(target string, secret []byte, branch string) *http.Re
 	if before == "" {
 		before = strings.Repeat("0", 40)
 	}
-	body, _ := json.Marshal(map[string]any{
+	ev := map[string]any{
 		"ref": "refs/heads/" + branch, "before": before, "after": head,
 		"created": false, "deleted": false, "forced": false,
 		"repository": map[string]any{
 			"name": r.Name, "full_name": r.Owner + "/" + r.Name, "private": r.Private,
 			"default_branch": def, "owner": map[string]any{"login": r.Owner, "name": r.Owner},
 		},
-	})
-	return SignedRequest(target, secret, "push", body)
+	}
+	if inst != nil {
+		ev["installation"] = installationJSON(inst)
+	}
+	body, _ := json.Marshal(ev)
+	return body
 }

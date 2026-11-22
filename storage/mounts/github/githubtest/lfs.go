@@ -86,6 +86,10 @@ func (s *Server) lfsBatch(w http.ResponseWriter, req *http.Request, p, tok strin
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "Repository not found"})
 		return
 	}
+	if !s.permitted(tok, "contents", "read") {
+		notAccessible(w)
+		return
+	}
 	var body struct {
 		Operation string `json:"operation"`
 		Objects   []struct {

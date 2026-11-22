@@ -58,15 +58,6 @@ type refreshGrant struct {
 	user     *User
 }
 
-// AddApp registers a GitHub App's OAuth client. The sign-in endpoints answer only a registered
-// client, and give any other client id, or a wrong secret, GitHub's incorrect_client_credentials
-// error.
-func (s *Server) AddApp(clientID, clientSecret string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.apps[clientID] = clientSecret
-}
-
 // AddUser makes a person who can sign in, a member of each of orgs. Each sign-in issues the
 // person a new access token and refresh token, and the fake accepts the access token as AddToken
 // does, until ExpireTokens or a refresh retires it. Repo.GrantUser and Repo.HookManagerUsers name
@@ -206,7 +197,12 @@ func (s *Server) accessToken(w http.ResponseWriter, req *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	want, known := s.apps[clientID]
+	app := s.apps[clientID]
+	known := app != nil
+	var want string
+	if known {
+		want = app.secret
+	}
 	// The device flow runs on a public client, so it needs no secret. When one comes, it must match.
 	secretOK := secret == want || grant == "urn:ietf:params:oauth:grant-type:device_code" && secret == ""
 	if !known || !secretOK {
@@ -236,6 +232,7 @@ func (s *Server) accessToken(w http.ResponseWriter, req *http.Request) {
 			if r == rt {
 				delete(s.access, tok)
 				delete(s.issuedBy, tok)
+				delete(s.accessApp, tok)
 			}
 		}
 		s.issueLocked(w, req, clientID, g.user)
@@ -271,6 +268,7 @@ const pollSlack = 100 * time.Millisecond
 func (s *Server) issueLocked(w http.ResponseWriter, req *http.Request, clientID string, u *User) {
 	access, rt := "ghu_"+randHex(), "ghr_"+randHex()
 	s.access[access] = u
+	s.accessApp[access] = clientID
 	s.issuedBy[access] = rt
 	s.refresh[rt] = refreshGrant{clientID: clientID, user: u}
 	oauthAnswer(w, req, url.Values{
@@ -333,10 +331,14 @@ func (s *Server) serveUser(w http.ResponseWriter, tok string) {
 }
 
 // serveMembership serves GET /orgs/{org}/members/{username}: 204 for a member and 404 otherwise,
-// for any accepted token.
+// for any accepted token. A token through a modelled App without "members" gets 403.
 func (s *Server) serveMembership(w http.ResponseWriter, org, login, tok string, accepted bool) {
 	if !accepted {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "Requires authentication"})
+		return
+	}
+	if !s.permitted(tok, "members", "read") {
+		notAccessible(w)
 		return
 	}
 	s.mu.Lock()

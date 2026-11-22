@@ -56,13 +56,13 @@ jobs:
       - uses: actions/checkout@v4
 
       # Go, pnpm and Node, then pnpm install in the exercise's folder (#198).
-      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.1
+      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.4
         with:
           pnpm-version: "12"
           working-directory: exercise/wasmhost
 
       # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
-      - uses: panyam/ci-actions/setup-browser@v0.1.1
+      - uses: panyam/ci-actions/setup-browser@v0.1.4
         with:
           working-directory: exercise/wasmhost
 
@@ -77,13 +77,13 @@ jobs:
       - uses: actions/checkout@v4
 
       # Go, pnpm and Node, then pnpm install in the exercise's folder (#198).
-      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.1
+      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.4
         with:
           pnpm-version: "12"
           working-directory: exercise/islands
 
       # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
-      - uses: panyam/ci-actions/setup-browser@v0.1.1
+      - uses: panyam/ci-actions/setup-browser@v0.1.4
         with:
           working-directory: exercise/islands
 
@@ -106,13 +106,13 @@ jobs:
       - uses: actions/checkout@v4
 
       # Go, pnpm and Node, then pnpm install in the exercise's folder (#198).
-      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.1
+      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.4
         with:
           pnpm-version: "12"
           working-directory: exercise/workerstate
 
       # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
-      - uses: panyam/ci-actions/setup-browser@v0.1.1
+      - uses: panyam/ci-actions/setup-browser@v0.1.4
         with:
           working-directory: exercise/workerstate
 
@@ -136,13 +136,13 @@ jobs:
 
       # Go, pnpm and Node, then pnpm install in the exercise's folder (#198). The tour needs no Go,
       # and setting it up anyway costs a few seconds from cache, for one shape across the jobs.
-      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.1
+      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.4
         with:
           pnpm-version: "12"
           working-directory: exercise/tour
 
       # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
-      - uses: panyam/ci-actions/setup-browser@v0.1.1
+      - uses: panyam/ci-actions/setup-browser@v0.1.4
         with:
           working-directory: exercise/tour
 

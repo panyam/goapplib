@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 0
 
       # Go, pnpm and Node, then pnpm install in docsite/ (#198).
-      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.1
+      - uses: panyam/ci-actions/setup-go-pnpm@v0.1.4
         with:
           go-version-file: docsite/go.mod
           go-cache-dependency-path: docsite/go.sum
@@ -34,7 +34,7 @@ jobs:
           working-directory: docsite
 
       # The runner's Chrome through CHROME_PATH, so no apt and no browser download (#191).
-      - uses: panyam/ci-actions/setup-browser@v0.1.1
+      - uses: panyam/ci-actions/setup-browser@v0.1.4
         with:
           working-directory: docsite
 
