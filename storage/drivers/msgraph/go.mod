@@ -5,8 +5,8 @@ go 1.26.9
 toolchain go1.27.4
 
 require (
-	github.com/panyam/goapplib/storage v0.7.31
-	github.com/panyam/oneauth v0.3.19
+	github.com/panyam/goapplib/storage v0.7.32
+	github.com/panyam/oneauth v0.3.20
 	golang.org/x/oauth2 v0.38.0
 )
 
