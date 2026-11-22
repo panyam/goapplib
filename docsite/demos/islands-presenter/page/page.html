@@ -10,15 +10,19 @@
   [data-slot] button { margin-right: .3rem; }
   [aria-pressed="true"] { font-weight: bold; }
   .skeleton { height: 1rem; border-radius: 4px; background: #6b728055; margin: .4rem 0; width: 60%; }
-  .spacer { height: 480px; display: flex; align-items: center; color: #6b7280; font-size: 14px; }
+  /* History sits below the fold of this box, so it starts out of view whatever the window's height. */
+  .scroller { height: 9rem; overflow-y: auto; }
+  .spacer { height: 12rem; display: flex; align-items: center; color: #6b7280; font-size: 14px; }
   ol { margin: .3rem 0; padding-left: 1.4rem; font-size: 14px; }
 </style>
 </head>
 <body>
 <ol id="steps"></ol>
 <section data-slot="tools"><div class="skeleton"></div><noscript>The tools need JavaScript.</noscript></section>
-<div class="spacer">The history island loads once it's scrolled into view.</div>
+<div class="scroller">
+<div class="spacer">Scroll down: the history island loads once it's in view.</div>
 <section data-slot="history"><div class="skeleton"></div><noscript>The history needs JavaScript.</noscript></section>
+</div>
 {{ template "PageSpecScript" .Spec }}
 <script type="module" src="{{ .Main }}"></script>
 </body>

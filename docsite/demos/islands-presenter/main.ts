@@ -1,6 +1,6 @@
 // The islands-presenter demo: one EditorPresenter, built in makeContext, drives two Solid islands
-// through a Port each. The history island loads "visible", below a spacer, so the check makes picks
-// before it mounts and then scrolls to it.
+// through a Port each. The history island loads "visible", below a spacer in a short scroll box, so
+// the check makes picks before it mounts and then scrolls to it.
 import { BasePage, IslandPage, type EventBus, type LCMComponent, type Registry } from "../../../tsappkit/src";
 import { failed, ready } from "../_lib/frame";
 import history from "./islands/history";
@@ -40,8 +40,14 @@ async function check() {
   $("pick-green").click();
   $("pick-blue").click();
   step("Picks in tools reached the presenter and came back to tools.", $("current").textContent === "blue");
-  slot("history").scrollIntoView();
-  step("Scrolled into view, history mounted and showed the picks made before it existed.", (await until(() => slot("history").dataset.mounted === "history")) && $("picks").textContent === "green, blue");
+  // Scrolled again on each poll, since a demo above this one can resize its frame and push the
+  // history back out of the window.
+  const shown = await until(() => {
+    if (slot("history").dataset.mounted === "history") return true;
+    slot("history").scrollIntoView({ block: "nearest" });
+    return false;
+  });
+  step("Scrolled into view, history mounted and showed the picks made before it existed.", shown && $("picks").textContent === "green, blue");
   $("pick-red").click();
   step("A pick in tools now shows in history too, through the presenter.", $("picks").textContent === "green, blue, red");
   step("Each port has exactly one view attached.", editor?.tools.size === 1 && editor?.history.size === 1);

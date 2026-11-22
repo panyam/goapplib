@@ -73,6 +73,9 @@ try {
     for (const fig of await page.locator("figure.demo").all()) {
       const name = await fig.getAttribute("data-demo");
       demos.add(name);
+      // On screen first, as a reader sees it. Chrome throttles an off-screen frame's rendering and
+      // timers, so a demo there can stall, and a "visible" island may never see itself.
+      await fig.scrollIntoViewIfNeeded();
       const frame = await (await fig.locator("iframe").elementHandle()).contentFrame();
       let state;
       try {
@@ -80,7 +83,6 @@ try {
       } catch {
         state = "never said it was ready (30 s)";
       }
-      await fig.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `${shots}${path.slice(prefix.length + 1).replaceAll("/", "_") || "index_"}${name}.png` });
       check(`demo:${name}`, state === "ready", `on ${path}: ${state}`);
     }
