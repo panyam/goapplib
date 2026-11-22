@@ -45,6 +45,6 @@ The conventions are in `~/.claude/skills/retriage/CONVENTIONS.md`.
 - **esbuild is overridden to `^0.28.1`** in each package's `pnpm-workspace.yaml`, since tsup 8.5 still asks for `^0.27`, which has an advisory. Delete the override once tsup moves to 0.28.
 - **`go build` fails in a worktree** with `error obtaining VCS status: exit status 128`, since this clone is a bare repo with worktrees. Pass `-buildvcs=false`.
 - **PR images** go on the orphan `pr-assets` branch under the PR number and are linked by commit (`https://github.com/panyam/goapplib/raw/<sha>/63/x.png`), so `main` carries no binaries.
-- **One PR closing two issues needs "Closes" before each** ("Closes #111, closes #95"). Check `gh pr view N --json closingIssuesReferences` after opening.
+- **One PR closing two issues needs "Closes" before each** ("Closes #111, closes #95"). Check `gh pr view N --json closingIssuesReferences` after opening. If it's empty, save the body again with `gh pr edit --body-file` (#235 needed that).
 - **A PR with merge conflicts runs no `pull_request` workflows**, while CodeQL still reports green. If `test` is missing from a PR's checks, check `mergeable` first.
 - **A PR stacked on another branch runs only `build`, and its "Closes" doesn't link**, because `test.yml` and `docs.yml` run on PRs into `main`. After the base PR merges and GitHub retargets it to `main`, save the body again so "Closes" links, and merge `main` in if it conflicts.
