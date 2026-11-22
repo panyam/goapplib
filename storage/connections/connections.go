@@ -44,8 +44,8 @@ const (
 	// KindEntra signs Microsoft Graph requests as an app registration in Microsoft Entra ID,
 	// TenantID and ClientID, with an OAuth token for GraphScope. EntraAuth says how it proves
 	// itself: a client secret at KeyRef, a certificate (its private key at KeyRef and the
-	// certificate at CertRef), or the managed identity of the Azure host it runs on. It is a
-	// server connection only.
+	// certificate at CertRef), the managed identity of the Azure host it runs on, or a Kubernetes
+	// service account token at KeyRef through workload identity. It is a server connection only.
 	KindEntra Kind = "entra"
 
 	// KindEntraUser signs Microsoft Graph requests as a person who signed in to the app's Entra
@@ -72,8 +72,16 @@ const (
 	EntraCertificate EntraAuth = "certificate"
 
 	// EntraManagedIdentity asks the Azure host's managed identity endpoint for a token, so the
-	// record holds no secret. ClientID, when set, picks a user-assigned identity.
+	// record holds no secret. ClientID, when set, picks a user-assigned identity. On App Service
+	// or Container Apps, the app passes the host's endpoint with WithIdentityEndpoint.
 	EntraManagedIdentity EntraAuth = "managed-identity"
+
+	// EntraWorkloadIdentity sends a Kubernetes service account token as the client assertion,
+	// as AKS workload identity does. KeyRef is a "file:" reference to the token, such as the
+	// file the AKS webhook names in AZURE_FEDERATED_TOKEN_FILE. The cluster rotates that file, so
+	// the service reads it again for each token request. The app registration ClientID needs a
+	// federated credential that trusts the cluster's issuer and the service account.
+	EntraWorkloadIdentity EntraAuth = "workload-identity"
 )
 
 // Scope says whose sign-in a connection is.
@@ -132,8 +140,9 @@ type Connection struct {
 	InstallationID int64
 
 	// KeyRef is a secret reference to a KindGitHubApp's private key, a KindAWS secret access
-	// key, a KindGCP service account key (its JSON file), or a KindEntra or KindEntraUser
-	// client secret, or a KindEntra certificate's private key.
+	// key, a KindGCP service account key (its JSON file), a KindEntra or KindEntraUser client
+	// secret, a KindEntra certificate's private key, or a KindEntra workload identity's federated
+	// token file.
 	KeyRef string
 
 	// AccessKeyID is a KindAWS access key's ID. AWS doesn't treat it as a secret, so the record

@@ -111,7 +111,7 @@ The kinds of connection follow the services:
 - `github-token` is a fixed token, such as a personal access token. `github-app` is a GitHub App installation, which mints an hour-long token from the App's private key. `github-user` is a person's own GitHub account, connected through OAuth, whose token oneauth keeps sealed and refreshes.
 - `aws` signs S3 requests with a key pair from secret references, or with the host's default credential chain, such as an IAM role, and can assume a role on top.
 - `gcp` sends Cloud Storage a token from a service account key, or from Application Default Credentials, such as workload identity on GKE.
-- `entra` signs in to Microsoft Graph as an app registration, with a client secret, a certificate, or the Azure host's managed identity. `entra-user` is a person's own Microsoft account, kept and refreshed like `github-user`.
+- `entra` signs in to Microsoft Graph as an app registration, with a client secret, a certificate, the Azure host's managed identity, or an AKS workload identity's token. `entra-user` is a person's own Microsoft account, kept and refreshed like `github-user`.
 
 A public repo or bucket needs no connection. [Connections](../../reference/connections/) covers each kind, and where a secret can and can't end up.
 

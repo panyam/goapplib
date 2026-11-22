@@ -58,6 +58,19 @@ func WithManagedIdentityURL(u string) Option {
 	return func(s *Service) { s.miURL = u }
 }
 
+// WithIdentityEndpoint points KindEntra EntraManagedIdentity connections at an App Service or
+// Container Apps identity endpoint, in place of IMDS. Such a host sets the endpoint in
+// IDENTITY_ENDPOINT and the secret header in IDENTITY_HEADER, and the app passes both:
+//
+//	connections.WithIdentityEndpoint(os.Getenv("IDENTITY_ENDPOINT"), os.Getenv("IDENTITY_HEADER"))
+//
+// The service sends the header as X-IDENTITY-HEADER on each token request. Like
+// WithManagedIdentityURL, it belongs to the service, so a stored record can't name another
+// endpoint. An empty endpoint leaves IMDS in place.
+func WithIdentityEndpoint(endpoint, header string) Option {
+	return func(s *Service) { s.idURL, s.idHeader = endpoint, header }
+}
+
 func entraAuthority(c Connection) string {
 	if c.BaseURL != "" {
 		return strings.TrimRight(c.BaseURL, "/")
@@ -106,9 +119,18 @@ func (s *Service) entraTokenSource(c Connection) (oauth2.TokenSource, error) {
 		}
 	case EntraManagedIdentity:
 		es.miURL = s.miURL
+		if s.idURL != "" {
+			es.miURL, es.idHeader = s.idURL, s.idHeader
+		}
 		if es.miURL == "" {
 			es.miURL = DefaultManagedIdentityURL
 		}
+	case EntraWorkloadIdentity:
+		r, err := outbound.ParseSecretRef(c.KeyRef)
+		if err != nil {
+			return nil, fmt.Errorf("%w: key_ref", ErrInvalid)
+		}
+		es.federated = r
 	default:
 		return nil, fmt.Errorf("%w: unknown entra_auth %q", ErrInvalid, c.EntraAuth)
 	}
@@ -174,6 +196,13 @@ type entraSource struct {
 	key    crypto.Signer
 	x5t    string
 	miURL  string
+
+	// idHeader is set when miURL is an App Service identity endpoint.
+	idHeader string
+
+	// federated is a workload identity's token file, read again for each request since the
+	// cluster rotates it.
+	federated outbound.SecretRef
 }
 
 func (e *entraSource) httpClient() *http.Client {
@@ -193,14 +222,22 @@ func (e *entraSource) Token() (*oauth2.Token, error) {
 		"scope":      {GraphScope},
 	}
 	tokenURL := entraTokenURL(e.c)
-	if e.key != nil {
+	switch {
+	case !e.federated.IsZero():
+		a, err := e.federated.Resolve()
+		if err != nil {
+			return nil, fmt.Errorf("connections: %s: key_ref: %w", e.c.ID, err)
+		}
+		form.Set("client_assertion_type", clientAssertionType)
+		form.Set("client_assertion", strings.TrimSpace(a))
+	case e.key != nil:
 		a, err := e.assertion(tokenURL)
 		if err != nil {
 			return nil, err
 		}
 		form.Set("client_assertion_type", clientAssertionType)
 		form.Set("client_assertion", a)
-	} else {
+	default:
 		form.Set("client_secret", e.secret)
 	}
 	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
@@ -234,10 +271,14 @@ func (e *entraSource) assertion(aud string) (string, error) {
 	return tok.SignedString(e.key)
 }
 
-// managedIdentity asks the host's identity endpoint for a Graph token. The endpoint answers only
-// a request with "Metadata: true", which a forwarded browser request can't carry.
+// managedIdentity asks the host's identity endpoint for a Graph token. IMDS answers only a
+// request with "Metadata: true", which a forwarded browser request can't carry. An App Service
+// identity endpoint wants its secret header and a newer api-version instead.
 func (e *entraSource) managedIdentity() (*oauth2.Token, error) {
 	q := url.Values{"api-version": {"2018-02-01"}, "resource": {GraphResource}}
+	if e.idHeader != "" {
+		q.Set("api-version", "2019-08-01")
+	}
 	if e.c.ClientID != "" {
 		q.Set("client_id", e.c.ClientID)
 	}
@@ -245,12 +286,17 @@ func (e *entraSource) managedIdentity() (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Metadata", "true")
+	if e.idHeader != "" {
+		req.Header.Set("X-IDENTITY-HEADER", e.idHeader)
+	} else {
+		req.Header.Set("Metadata", "true")
+	}
 	return e.do(req)
 }
 
-// do sends a token request and reads an Entra or IMDS token answer. IMDS sends expires_in as a
-// string, and the v2 endpoint as a number, so both are read.
+// do sends a token request and reads an Entra, IMDS or App Service token answer. IMDS sends
+// expires_in as a string, and the v2 endpoint as a number, so both are read. App Service sends
+// only expires_on, an epoch time, which is read when expires_in is missing.
 func (e *entraSource) do(req *http.Request) (*oauth2.Token, error) {
 	resp, err := e.httpClient().Do(req)
 	if err != nil {
@@ -265,6 +311,7 @@ func (e *entraSource) do(req *http.Request) (*oauth2.Token, error) {
 		AccessToken string          `json:"access_token"`
 		TokenType   string          `json:"token_type"`
 		ExpiresIn   json.RawMessage `json:"expires_in"`
+		ExpiresOn   json.RawMessage `json:"expires_on"`
 		Error       string          `json:"error"`
 		Description string          `json:"error_description"`
 	}
@@ -278,6 +325,8 @@ func (e *entraSource) do(req *http.Request) (*oauth2.Token, error) {
 	secs, err := strconv.ParseInt(strings.Trim(string(out.ExpiresIn), `"`), 10, 64)
 	if err == nil && secs > 0 {
 		tok.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
+	} else if on, err := strconv.ParseInt(strings.Trim(string(out.ExpiresOn), `"`), 10, 64); err == nil && on > 0 {
+		tok.Expiry = time.Unix(on, 0)
 	}
 	return tok, nil
 }

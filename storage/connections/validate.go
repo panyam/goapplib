@@ -127,8 +127,21 @@ func (c Connection) validateEntra() error {
 		if c.KeyRef != "" || c.CertRef != "" {
 			return fmt.Errorf("%w: a managed identity holds no key_ref or cert_ref", ErrInvalid)
 		}
+	case EntraWorkloadIdentity:
+		if c.TenantID == "" || c.ClientID == "" {
+			return fmt.Errorf("%w: an Entra workload identity connection needs a tenant and a client ID", ErrInvalid)
+		}
+		if !strings.HasPrefix(c.KeyRef, "file:") {
+			return fmt.Errorf("%w: a workload identity's key_ref must be a file: reference to its token", ErrInvalid)
+		}
+		if err := secretRef("key_ref", c.KeyRef); err != nil {
+			return err
+		}
+		if c.CertRef != "" {
+			return fmt.Errorf("%w: a workload identity has no cert_ref", ErrInvalid)
+		}
 	default:
-		return fmt.Errorf("%w: entra_auth must be secret, certificate or managed-identity", ErrInvalid)
+		return fmt.Errorf("%w: entra_auth must be secret, certificate, managed-identity or workload-identity", ErrInvalid)
 	}
 	return nil
 }
