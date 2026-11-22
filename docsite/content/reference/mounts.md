@@ -86,6 +86,8 @@ Say agni links a design from `s3://designs/boards/jetson`. A bucket has no commi
 
 The version doubles as a change check. A poll calls `ResolveAt`, and a new version means an object under the prefix was added, removed or changed. Bucket event notifications can replace the poll (see Bucket events below). A bucket has no refs, so a non-empty ref is `ErrInvalidArgument`, and a prefix with no objects under it is `ErrNotFound`. For `VersionReader`, `ListAt` reads a stored listing, each file's ID is `version:<id>` or `etag:<etag>`, and `FetchAt` copies that pinned version into the blob store.
 
+Say agni syncs a folder of 15 sheets after one of them changes. The sync lists the new version and calls `FetchAt` for each file, and only the changed sheet downloads (#234). `FetchAt` records an alias from each object's identity to its blob: the scheme, bucket and key, plus the version id, or the ETag on a bucket without versions. The next fetch of the same object finds the alias, checks that the store still holds the blob, and returns `fetched=false`. A snapshot's `Prepare` with views does the same. It needs a blob store that keeps aliases, which `blobs.Dir` does, and `blobs.Cached` does in its local folder. Another store downloads every file, as before.
+
 `storage/mounts/bucket` holds this logic once, over a three-method `Bucket` interface (`List`, `ListDir`, `Get`), and imports no SDK. `bucket/buckettest` is an in-memory `Bucket`, with or without versions. The SDK drivers each live in their own module, so an app that doesn't mount a bucket never downloads an SDK:
 
 ```go

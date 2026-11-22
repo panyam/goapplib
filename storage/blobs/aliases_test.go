@@ -55,3 +55,29 @@ func TestAliasesNameBlobsAndSurviveASweep(t *testing.T) {
 		t.Errorf("an alias file holding no hash = %v, %v; want none", ok, err)
 	}
 }
+
+func TestCachedKeepsAliasesInItsLocalDir(t *testing.T) {
+	ctx := context.Background()
+	remote, err := blobs.NewDir(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	local, err := blobs.NewDir(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var c blobs.Aliases = blobs.NewCached(remote, local)
+	h := blobs.HashOf([]byte("x"))
+	if err := c.SetAlias(ctx, "bucket", "abc", h); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok, err := c.Alias(ctx, "bucket", "abc"); err != nil || !ok || got != h {
+		t.Errorf("Alias = %s, %v, %v; want %s", got, ok, err, h)
+	}
+	if got, ok, err := local.Alias(ctx, "bucket", "abc"); err != nil || !ok || got != h {
+		t.Errorf("the local Dir's alias = %s, %v, %v; want %s", got, ok, err, h)
+	}
+	if err := c.SetAlias(ctx, "bucket", "../up", h); !errors.Is(err, blobs.ErrInvalidAlias) {
+		t.Errorf("SetAlias with a bad id = %v, want ErrInvalidAlias", err)
+	}
+}

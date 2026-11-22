@@ -45,10 +45,10 @@ github.com/morrisxyang/xreflect v0.0.0-20231001053442-6df0df9858ba h1:As4ul3aWz7
 github.com/morrisxyang/xreflect v0.0.0-20231001053442-6df0df9858ba/go.mod h1:M7gEkNNIO7dO1XnjIZUUvY57QG8Oed3Cf882guZD8sI=
 github.com/panyam/goutils v0.1.14 h1:PWM5jAzTSVHjWXbHD0CaifskSETFKHKaKIK5HrOg/uE=
 github.com/panyam/goutils v0.1.14/go.mod h1:lxEmbCJ04RY+KqFgo/+67bEdU2edpLYafMiJECTm3gQ=
-github.com/panyam/oneauth v0.3.18 h1:/gVZioRA+ILRIX76JgfUEvesAaNAy+sdUlIc1J028aE=
-github.com/panyam/oneauth v0.3.18/go.mod h1:KovKb74ntC7sroSeMafW/lZ6lzjuC/KI0uhxezRcN+8=
-github.com/panyam/oneauth/oauth2 v0.3.18 h1:WCjcl6kuFoUE2qtQUKwFpLnL90QHqZ0ldb+JN2ZWKO0=
-github.com/panyam/oneauth/oauth2 v0.3.18/go.mod h1:763SqrU0jf275xhqLXSP/ObhAjhXnGWdOBhly1LTkFA=
+github.com/panyam/oneauth v0.3.19 h1:OnL6n0QHaTbf93DSqnh3HaVH2ljozlWoUa3FqMnIxtg=
+github.com/panyam/oneauth v0.3.19/go.mod h1:KovKb74ntC7sroSeMafW/lZ6lzjuC/KI0uhxezRcN+8=
+github.com/panyam/oneauth/oauth2 v0.3.19 h1:iY1DegT+4QY8crL3Gp45v8JWADqXZaelJWZN2jEPcKw=
+github.com/panyam/oneauth/oauth2 v0.3.19/go.mod h1:zs9c4LpySNkwHa8VuHezrkkzQ4VG9C4rDtWVAy9arqE=
 github.com/panyam/s3gen v0.1.6 h1:4z73m+po/iU24bRaeJEXNN7wWfqfCi1ufU8qD8KlI9w=
 github.com/panyam/s3gen v0.1.6/go.mod h1:ZTpWhSoP7u97fPgAp6MqNDJ/y6t8lFhQKY9pwBTplgA=
 github.com/panyam/templar v0.1.0 h1:yy4sqois9gvNhIy2xsNyRoI5r/qvz1tVY+YuxnmzbWY=

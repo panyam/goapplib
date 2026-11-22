@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/goapplib/storage/mounts/folder"
 	"github.com/panyam/goapplib/storage/mounts/mountstest"
@@ -25,8 +26,12 @@ func TestDriverContract(t *testing.T) {
 		for p, data := range files {
 			write(t, p, data)
 		}
+		store, err := blobs.NewDir(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
 		return mountstest.DriverFixture{
-			Driver:    folder.New(),
+			Driver:    folder.New(folder.WithBlobs(store)),
 			Source:    dir,
 			Missing:   filepath.Join(dir, "nope"),
 			Change:    write,

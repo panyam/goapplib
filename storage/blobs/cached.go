@@ -38,7 +38,22 @@ func NewCached(remote Store, local *Dir, opts ...CachedOption) *Cached {
 	return c
 }
 
-var _ Linker = (*Cached)(nil)
+var (
+	_ Linker  = (*Cached)(nil)
+	_ Aliases = (*Cached)(nil)
+)
+
+// Alias implements Aliases from the local Dir, so each server keeps its own aliases. A server
+// whose folder was lost finds none, and its next fetch records them again. Callers check Has
+// before using a hash, and Has asks the remote, so an alias never hands out a blob that is gone.
+func (c *Cached) Alias(ctx context.Context, ns, id string) (Hash, bool, error) {
+	return c.local.Alias(ctx, ns, id)
+}
+
+// SetAlias implements Aliases in the local Dir.
+func (c *Cached) SetAlias(ctx context.Context, ns, id string, h Hash) error {
+	return c.local.SetAlias(ctx, ns, id, h)
+}
 
 // Put implements Store. It writes the local copy first, then sends that copy to the remote, and
 // returns only after both hold the blob. A remote that stores the bytes under some other hash
