@@ -111,6 +111,16 @@ Say agni links a folder in S3 as a snapshot, and its engine opens real files. A 
 
 With blobs in a bucket, the store is a `blobs.Cached` (see the blobs page), and the view links to its local copies.
 
+A view downloads the whole source, which suits a tool that opens neighbouring files, as a KiCad project does. Say instead the bucket holds 1000 files and a tool needs one of them on disk. Leave out `WithViews`, so creating the mount downloads nothing, and fetch that one file at the snapshot's version:
+
+```go
+files, _ := reg.ListAt(ctx, m.Name, m.Version, "board/main.kicad_sch")
+h, _, _ := reg.FetchAt(ctx, m.Name, m.Version, files[0])
+_ = store.Link(h, filepath.Join(workDir, "main.kicad_sch")) // store is the driver's blobs.Linker
+```
+
+`ListAt` with a file's path lists just that file. `FetchAt` downloads it at the pinned version, so a later change in the bucket doesn't reach it. The app keeps `h` in its own records and passes a referrer to `Sweep`, since the mount's manifest doesn't list the file. A mode where `HostPath` fetches only the files it's asked for waits on a second app ([#225](https://github.com/panyam/goapplib/issues/225)).
+
 ### Bucket events
 
 Say agni follows `s3://designs/boards/jetson`, and someone uploads a new `power.kicad_sch` there. Polling `ResolveAt` finds it on the next tick. A bucket event finds it within seconds (#210). The bucket sends an event for one object, and each driver module turns that event into a `mounts.Change` whose `Source` names the object, such as `s3://designs/boards/jetson/power.kicad_sch`. `bucket.Driver` is a `mounts.SourceContainer`, so `Registry.Following` returns every mount whose prefix holds the object. Here that's the `jetson` mount and a mount of `s3://designs`, but not one of `s3://designs/boards/jet`. The change's `Ref` and `Version` are empty, since an event doesn't say what the listing's hash becomes. The app calls `ResolveAt` on each mount it gets back, as it does after a GitHub push.
