@@ -282,3 +282,94 @@ func TestCanReadDoesNotKeepAnAnswerFromBeforeAForget(t *testing.T) {
 		t.Errorf("CanRead after the forget = %q, %v; the no from before it was kept", id, err)
 	}
 }
+
+// recordingCheck answers yes to want and records each token it was handed.
+func recordingCheck(t *testing.T, seen *[]string, want string) connections.ReadCheck {
+	return func(ctx context.Context, baseURL, source string, creds mounts.Credentials) (bool, error) {
+		tok, err := mounts.BearerToken(creds)
+		if err != nil {
+			t.Fatal(err)
+		}
+		*seen = append(*seen, tok)
+		return tok == want, nil
+	}
+}
+
+// TestReadChecksGoOnlyToTheirKinds gives alice a GitHub token connection and an Entra sign-in. A
+// check sees only the connections of its kinds, so her Entra token never reaches GitHub and her
+// GitHub token never reaches Graph.
+func TestReadChecksGoOnlyToTheirKinds(t *testing.T) {
+	ctx := context.Background()
+	store, err := fsstore.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOAPPLIB_TEST_GH_TOKEN", "gh-token")
+	t.Setenv("GOAPPLIB_TEST_CONN_KEY", "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
+	for _, c := range []connections.Connection{
+		{ID: "a-gh", Kind: connections.KindGitHubToken, Scope: connections.ScopePerson, Owner: "alice", TokenRef: "env:GOAPPLIB_TEST_GH_TOKEN"},
+		{ID: "b-sp", Kind: connections.KindEntraUser, Scope: connections.ScopePerson, Owner: "alice", TenantID: "contoso", ClientID: "app-1"},
+	} {
+		if err := store.PutConnection(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var ghSeen, graphSeen, otherSeen []string
+	users := oneauthfs.NewFSUserTokenStore(t.TempDir())
+	svc := connections.NewService(store,
+		connections.WithUserTokens(users, "env:GOAPPLIB_TEST_CONN_KEY", nil),
+		connections.WithReadCheckFor("github", recordingCheck(t, &ghSeen, "gh-token"), connections.KindGitHubUser, connections.KindGitHubToken),
+		connections.WithReadCheckFor("msgraph", recordingCheck(t, &graphSeen, "entra-token"), connections.KindEntraUser),
+		connections.WithReadCheck(recordingCheck(t, &otherSeen, "nobody")))
+	as := connections.WithViewer(ctx, "alice")
+	if err := svc.SaveUserToken(as, "alice", "b-sp", &oauth2.Token{AccessToken: "entra-token", Expiry: time.Now().Add(time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+
+	if id, err := svc.CanRead(as, "github://acme/board"); err != nil || id != "a-gh" {
+		t.Errorf("github source: CanRead = %q, %v; want a-gh", id, err)
+	}
+	if id, err := svc.CanRead(as, "msgraph://drives/b!x/root/Boards"); err != nil || id != "b-sp" {
+		t.Errorf("msgraph source: CanRead = %q, %v; want b-sp", id, err)
+	}
+	if len(ghSeen) != 1 || ghSeen[0] != "gh-token" {
+		t.Errorf("the GitHub check saw tokens %q, want only gh-token", ghSeen)
+	}
+	if len(graphSeen) != 1 || graphSeen[0] != "entra-token" {
+		t.Errorf("the Graph check saw tokens %q, want only entra-token", graphSeen)
+	}
+
+	// A scheme with no check of its own falls back to WithReadCheck, which tries every kind.
+	if _, err := svc.CanRead(as, "s3://designs/boards"); !errors.Is(err, connections.ErrNoAccess) {
+		t.Errorf("s3 source: CanRead = %v, want ErrNoAccess from the fallback", err)
+	}
+	if len(otherSeen) != 2 {
+		t.Errorf("the fallback check saw %d connections, want both", len(otherSeen))
+	}
+}
+
+func TestAViewerWithNoConnectionOfTheKindGetsNoAccess(t *testing.T) {
+	ctx := context.Background()
+	store, err := fsstore.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOAPPLIB_TEST_GH_TOKEN", "gh-token")
+	if err := store.PutConnection(ctx, connections.Connection{ID: "a-gh", Kind: connections.KindGitHubToken, Scope: connections.ScopePerson,
+		Owner: "alice", TokenRef: "env:GOAPPLIB_TEST_GH_TOKEN"}); err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	svc := connections.NewService(store, connections.WithReadCheckFor("msgraph",
+		func(context.Context, string, string, mounts.Credentials) (bool, error) {
+			called = true
+			return false, errors.New("Graph rejected a GitHub token")
+		}, connections.KindEntraUser))
+	as := connections.WithViewer(ctx, "alice")
+	if _, err := svc.CanRead(as, "msgraph://drives/b!x/root/Boards"); !errors.Is(err, connections.ErrNoAccess) || called {
+		t.Errorf("CanRead = %v with the check called = %v; want ErrNoAccess and no call", err, called)
+	}
+	if _, err := svc.CanRead(as, "github://acme/board"); !errors.Is(err, connections.ErrNotConfigured) {
+		t.Errorf("CanRead of a scheme with no check and no fallback = %v, want ErrNotConfigured", err)
+	}
+}

@@ -73,6 +73,8 @@ type Drive struct {
 	root     *node
 	versions bool
 	changes  []change // the delta feed, oldest first
+	grants   map[string]bool
+	allow    func(token string) bool
 }
 
 type node struct {
@@ -179,6 +181,36 @@ func (s *Server) nextID() string {
 func (s *Server) tick() time.Time {
 	s.clock = s.clock.Add(time.Minute)
 	return s.clock
+}
+
+// Grant limits the drive to tokens, and to whatever Allow approves. Once the drive has a grant or
+// an Allow, any other accepted token gets 403 accessDenied on its routes, as SharePoint answers a
+// person who can't open a library. A drive with neither answers every accepted token.
+func (d *Drive) Grant(tokens ...string) {
+	d.s.mu.Lock()
+	defer d.s.mu.Unlock()
+	if d.grants == nil {
+		d.grants = map[string]bool{}
+	}
+	for _, t := range tokens {
+		d.grants[t] = true
+	}
+}
+
+// Allow limits the drive as Grant does, to tokens f approves, such as an entratest token issued
+// to one person.
+func (d *Drive) Allow(f func(token string) bool) {
+	d.s.mu.Lock()
+	defer d.s.mu.Unlock()
+	d.allow = f
+}
+
+// opens reports whether tok may use the drive. Callers hold s.mu.
+func (d *Drive) opens(tok string) bool {
+	if d.grants == nil && d.allow == nil {
+		return true
+	}
+	return d.grants[tok] || d.allow != nil && d.allow(tok)
 }
 
 // KeepVersions sets whether a change keeps the old content in the file's version history.
@@ -316,6 +348,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !d.opens(tok) {
+		graphError(w, http.StatusForbidden, "accessDenied", "Access denied")
+		return
+	}
 	switch {
 	case rest == "root/children":
 		s.children(w, r, d, d.root)

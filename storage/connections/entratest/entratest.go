@@ -184,6 +184,23 @@ func (s *Server) ValidToken(tok string) bool {
 	return ok
 }
 
+// SubjectOf returns the subject an access token the fake issued belongs to, such as the person
+// SignIn named, so another fake can decide per person what the token reads. A managed identity's
+// or an app's token has an empty subject. It reports false for a token the fake didn't issue.
+func (s *Server) SubjectOf(tok string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	who, ok := s.issued[tok]
+	if !ok {
+		return "", false
+	}
+	parts := strings.SplitN(who, "/", 3)
+	if len(parts) < 3 {
+		return "", true
+	}
+	return parts[2], true
+}
+
 // Requests returns every request answered so far, oldest first.
 func (s *Server) Requests() []Request {
 	s.mu.Lock()

@@ -98,9 +98,14 @@ A bearer driver wraps the source in an `oauth2.Transport` and sends it with ever
 Imagine a viewer opening a design that agni linked from a private repo. agni has to decide whether to show it. GitHub knows whether this person can read the repo, so agni asks GitHub with the person's own connections:
 
 ```go
-svc := connections.NewService(store, connections.WithReadCheck(githubDriver.CanRead))
+svc := connections.NewService(store,
+	connections.WithReadCheckFor("github", githubDriver.CanRead, connections.KindGitHubUser, connections.KindGitHubToken),
+	connections.WithReadCheckFor("msgraph", graphDriver.CanRead, connections.KindEntraUser))
 id, err := svc.CanRead(connections.WithViewer(ctx, subject), "github://acme/board")
 ```
+
+- `WithReadCheckFor` sets the check for one source scheme and the connection kinds `CanRead` tries with it. Say alice has a GitHub connection and a SharePoint sign-in. When she opens a repo link, only her GitHub connection is tried, so her Entra token never goes to GitHub. `WithReadCheck` still works as the check for any scheme without its own, but it tries every kind. An empty `BaseURL` means github.com to the GitHub check, so through `WithReadCheck` an Entra connection's token reaches GitHub (#236).
+- The msgraph driver's `CanRead` asks Graph for the folder with the person's token. A 403 or 404 is a no, since Graph answers 403 for a library the person can't open. A rejected token is an error. It ignores the connection's `BaseURL`, which for Entra is the sign-in authority, and asks the Graph root the driver was built with.
 
 - `CanRead` lists the viewer's connections in ID order. For each one it gets its credentials and calls the read check, and it returns the first connection that can read the source.
 - The GitHub driver's `CanRead` is the read check. It asks for the repo, and a 404 counts as a definite no, which is also how GitHub answers a private repo the token can't see. A connection to another host than the driver serves gets a no without a request.
