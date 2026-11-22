@@ -7,6 +7,7 @@ The storage module, `github.com/panyam/goapplib/storage`: mounts, connections an
 - `mounts/` has the registry, the folder driver (`folder/`), the GitHub driver (`github/`), the bucket logic shared by S3 and GCS (`bucket/`), the folder record store (`fsstore/`) and the contract suites for record stores and drivers (`mountstest/`). `connections/` and `blobs/` follow the same shape. The S3, GCS and msgraph drivers are modules under `drivers/`.
 - The root module never imports `storage`. A backend or driver that needs a third-party SDK gets its own module under `storage/backends/` or `storage/drivers/`, as GORM and Datastore did (#161).
 - Each nested module requires `storage` at `VERSION` with a `replace` to the local folder. `scripts/check-versions.sh` fails when a require says otherwise, and `release.sh` moves the requires at release. `scripts/CLAUDE.md` has the steps.
+- The S3 and GCS modules under `drivers/` hold both the mount driver and the blob store (`s3blobs`, `gcsblobs`), so each cloud's SDK is in one module. `blobs/blobstest` and `mounts/mountstest` are the contract suites a new store or driver runs.
 - `make go-test` tests every nested module (`scripts/go-modules.sh` lists them).
 
 ## Gotchas

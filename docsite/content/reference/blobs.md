@@ -42,7 +42,18 @@ A mount record keeps one hash, the manifest's. `ManifestRefs` expands that hash 
 
 `blobs.Dir` keeps a blob at `<root>/sha256/ab/cdef...`. That is agni's layout, so agni can point `NewDir` at its existing `uploads/blobs` folder and keep every blob it has. Writes go through a temp file and a rename in the same folder, so a reader sees a whole blob or none, and several processes can share one `Dir`. Reads and removals go through `os.Root`, so a link planted in the folder can't lead a sweep outside it.
 
-GCS and S3 stores come later, in their own modules under `storage/drivers/`, as objects named by hash. They implement `Store` without `Linker`, so a snapshot over them serves an `fs.FS` and has no host path.
+## Bucket stores
+
+Say agni runs on Kubernetes with no persistent volume. It keeps uploads in a bucket with `s3blobs.New(ctx, "s3://acme-agni/uploads", creds)` or `gcsblobs.New(ctx, "gs://acme-agni/uploads", creds)` (#205). The packages live in the S3 and GCS driver modules, `storage/drivers/s3/s3blobs` and `storage/drivers/gcs/gcsblobs`, so an app that uses a cloud for both mounts and blobs downloads its SDK once. The credentials come from an `aws` or `gcp` connection, through `connections.Service.Credentials`, as the mount drivers' do.
+
+- Each blob is the object `<prefix>/sha256/ab/cdef...`, the same layout `Dir` uses on disk (`blobs.Key`). So `aws s3 sync uploads/blobs s3://acme-agni/uploads` moves an existing `Dir` into a bucket.
+- A bucket needs the object's name before the upload, and the name is the hash. So `Put` first copies its input into a local temp file and hashes it (`blobs.Spool`), then uploads once. `WithTempDir` sets where, and it needs room for the largest blob.
+- The upload is conditional, with `If-None-Match: *` on S3 and `ifGenerationMatch=0` on GCS. Two servers putting the same bytes never overwrite each other. The loser finds the blob there, and moves its written time forward in the object's metadata, so the sweep's grace period starts again as `Put` promises. On S3 that copies the object onto itself, since S3 can't change metadata in place.
+- `Open` checks the bytes against the hash as it reads, through `blobs.Verify`, as `Dir` does.
+- `Sweep` lists `<prefix>/sha256/` and ages each unreferenced blob by its written time, or by the object's own time for a blob copied in some other way. On S3 it reads each unreferenced blob's metadata with a HEAD, since a listing leaves metadata out. Objects under the prefix that aren't named like blobs are left alone.
+- They implement `Store` without `Linker`, since a bucket can't hard-link. A snapshot over them serves an `fs.FS` and has no host path. An app that needs files on disk keeps a cache in front.
+
+`blobs/blobstest.RunStore` checks any `Store` against this page's contract: round trips, a missing or malformed hash, corruption, the refresh on a second `Put`, the sweep's grace period and referrers, and concurrent `Put`s of the same bytes. `Dir`, `s3blobs` and `gcsblobs` all run it, the bucket stores against gofakes3 and fake-gcs-server. Live tests run with `STORAGE_LIVE_S3=s3://<bucket>/<prefix>` or `STORAGE_LIVE_GCS=gs://<bucket>/<prefix>`, using each cloud's default credentials.
 
 ## Blobs and wasmhost's caches
 
