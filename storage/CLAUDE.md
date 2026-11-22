@@ -13,6 +13,7 @@ The storage module, `github.com/panyam/goapplib/storage`: mounts, connections an
 ## Gotchas
 
 - Two fake GitHubs exist. `mounts/github/githubtest` serves repos (commits, tarballs, contents, hooks), an App's sign-in, permissions and installation tokens, and checks tokens. Its `cmd/fakegithub` serves a seeded fake for exercises outside `go test`. oneauth's `outbound/githubtest` mints installation and user tokens for a connection. `AcceptToken` makes the first trust the second's tokens.
+- oneauth's fs and Datastore user-token stores refuse an empty subject. A sealed server secret is kept under provider `goapplib-server-secret:<id>` and subject `server` (#231).
 - The Datastore tests skip unless `DATASTORE_PROJECT_ID` is set. `make test-datastore` runs them against the local emulator, in a temp folder. Run from the repo root, the emulator writes `WEB-INF/appengine-generated/`, which then blocks `release.sh`'s clean-tree check.
 - A connection's key is its owner and ID, and every call and mount names both (#197). A store change has to keep reading the records it wrote when the key was the ID alone, as each store's old-layout test checks.
 - GORM on SQLite needs `_txlock=immediate` in the DSN, or concurrent creates fail with "database is locked". The tests set it.
