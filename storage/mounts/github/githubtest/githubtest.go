@@ -19,6 +19,14 @@
 // which Repo.GrantUser and Repo.HookManagerUsers name by login. Every API route also answers under
 // /api/v3, as on a GitHub Enterprise Server host.
 //
+// AddApp returns the App, and App.SetPermissions and App.Install model what a real App may do
+// (apps.go). Then a sign-in token through the App reads only repos the App is installed on, the
+// API answers 403 to a call the App has no permission for, and the fake issues installation
+// tokens to an App JWT. App.SetWebhook gives the App a webhook that Push delivers to.
+//
+// LoadSeed and Seed.Apply build a fake from a JSON seed file, and Seeded.Control answers a script
+// driving it from outside the process. cmd/fakegithub serves a seeded fake as a command.
+//
 // oneauth's outbound/githubtest mints installation tokens and user tokens for a connection, with
 // no sign-in or repos. A test that drives a connection end to end uses both, with AcceptToken
 // trusting the tokens the other mints.
