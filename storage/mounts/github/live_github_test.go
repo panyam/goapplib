@@ -97,3 +97,50 @@ func TestLiveGitHub(t *testing.T) {
 		}
 	}
 }
+
+// TestLiveGitHubLFS reads one LFS file through a snapshot and a live mount on real GitHub. It
+// skips unless STORAGE_LIVE_GITHUB_LFS names the file as "owner/repo:path", since no small public
+// LFS fixture is known to stay put. STORAGE_LIVE_GITHUB_TOKEN is sent when set, for a private repo.
+func TestLiveGitHubLFS(t *testing.T) {
+	spec := os.Getenv("STORAGE_LIVE_GITHUB_LFS")
+	if spec == "" {
+		t.Skip("set STORAGE_LIVE_GITHUB_LFS=owner/repo:path to read an LFS file from github.com")
+	}
+	rp, p, ok := strings.Cut(spec, ":")
+	if !ok {
+		t.Fatalf("STORAGE_LIVE_GITHUB_LFS = %q, want owner/repo:path", spec)
+	}
+	var ts oauth2.TokenSource
+	if tok := os.Getenv("STORAGE_LIVE_GITHUB_TOKEN"); tok != "" {
+		ts = oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok})
+	}
+	ctx := context.Background()
+	b, err := blobs.NewDir(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := github.New(b)
+	src := "github://" + rp
+	v, err := d.Resolve(ctx, src, "", ts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []mounts.Mode{mounts.ModeSnapshot, mounts.ModeLive} {
+		m, err := d.Prepare(ctx, mounts.Mount{Name: "lfs", Kind: mounts.KindGitHub, Source: src, Version: v, Mode: mode}, ts)
+		if err != nil {
+			t.Fatalf("%s Prepare: %v", mode, err)
+		}
+		fsys, err := d.Open(ctx, m, ts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := fs.ReadFile(fsys, p)
+		if err != nil {
+			t.Fatalf("%s ReadFile(%s): %v", mode, p, err)
+		}
+		if _, isPointer := mounts.ParseLFSPointer(got); isPointer {
+			t.Errorf("%s read %s as its pointer", mode, p)
+		}
+		t.Logf("%s read %s: %d bytes", mode, p, len(got))
+	}
+}

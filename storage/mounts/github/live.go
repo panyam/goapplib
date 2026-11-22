@@ -89,8 +89,8 @@ func escapePath(p string) string {
 }
 
 // liveFS reads a branch through the Contents API on every open, so it shows the branch's latest
-// commit. Links and submodules don't appear in listings, and opening one fails with
-// mounts.ErrInvalidPath.
+// commit. A Git LFS pointer reads as its object. Links and submodules don't appear in listings,
+// and opening one fails with mounts.ErrInvalidPath.
 type liveFS struct {
 	ctx context.Context
 	d   *Driver
@@ -132,6 +132,11 @@ func (l liveFS) Open(name string) (fs.File, error) {
 	data, err := base64.StdEncoding.DecodeString(c.Content)
 	if err != nil || (c.Encoding != "base64" || int64(len(data)) != c.Size) && c.Size > 0 {
 		if data, err = l.d.raw(l.ctx, l.ts, l.rp, l.ref, p); err != nil {
+			return nil, pathErr("open", name, err)
+		}
+	}
+	if ptr, ok := mounts.ParseLFSPointer(data); ok {
+		if data, err = l.d.lfsRead(l.ctx, l.rp, l.ts, lfsFile{Path: p, LFSPointer: ptr}); err != nil {
 			return nil, pathErr("open", name, err)
 		}
 	}

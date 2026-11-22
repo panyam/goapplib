@@ -43,6 +43,7 @@ type Driver struct {
 	views  string
 
 	rawURL string
+	lfsURL string
 
 	mu        sync.Mutex
 	manifests map[blobs.Hash]*tree

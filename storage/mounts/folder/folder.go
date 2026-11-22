@@ -99,7 +99,7 @@ func (d *Driver) Resolve(ctx context.Context, source, ref string, ts oauth2.Toke
 
 // Open returns the folder's files as they are now. The fs.FS refuses a path through a link with an
 // error wrapping ErrInvalidPath, and its listings leave links out, so fs.WalkDir sees only regular
-// files and folders.
+// files and folders. Opening a Git LFS pointer fails with ErrLFS, naming the path.
 func (d *Driver) Open(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource) (fs.FS, error) {
 	return linkFree{dir: m.Source, follow: d.follow}, nil
 }
@@ -198,7 +198,8 @@ func (d *Driver) Delete(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 }
 
 // HostPath returns the absolute path of p in the folder. The file need not exist, so a native tool
-// can write its output there. A path through a link returns ErrInvalidPath.
+// can write its output there. A path through a link returns ErrInvalidPath, and a file that is a
+// Git LFS pointer returns ErrLFS. A folder's path is returned without looking at the files in it.
 func (d *Driver) HostPath(m mounts.Mount, p string) (string, error) {
 	p, err := mounts.CleanPath(p)
 	if err != nil {
@@ -212,8 +213,20 @@ func (d *Driver) HostPath(m mounts.Mount, p string) (string, error) {
 		return "", err
 	}
 	defer root.Close()
-	if _, err := check(root, p, d.follow); err != nil {
+	info, err := check(root, p, d.follow)
+	if err != nil {
 		return "", err
+	}
+	if info != nil && info.Mode().IsRegular() && info.Size() <= mounts.MaxLFSPointerSize {
+		f, err := root.Open(p)
+		if err != nil {
+			return "", err
+		}
+		err = refusePointer(f, info, p)
+		f.Close()
+		if err != nil {
+			return "", err
+		}
 	}
 	return filepath.Join(m.Source, filepath.FromSlash(p)), nil
 }
@@ -335,7 +348,31 @@ func (l linkFree) Open(name string) (fs.File, error) {
 	if info.IsDir() {
 		return &dirFile{File: f, dir: l.dir, name: name, follow: l.follow}, nil
 	}
+	if err := refusePointer(f, info, name); err != nil {
+		f.Close()
+		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
+	}
 	return f, nil
+}
+
+// refusePointer returns mounts.ErrLFS when f is a Git LFS pointer, which a checkout made without
+// "git lfs pull" holds in place of each LFS file. The folder has no remote to fetch the object
+// from. It leaves f at its start.
+func refusePointer(f *os.File, info fs.FileInfo, name string) error {
+	if !info.Mode().IsRegular() || info.Size() > mounts.MaxLFSPointerSize {
+		return nil
+	}
+	b, err := io.ReadAll(io.LimitReader(f, mounts.MaxLFSPointerSize+1))
+	if err != nil {
+		return err
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	if ptr, ok := mounts.ParseLFSPointer(b); ok {
+		return fmt.Errorf("%w: %s is a pointer to LFS object %s; run git lfs pull in the folder", mounts.ErrLFS, name, ptr.OID)
+	}
+	return nil
 }
 
 func (l linkFree) ReadDir(name string) ([]fs.DirEntry, error) {

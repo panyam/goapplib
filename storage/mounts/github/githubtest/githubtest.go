@@ -9,6 +9,9 @@
 // anything else. Once a private repo has grants (Repo.Grant), only a granted token reads it. Every request is recorded with the token it carried, so a test can check that a
 // connection's token reached each one.
 //
+// It serves the Git LFS batch API for downloads (lfs.go), so a repo can hold LFS files, whose
+// tarball, raw and contents answers carry only the pointer, as GitHub's do.
+//
 // It serves a GitHub App's sign-in on the same host, at the paths oneauth's
 // GithubOAuth2.SetEnterpriseURL points at: the web flow with PKCE, the device flow, refresh, /user
 // and org membership. AddApp registers the App, AddUser makes a person, and SignInAs or
@@ -54,6 +57,7 @@ type Server struct {
 	fail     []int
 	corrupt  bool
 	hookSeq  int64
+	lfs      lfsState
 
 	// Sign-in state, in signin.go.
 	apps           map[string]string // client id -> secret
@@ -135,7 +139,7 @@ func New(t testing.TB) *Server {
 	s := &Server{repos: map[string]*Repo{}, tokens: map[string]bool{},
 		apps: map[string]string{}, users: map[string]*User{}, codes: map[string]authCode{}, access: map[string]*User{},
 		issuedBy: map[string]string{}, refresh: map[string]refreshGrant{}, devices: map[string]*device{},
-		deviceInterval: time.Second}
+		deviceInterval: time.Second, lfs: lfsState{objects: map[string][]byte{}}}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
 	t.Cleanup(s.Close)
 	return s
@@ -357,6 +361,10 @@ func token(req *http.Request) string {
 			return t
 		}
 	}
+	// Git, and the LFS API, send a token as the basic-auth password.
+	if _, pw, ok := req.BasicAuth(); ok {
+		return pw
+	}
 	return ""
 }
 
@@ -410,6 +418,14 @@ func (s *Server) serve(w http.ResponseWriter, req *http.Request) {
 	}
 	if raw, ok := strings.CutPrefix(p, "/raw/"); ok && req.Method == http.MethodGet {
 		s.raw(w, raw, tok, accepted)
+		return
+	}
+	if strings.HasSuffix(p, ".git/info/lfs/objects/batch") && req.Method == http.MethodPost {
+		s.lfsBatch(w, req, p, tok, accepted)
+		return
+	}
+	if oid, ok := strings.CutPrefix(p, "/lfs-objects/"); ok && req.Method == http.MethodGet {
+		s.lfsObject(w, req, oid)
 		return
 	}
 	parts := strings.SplitN(strings.TrimPrefix(p, "/repos/"), "/", 4)
