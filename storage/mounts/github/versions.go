@@ -151,6 +151,7 @@ func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 
 // FetchAt keeps f's contents in the blob store. When the store is a blobs.Aliases that maps f.ID
 // to a blob it holds, nothing is downloaded. A download is checked against f.ID before it's kept.
+// A Git LFS pointer is swapped for its object, and f.ID then maps to the object's blob.
 func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, commit string, f mounts.File) (blobs.Hash, bool, error) {
 	if d.blobs == nil {
 		return "", false, fmt.Errorf("%w: this GitHub driver has no blob store", mounts.ErrInvalidArgument)
@@ -176,8 +177,18 @@ func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSou
 	if id := gitBlobSHA(b); id != f.ID {
 		return "", false, fmt.Errorf("%w: GitHub sent %s with git blob id %s, not %s", mounts.ErrUnavailable, f.Path, id, f.ID)
 	}
-	h, err := d.blobs.Put(ctx, bytes.NewReader(b))
-	if err != nil {
+	var h blobs.Hash
+	if ptr, ok := mounts.ParseLFSPointer(b); ok {
+		rp, err := repo(m.Source)
+		if err != nil {
+			return "", false, err
+		}
+		hashes, err := d.lfsStore(ctx, rp, ts, []lfsFile{{Path: f.Path, LFSPointer: ptr}})
+		if err != nil {
+			return "", false, err
+		}
+		h = hashes[ptr.OID]
+	} else if h, err = d.blobs.Put(ctx, bytes.NewReader(b)); err != nil {
 		return "", false, err
 	}
 	if al != nil {

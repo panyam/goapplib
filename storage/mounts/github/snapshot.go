@@ -2,6 +2,7 @@ package github
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -19,7 +20,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// snapshot streams the tarball of commit into the blob store and returns its manifest's hash.
+// snapshot streams the tarball of commit into the blob store and returns its manifest's hash. A
+// Git LFS pointer in it is swapped for its object, from the LFS API.
 // It keeps regular files only, so links and devices never reach the snapshot, and refuses a path
 // that is absolute, unclean or climbs out of the repo.
 func (d *Driver) snapshot(ctx context.Context, rp, commit string, ts oauth2.TokenSource) (blobs.Hash, error) {
@@ -40,6 +42,7 @@ func (d *Driver) snapshot(ctx context.Context, rp, commit string, ts oauth2.Toke
 	}
 	tr := tar.NewReader(gz)
 	var m blobs.Manifest
+	var pointers []lfsFile
 	var total int64
 	for {
 		hdr, err := tr.Next()
@@ -56,15 +59,43 @@ func (d *Driver) snapshot(ctx context.Context, rp, commit string, ts oauth2.Toke
 		if err != nil {
 			return "", err
 		}
-		total += hdr.Size
-		if len(m)+1 > d.limits.MaxFiles || total > d.limits.MaxBytes {
+		var body io.Reader = io.LimitReader(tr, hdr.Size)
+		size := hdr.Size
+		var ptr *lfsFile
+		if hdr.Size <= mounts.MaxLFSPointerSize {
+			b, err := io.ReadAll(body)
+			if err != nil {
+				return "", fmt.Errorf("%w: reading the tarball: %v", mounts.ErrUnavailable, err)
+			}
+			if lp, ok := mounts.ParseLFSPointer(b); ok {
+				ptr, size = &lfsFile{Path: p, LFSPointer: lp}, lp.Size
+			}
+			body = bytes.NewReader(b)
+		}
+		total += size
+		if len(m)+len(pointers)+1 > d.limits.MaxFiles || total > d.limits.MaxBytes {
 			return "", fmt.Errorf("%w: the commit has more than %d files or %d bytes", mounts.ErrTooLarge, d.limits.MaxFiles, d.limits.MaxBytes)
 		}
-		h, err := d.blobs.Put(ctx, io.LimitReader(tr, hdr.Size))
+		if ptr != nil {
+			pointers = append(pointers, *ptr)
+			continue
+		}
+		h, err := d.blobs.Put(ctx, body)
 		if err != nil {
 			return "", err
 		}
 		m = append(m, blobs.ManifestEntry{Path: p, Hash: h, Size: hdr.Size})
+	}
+	// The tarball carries an LFS file as its pointer, so each pointer's object comes from the LFS
+	// API once the tarball is read.
+	if len(pointers) > 0 {
+		hashes, err := d.lfsStore(ctx, rp, ts, pointers)
+		if err != nil {
+			return "", err
+		}
+		for _, f := range pointers {
+			m = append(m, blobs.ManifestEntry{Path: f.Path, Hash: hashes[f.OID], Size: f.Size})
+		}
 	}
 	h, err := blobs.PutManifest(ctx, d.blobs, m)
 	if errors.Is(err, blobs.ErrInvalidManifest) {
