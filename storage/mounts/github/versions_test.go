@@ -178,3 +178,52 @@ func TestTheRegistryReadsAPrivateRepoAtAVersionThroughItsConnection(t *testing.T
 		}
 	}
 }
+
+func TestListAtReportsAnLFSObjectsSize(t *testing.T) {
+	e := newEnv(t, false)
+	e.drv = github.New(e.blobs, github.WithBaseURL(e.gh.URL), github.WithRawURL(e.gh.RawURL()), github.WithLFSURL(e.gh.LFSURL()))
+	e.repo.Commit("main", map[string]string{".gitattributes": "*.kicad_pcb filter=lfs diff=lfs merge=lfs -text\n"}, nil)
+	design := strings.Repeat("(kicad_pcb layer)", 200)
+	v, _ := e.repo.CommitLFS("main", "board/main.kicad_pcb", design)
+	m := mounts.Mount{Name: "board", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeLive}
+
+	files, err := e.drv.ListAt(e.ctx, m, nil, v, "board")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sizes := map[string]int64{}
+	for _, f := range files {
+		sizes[f.Path] = f.Size
+	}
+	if got := sizes["board/main.kicad_pcb"]; got != int64(len(design)) {
+		t.Errorf("ListAt size of the LFS file = %d, want the object's %d", got, len(design))
+	}
+	if got := sizes["board/main.kicad_sch"]; got != int64(len(boardFiles["board/main.kicad_sch"])) {
+		t.Errorf("ListAt size of a plain file = %d, want %d", got, len(boardFiles["board/main.kicad_sch"]))
+	}
+
+	// A second commit that leaves the pointer alone doesn't download it again.
+	v2 := e.repo.Commit("main", map[string]string{"README.md": "changed"}, nil)
+	before := len(e.gh.Requests())
+	if _, err := e.drv.ListAt(e.ctx, m, nil, v2, "board"); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range e.gh.Requests()[before:] {
+		if strings.Contains(r.Path, "main.kicad_pcb") {
+			t.Errorf("ListAt at a new commit fetched the unchanged pointer again: %s %s", r.Method, r.Path)
+		}
+	}
+}
+
+func TestListAtWithoutLFSReadsNoBlobs(t *testing.T) {
+	e := newEnv(t, false)
+	e.drv = github.New(e.blobs, github.WithBaseURL(e.gh.URL), github.WithRawURL(e.gh.RawURL()))
+	m := mounts.Mount{Name: "board", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeLive}
+	before := len(e.gh.Requests())
+	if _, err := e.drv.ListAt(e.ctx, m, nil, e.repo.Head("main"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(e.gh.Requests()) - before; n != 1 {
+		t.Errorf("ListAt on a repo with no .gitattributes made %d requests, want only the tree", n)
+	}
+}

@@ -48,7 +48,10 @@ type Driver struct {
 	mu        sync.Mutex
 	manifests map[blobs.Hash]*tree
 	trees     map[string][]mounts.File // ListAt's file lists, by repo, commit and token
-	viewMu    sync.Mutex
+	// lfsSizes maps a small blob's git id to its LFS object's size, or -1 when it isn't a
+	// pointer, so ListAt reads each small blob in an LFS repo once.
+	lfsSizes map[string]int64
+	viewMu   sync.Mutex
 }
 
 // Option configures a Driver.
@@ -73,7 +76,7 @@ func WithViews(dir string) Option { return func(d *Driver) { d.views = dir } }
 // New returns a GitHub driver keeping snapshots in store. A nil store serves live mounts only,
 // and Prepare refuses a snapshot with ErrInvalidArgument.
 func New(store blobs.Store, opts ...Option) *Driver {
-	d := &Driver{blobs: store, base: DefaultBaseURL, client: http.DefaultClient, manifests: map[blobs.Hash]*tree{}, trees: map[string][]mounts.File{}}
+	d := &Driver{blobs: store, base: DefaultBaseURL, client: http.DefaultClient, manifests: map[blobs.Hash]*tree{}, trees: map[string][]mounts.File{}, lfsSizes: map[string]int64{}}
 	for _, o := range opts {
 		o(d)
 	}

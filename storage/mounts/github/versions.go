@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -137,6 +138,9 @@ func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, creds mounts.Creden
 		out = append(out, mounts.File{Path: e.Path, ID: e.SHA, Size: e.Size})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	if err := d.lfsSizesAt(ctx, m, creds, commit, out); err != nil {
+		return nil, err
+	}
 	d.mu.Lock()
 	if len(d.trees) >= treeCacheSize {
 		clear(d.trees)
@@ -144,6 +148,61 @@ func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, creds mounts.Creden
 	d.trees[key] = out
 	d.mu.Unlock()
 	return out, nil
+}
+
+// lfsSizesCap caps how many small blobs' LFS answers a Driver keeps.
+const lfsSizesCap = 50_000
+
+// lfsSizesAt sets the Size of each Git LFS pointer in files to its object's size (#208). It reads
+// a small blob only when a .gitattributes file at commit has filter=lfs, and remembers each answer
+// by git blob id, so a later commit reads only the small blobs that changed. Its result goes into
+// treeAt's cache with the list, so one commit costs these reads once per token.
+func (d *Driver) lfsSizesAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, commit string, files []mounts.File) error {
+	lfs := false
+	for _, f := range files {
+		if path.Base(f.Path) != ".gitattributes" {
+			continue
+		}
+		b, err := d.download(ctx, m, creds, commit, f)
+		if err != nil {
+			return err
+		}
+		if bytes.Contains(b, []byte("filter=lfs")) {
+			lfs = true
+			break
+		}
+	}
+	if !lfs {
+		return nil
+	}
+	for i, f := range files {
+		if f.Size > mounts.MaxLFSPointerSize {
+			continue
+		}
+		d.mu.Lock()
+		size, known := d.lfsSizes[f.ID]
+		d.mu.Unlock()
+		if !known {
+			b, err := d.download(ctx, m, creds, commit, f)
+			if err != nil {
+				return err
+			}
+			size = -1
+			if ptr, ok := mounts.ParseLFSPointer(b); ok && gitBlobSHA(b) == f.ID {
+				size = ptr.Size
+			}
+			d.mu.Lock()
+			if len(d.lfsSizes) >= lfsSizesCap {
+				clear(d.lfsSizes)
+			}
+			d.lfsSizes[f.ID] = size
+			d.mu.Unlock()
+		}
+		if size >= 0 {
+			files[i].Size = size
+		}
+	}
+	return nil
 }
 
 // FetchAt keeps f's contents in the blob store. When the store is a blobs.Aliases that maps f.ID
