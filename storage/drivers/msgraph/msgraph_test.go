@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -277,5 +278,46 @@ func TestLiveMSGraph(t *testing.T) {
 	page, err := drv.Delta(ctx, m, live, "")
 	if err != nil || page.Token == "" {
 		t.Errorf("Delta(\"\") = %+v, %v; want a token", page, err)
+	}
+}
+
+func TestFollowingFindsEveryMountInTheNotifiedDrive(t *testing.T) {
+	g, d := fake(t, true)
+	d.Put("Boards/README.md", "the jetson baseboard")
+	d.Put("Elsewhere/notes.md", "x")
+	g.AddSiteDrive(site, "b!other").Put("Boards/README.md", "another drive")
+	ctx := context.Background()
+	store, err := mountsfs.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := mounts.NewRegistry(store, []mounts.Driver{newDriver(t, g)},
+		mounts.WithCredentials(func(context.Context, string, string) (mounts.Credentials, error) { return creds, nil }))
+	drive := "msgraph://sites/" + site + "/drives/"
+	for name, src := range map[string]string{"boards": source, "elsewhere": drive + driveID + "/root/Elsewhere", "other": drive + "b!other/root/Boards"} {
+		if _, err := reg.Create(ctx, mounts.Mount{Name: name, Kind: mounts.KindMSGraph, Source: src, Mode: mounts.ModeLive, Connection: "graph"}); err != nil {
+			t.Fatalf("Create %s: %v", name, err)
+		}
+	}
+	m := mounts.Mount{Name: "boards", Kind: mounts.KindMSGraph, Source: source, Mode: mounts.ModeLive}
+	sub, err := newDriver(t, g).CreateSubscription(ctx, m, creds, "https://app.example.com/graph-hook", "state", time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := msgraph.ParseNotification(httptest.NewRequest(http.MethodPost, "/graph-hook", bytes.NewReader(g.NotificationBody(sub.ID))), "state")
+	if err != nil || len(changes) != 1 {
+		t.Fatalf("ParseNotification = %+v, %v", changes, err)
+	}
+	ms, err := reg.Following(ctx, mounts.KindMSGraph, changes[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, m := range ms {
+		got = append(got, m.Name)
+	}
+	slices.Sort(got)
+	if want := []string{"boards", "elsewhere"}; !slices.Equal(got, want) {
+		t.Errorf("Following(drive root change) = %v, want %v: every mount in that drive, none in another", got, want)
 	}
 }
