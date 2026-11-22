@@ -128,3 +128,16 @@ func ParseNotification(r *http.Request, clientState string) ([]mounts.Change, er
 	}
 	return out, nil
 }
+
+// ContainsSource implements mounts.SourceContainer, so Registry.Following finds the mounts a
+// notification is about. Graph notifies per drive, and ParseNotification names the drive root,
+// such as "msgraph://drives/<id>/root". So a change contains a mount when the mount's folder is in
+// that drive, the reverse of the bucket rule it would otherwise inherit, where a mount contains an
+// object under its prefix. A change naming a file, as a caller might build from Delta, still finds
+// the mount holding it.
+func (d *Driver) ContainsSource(mountSource, changed string) bool {
+	in := func(child, parent string) bool { return child == parent || strings.HasPrefix(child, parent+"/") }
+	return in(mountSource, changed) || d.Driver.ContainsSource(mountSource, changed)
+}
+
+var _ mounts.SourceContainer = (*Driver)(nil)
