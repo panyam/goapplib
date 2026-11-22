@@ -52,6 +52,7 @@ type Service struct {
 	idURL, idHeader string
 
 	check     ReadCheck
+	checks    map[string]readCheck // by source scheme
 	accessTTL time.Duration
 
 	mu sync.Mutex
