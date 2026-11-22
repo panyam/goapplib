@@ -8,8 +8,8 @@ require (
 	cloud.google.com/go/storage v1.71.0
 	github.com/fsouza/fake-gcs-server v1.56.1
 	github.com/golang-jwt/jwt/v5 v5.2.2
-	github.com/panyam/goapplib/storage v0.7.29
-	github.com/panyam/oneauth v0.3.18
+	github.com/panyam/goapplib/storage v0.7.30
+	github.com/panyam/oneauth v0.3.19
 	golang.org/x/oauth2 v0.38.0
 	google.golang.org/api v0.312.0
 )

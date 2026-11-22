@@ -3,6 +3,8 @@ package bucket
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -144,7 +146,7 @@ func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Crede
 			if p == "" {
 				continue
 			}
-			fh, err := d.fetch(ctx, b, p, o)
+			fh, _, err := d.fetch(ctx, src, b, p, o)
 			if err != nil {
 				return m, err
 			}
@@ -271,7 +273,8 @@ func (d *Driver) ListAt(ctx context.Context, m mounts.Mount, creds mounts.Creden
 }
 
 // FetchAt copies f's pinned version into the blob store and returns its hash. The object must be
-// in the listing version names, with the same ID.
+// in the listing version names, with the same ID. When the store is a blobs.Aliases that maps the
+// object's version id or ETag to a blob it holds, nothing is downloaded and fetched is false.
 func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, version string, f mounts.File) (blobs.Hash, bool, error) {
 	src, b, err := d.open(ctx, m.Source, creds)
 	if err != nil {
@@ -288,23 +291,53 @@ func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, creds mounts.Crede
 		if fileID(o) != f.ID {
 			return "", false, fmt.Errorf("%w: %s is %s in version %s, not %s", mounts.ErrInvalidArgument, f.Path, fileID(o), version, f.ID)
 		}
-		h, err := d.fetch(ctx, b, f.Path, o)
-		return h, err == nil, err
+		return d.fetch(ctx, src, b, f.Path, o)
 	}
 	return "", false, fmt.Errorf("%w: %s isn't in version %s", mounts.ErrNotFound, f.Path, version)
 }
 
-// fetch copies o's pinned version, the file at p, into the blob store.
-func (d *Driver) fetch(ctx context.Context, b Bucket, p string, o Object) (blobs.Hash, error) {
+// bucketAliases is the namespace an object's alias is recorded under in a blobs.Aliases store.
+const bucketAliases = "bucket"
+
+// fetch copies o's pinned version, the file at p in src, into the blob store, and reports whether
+// it downloaded anything. A store that is a blobs.Aliases keeps an alias from the object's
+// identity to its blob, so a later fetch of the same version skips the download.
+func (d *Driver) fetch(ctx context.Context, src Source, b Bucket, p string, o Object) (blobs.Hash, bool, error) {
+	al, _ := d.blobs.(blobs.Aliases)
+	id := d.aliasID(src, o)
+	if al != nil {
+		if h, ok, err := al.Alias(ctx, bucketAliases, id); err == nil && ok {
+			if has, err := d.blobs.Has(ctx, h); err == nil && has {
+				return h, false, nil
+			}
+		}
+	}
 	if o.Size > d.limits.MaxBytes {
-		return "", fmt.Errorf("%w: %s is %d bytes", mounts.ErrTooLarge, p, o.Size)
+		return "", false, fmt.Errorf("%w: %s is %d bytes", mounts.ErrTooLarge, p, o.Size)
 	}
 	rc, _, err := b.Get(ctx, o.Key, &o)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", p, err)
+		return "", false, fmt.Errorf("%s: %w", p, err)
 	}
 	defer rc.Close()
-	return d.blobs.Put(ctx, io.LimitReader(rc, o.Size))
+	h, err := d.blobs.Put(ctx, io.LimitReader(rc, o.Size))
+	if err != nil {
+		return "", false, err
+	}
+	if al != nil {
+		if err := al.SetAlias(ctx, bucketAliases, id, h); err != nil {
+			return "", false, err
+		}
+	}
+	return h, true, nil
+}
+
+// aliasID names o's contents across every bucket the driver reads. An ETag or a version id is
+// only unique within one bucket and key, so the ID hashes the scheme, the bucket and the key with
+// it. Hashing also keeps the ID to the characters an alias allows.
+func (d *Driver) aliasID(src Source, o Object) string {
+	sum := sha256.Sum256([]byte(d.scheme + "\x00" + src.Bucket + "\x00" + o.Key + "\x00" + fileID(o)))
+	return hex.EncodeToString(sum[:])
 }
 
 // fetches says whether Prepare fetches a snapshot's files, which it does when HostPath can use

@@ -13,6 +13,7 @@ import (
 	"github.com/panyam/goapplib/storage/blobs/blobstest"
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/goapplib/storage/mounts/bucket"
+	"github.com/panyam/goapplib/storage/mounts/bucket/buckettest"
 	"github.com/panyam/goapplib/storage/mounts/fsstore"
 	"github.com/panyam/goapplib/storage/mounts/mountstest"
 )
@@ -147,5 +148,60 @@ func TestOneFileWithoutAView(t *testing.T) {
 	other := blobs.HashOf([]byte(mountstest.DriverFiles["README.md"]))
 	if ok, _ := store.Has(ctx, other); ok {
 		t.Error("the store holds README.md, which nothing fetched")
+	}
+}
+
+func TestPrepareDownloadsOnlyChangedObjects(t *testing.T) {
+	ctx := context.Background()
+	d, b, _ := newDriver(t, true, mountstest.DriverFiles, bucket.WithViews(t.TempDir()))
+	prepare := func() {
+		t.Helper()
+		m := mounts.Mount{Name: "jetson", Kind: mounts.KindS3, Source: "s3://designs/boards/jetson", Mode: mounts.ModeSnapshot}
+		v, err := d.Resolve(ctx, m.Source, "", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m.Version = v
+		if _, err := d.Prepare(ctx, m, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	prepare()
+	if n := b.Gets(); n != len(mountstest.DriverFiles) {
+		t.Fatalf("the first snapshot downloaded %d objects, want %d", n, len(mountstest.DriverFiles))
+	}
+	b.Put("boards/jetson/README.md", []byte("rev c"))
+	prepare()
+	if n := b.Gets() - len(mountstest.DriverFiles); n != 1 {
+		t.Errorf("a snapshot after one object changed downloaded %d objects, want 1", n)
+	}
+}
+
+func TestFetchAtSkipsHeldFilesThroughACachedStore(t *testing.T) {
+	ctx := context.Background()
+	remote, err := blobs.NewDir(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	local, err := blobs.NewDir(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := buckettest.New(false)
+	b.Put("boards/jetson/README.md", []byte("rev b"))
+	d := bucket.New(mounts.KindS3, "s3", b.Connector("designs"), blobs.NewCached(remote, local))
+	m := mounts.Mount{Name: "jetson", Kind: mounts.KindS3, Source: "s3://designs/boards/jetson", Mode: mounts.ModeSnapshot}
+	v, err := d.Resolve(ctx, m.Source, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := d.ListAt(ctx, m, nil, v, "")
+	if err != nil || len(files) != 1 {
+		t.Fatalf("ListAt = %v, %v", files, err)
+	}
+	for i, want := range []bool{true, false} {
+		if _, fetched, err := d.FetchAt(ctx, m, nil, v, files[0]); err != nil || fetched != want {
+			t.Errorf("fetch %d: fetched = %v, %v; want %v", i+1, fetched, err, want)
+		}
 	}
 }

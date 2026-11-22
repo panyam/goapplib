@@ -197,6 +197,48 @@ func RunDriver(t *testing.T, newFixture DriverFactory) {
 			})
 		})
 	}
+
+	// A sync fetches every file of each new version. Only the files that changed may download,
+	// so one changed file in a 15-file folder costs one download rather than 15 (goapplib #234).
+	t.Run("FetchAtSkipsHeldFiles", func(t *testing.T) {
+		f := newFixture(t, DriverFiles)
+		vr, ok := f.Driver.(mounts.VersionReader)
+		if !ok || f.Change == nil {
+			t.Skip("needs a mounts.VersionReader and a fixture that can change its source")
+		}
+		fetchAll := func(want string) (fetched []string) {
+			t.Helper()
+			v, err := f.Driver.Resolve(ctx, f.Source, "", f.Creds)
+			if err != nil {
+				t.Fatalf("Resolve = %v", err)
+			}
+			m := mounts.Mount{Name: "contract", Kind: f.Driver.Kind(), Source: f.Source, Mode: f.Driver.Modes()[0], Version: v}
+			files, err := vr.ListAt(ctx, m, f.Creds, v, "")
+			if err != nil || len(files) != len(DriverFiles) {
+				t.Fatalf("ListAt = %v, %v; want the %d files", files, err, len(DriverFiles))
+			}
+			for _, file := range files {
+				_, did, err := vr.FetchAt(ctx, m, f.Creds, v, file)
+				if err != nil {
+					t.Fatalf("FetchAt(%s) %s = %v", file.Path, want, err)
+				}
+				if did {
+					fetched = append(fetched, file.Path)
+				}
+			}
+			return fetched
+		}
+		if got := fetchAll("the first time"); len(got) != len(DriverFiles) {
+			t.Errorf("the first fetch downloaded %v, want every file", got)
+		}
+		if got := fetchAll("again"); len(got) != 0 {
+			t.Errorf("fetching the same version again downloaded %v, want nothing", got)
+		}
+		f.Change(t, "board/power.kicad_sch", "(kicad_sch power v2)")
+		if got := fetchAll("after a change"); !slices.Equal(got, []string{"board/power.kicad_sch"}) {
+			t.Errorf("after changing board/power.kicad_sch, the fetch downloaded %v, want only that file", got)
+		}
+	})
 }
 
 // hostFiles checks that HostPath gives each of files as a real file with its pinned bytes.

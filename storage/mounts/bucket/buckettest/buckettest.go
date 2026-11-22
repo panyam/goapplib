@@ -32,6 +32,7 @@ type Bucket struct {
 	objs     map[string][]version
 	next     int
 	offline  bool
+	gets     int
 }
 
 // New returns an empty bucket.
@@ -120,10 +121,18 @@ func (b *Bucket) ListDir(_ context.Context, dir string) ([]bucket.Object, []stri
 	return files, folders, nil
 }
 
+// Gets returns how many times Get was called, so a test can count downloads.
+func (b *Bucket) Gets() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.gets
+}
+
 // Get implements bucket.Bucket.
 func (b *Bucket) Get(_ context.Context, key string, pin *bucket.Object) (io.ReadCloser, int64, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.gets++
 	vs, ok := b.objs[key]
 	if !ok {
 		return nil, 0, fmt.Errorf("%w: %s", mounts.ErrNotFound, key)
