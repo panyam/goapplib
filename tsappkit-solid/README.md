@@ -6,7 +6,7 @@ Solid islands for [@panyam/tsappkit](https://www.npmjs.com/package/@panyam/tsapp
 npm install @panyam/tsappkit-solid @panyam/tsappkit solid-js
 ```
 
-It needs `@panyam/tsappkit` (any 0.x) and `solid-js` 1.9 or a later 1.x. It shares one version with tsappkit and goapplib, so `@panyam/tsappkit-solid@0.7.30` goes with `@panyam/tsappkit@0.7.30` and goapplib `v0.7.30`.
+It needs `@panyam/tsappkit` (any 0.x) and `solid-js` 1.9 or a later 1.x. It shares one version with tsappkit and goapplib, so `@panyam/tsappkit-solid@0.7.31` goes with `@panyam/tsappkit@0.7.31` and goapplib `v0.7.31`.
 
 ## What's in it
 

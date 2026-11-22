@@ -31,7 +31,7 @@ They all share one version, in `VERSION`, and so do the storage backends. The [O
 ## Install
 
 ```sh
-go get github.com/panyam/goapplib@v0.7.30
+go get github.com/panyam/goapplib@v0.7.31
 ```
 
 ```sh
