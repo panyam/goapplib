@@ -78,27 +78,34 @@ func newStore(t *testing.T, srv *fakestorage.Server, source string, clk *clock) 
 	return s
 }
 
+// storeFixture returns a fresh store over source in its own fake bucket.
+func storeFixture(source string) blobstest.Factory {
+	return func(t *testing.T) blobstest.Fixture {
+		srv := fake(t)
+		clk := &clock{t: time.Now()}
+		prefix := strings.TrimPrefix(strings.TrimPrefix(source, "gs://blobs"), "/")
+		if prefix != "" {
+			prefix += "/"
+		}
+		return blobstest.Fixture{
+			Store: newStore(t, srv, source, clk),
+			Later: func(t *testing.T, by time.Duration) { clk.add(by) },
+			Corrupt: func(t *testing.T, h blobs.Hash, b []byte) {
+				k, _ := blobs.Key(h)
+				srv.CreateObject(fakestorage.Object{ObjectAttrs: fakestorage.ObjectAttrs{BucketName: "blobs", Name: prefix + k}, Content: b})
+			},
+		}
+	}
+}
+
 func TestStoreKeepsTheStoreContract(t *testing.T) {
 	for _, source := range []string{"gs://blobs/agni/uploads", "gs://blobs"} {
-		t.Run(source, func(t *testing.T) {
-			blobstest.RunStore(t, func(t *testing.T) blobstest.Fixture {
-				srv := fake(t)
-				clk := &clock{t: time.Now()}
-				prefix := strings.TrimPrefix(strings.TrimPrefix(source, "gs://blobs"), "/")
-				if prefix != "" {
-					prefix += "/"
-				}
-				return blobstest.Fixture{
-					Store: newStore(t, srv, source, clk),
-					Later: func(t *testing.T, by time.Duration) { clk.add(by) },
-					Corrupt: func(t *testing.T, h blobs.Hash, b []byte) {
-						k, _ := blobs.Key(h)
-						srv.CreateObject(fakestorage.Object{ObjectAttrs: fakestorage.ObjectAttrs{BucketName: "blobs", Name: prefix + k}, Content: b})
-					},
-				}
-			})
-		})
+		t.Run(source, func(t *testing.T) { blobstest.RunStore(t, storeFixture(source)) })
 	}
+}
+
+func TestCachedOverTheStore(t *testing.T) {
+	blobstest.RunCached(t, storeFixture("gs://blobs/agni/uploads"))
 }
 
 func TestBlobsUseDirsLayoutUnderThePrefix(t *testing.T) {

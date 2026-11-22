@@ -86,30 +86,37 @@ func newStore(t *testing.T, url, source string, clk *clock) *s3blobs.Store {
 	return s
 }
 
+// storeFixture returns a fresh store over source in its own fake bucket.
+func storeFixture(source string) blobstest.Factory {
+	return func(t *testing.T) blobstest.Fixture {
+		url, c, _ := fake(t)
+		clk := &clock{t: time.Now()}
+		s := newStore(t, url, source, clk)
+		prefix := strings.TrimPrefix(strings.TrimPrefix(source, "s3://blobs"), "/")
+		if prefix != "" {
+			prefix += "/"
+		}
+		return blobstest.Fixture{
+			Store: s,
+			Later: func(t *testing.T, by time.Duration) { clk.add(by) },
+			Corrupt: func(t *testing.T, h blobs.Hash, b []byte) {
+				k, _ := blobs.Key(h)
+				if _, err := c.PutObject(context.Background(), &awss3.PutObjectInput{Bucket: aws.String("blobs"), Key: aws.String(prefix + k), Body: bytes.NewReader(b)}); err != nil {
+					t.Fatal(err)
+				}
+			},
+		}
+	}
+}
+
 func TestStoreKeepsTheStoreContract(t *testing.T) {
 	for _, source := range []string{"s3://blobs/agni/uploads", "s3://blobs"} {
-		t.Run(source, func(t *testing.T) {
-			blobstest.RunStore(t, func(t *testing.T) blobstest.Fixture {
-				url, c, _ := fake(t)
-				clk := &clock{t: time.Now()}
-				s := newStore(t, url, source, clk)
-				prefix := strings.TrimPrefix(strings.TrimPrefix(source, "s3://blobs"), "/")
-				if prefix != "" {
-					prefix += "/"
-				}
-				return blobstest.Fixture{
-					Store: s,
-					Later: func(t *testing.T, by time.Duration) { clk.add(by) },
-					Corrupt: func(t *testing.T, h blobs.Hash, b []byte) {
-						k, _ := blobs.Key(h)
-						if _, err := c.PutObject(context.Background(), &awss3.PutObjectInput{Bucket: aws.String("blobs"), Key: aws.String(prefix + k), Body: bytes.NewReader(b)}); err != nil {
-							t.Fatal(err)
-						}
-					},
-				}
-			})
-		})
+		t.Run(source, func(t *testing.T) { blobstest.RunStore(t, storeFixture(source)) })
 	}
+}
+
+func TestCachedOverTheStore(t *testing.T) {
+	blobstest.RunCached(t, storeFixture("s3://blobs/agni/uploads"))
 }
 
 func TestBlobsUseDirsLayoutUnderThePrefix(t *testing.T) {
