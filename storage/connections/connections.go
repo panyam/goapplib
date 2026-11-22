@@ -40,6 +40,40 @@ const (
 	// comes from the service account key at KeyRef. Without it, from Application Default
 	// Credentials, such as workload identity on GKE. It is a server connection only.
 	KindGCP Kind = "gcp"
+
+	// KindEntra signs Microsoft Graph requests as an app registration in Microsoft Entra ID,
+	// TenantID and ClientID, with an OAuth token for GraphScope. EntraAuth says how it proves
+	// itself: a client secret at KeyRef, a certificate (its private key at KeyRef and the
+	// certificate at CertRef), or the managed identity of the Azure host it runs on. It is a
+	// server connection only.
+	KindEntra Kind = "entra"
+
+	// KindEntraUser signs Microsoft Graph requests as a person who signed in to the app's Entra
+	// app registration, TenantID and ClientID. The person's token is sealed in oneauth's
+	// user-token store under UserTokenProvider(ID) and their subject, and refreshed there, as for
+	// KindGitHubUser. KeyRef, when set, is the app registration's client secret, which a
+	// confidential client sends with each refresh.
+	KindEntraUser Kind = "entra-user"
+)
+
+// holdsUserToken reports whether a connection of kind k keeps a person's token in the user-token
+// store.
+func (k Kind) holdsUserToken() bool { return k == KindGitHubUser || k == KindEntraUser }
+
+// EntraAuth says how a KindEntra connection proves it is its app registration.
+type EntraAuth string
+
+const (
+	// EntraSecret sends the client secret at KeyRef.
+	EntraSecret EntraAuth = "secret"
+
+	// EntraCertificate signs a client assertion (RFC 7523) with the private key at KeyRef. The
+	// certificate at CertRef names the key to Entra, through the assertion's x5t header.
+	EntraCertificate EntraAuth = "certificate"
+
+	// EntraManagedIdentity asks the Azure host's managed identity endpoint for a token, so the
+	// record holds no secret. ClientID, when set, picks a user-assigned identity.
+	EntraManagedIdentity EntraAuth = "managed-identity"
 )
 
 // Scope says whose sign-in a connection is.
@@ -89,7 +123,8 @@ type Connection struct {
 	Name string
 
 	// BaseURL is the service's API root. Empty means https://api.github.com. GitHub Enterprise
-	// and tests set it.
+	// and tests set it. For KindEntra and KindEntraUser it is the Entra authority host instead,
+	// and empty means https://login.microsoftonline.com.
 	BaseURL string
 
 	// AppID and InstallationID identify a KindGitHubApp installation.
@@ -97,7 +132,8 @@ type Connection struct {
 	InstallationID int64
 
 	// KeyRef is a secret reference to a KindGitHubApp's private key, a KindAWS secret access
-	// key, or a KindGCP service account key (its JSON file).
+	// key, a KindGCP service account key (its JSON file), or a KindEntra or KindEntraUser
+	// client secret, or a KindEntra certificate's private key.
 	KeyRef string
 
 	// AccessKeyID is a KindAWS access key's ID. AWS doesn't treat it as a secret, so the record
@@ -111,6 +147,21 @@ type Connection struct {
 	// Region is a KindAWS connection's region, such as "us-east-1". Empty leaves it to the
 	// driver.
 	Region string
+
+	// TenantID is a KindEntra or KindEntraUser connection's Entra tenant, as a GUID or a domain
+	// such as "contoso.onmicrosoft.com".
+	TenantID string
+
+	// ClientID is a KindEntra or KindEntraUser connection's app registration (its application
+	// ID), or a user-assigned managed identity's client ID.
+	ClientID string
+
+	// EntraAuth says how a KindEntra connection signs in.
+	EntraAuth EntraAuth
+
+	// CertRef is where a KindEntra EntraCertificate connection's certificate is, as a secret
+	// reference to its PEM. The certificate isn't secret, but it sits beside the key it names.
+	CertRef string
 
 	// TokenRef is where a KindGitHubToken's token is, as a secret reference.
 	TokenRef string
@@ -131,9 +182,10 @@ type Connection struct {
 	LastUsed time.Time
 }
 
-// UserTokenProvider is the provider key a KindGitHubUser connection's token is kept under in
-// oneauth's user-token store, beside the owner's subject. Keying by connection, not by "github",
-// lets one person hold two GitHub connections, such as github.com and an Enterprise host.
+// UserTokenProvider is the provider key a KindGitHubUser or KindEntraUser connection's token is
+// kept under in oneauth's user-token store, beside the owner's subject. Keying by connection, not
+// by "github", lets one person hold two GitHub connections, such as github.com and an Enterprise
+// host.
 func UserTokenProvider(connectionID string) string {
 	return "goapplib-connection:" + connectionID
 }

@@ -60,12 +60,75 @@ func (c Connection) Validate() error {
 			return fmt.Errorf("%w: a GitHub user connection keeps its token in the user-token store, not in the record", ErrInvalid)
 		}
 	case KindAWS, KindGCP:
+		if err := c.noEntraFields(); err != nil {
+			return err
+		}
 		return c.validateCloud()
+	case KindEntra, KindEntraUser:
+		return c.validateEntra()
 	default:
 		return fmt.Errorf("%w: unknown kind %q", ErrInvalid, c.Kind)
 	}
 	if c.AccessKeyID != "" || c.RoleARN != "" || c.Region != "" {
 		return fmt.Errorf("%w: only an AWS connection has an access key ID, role or region", ErrInvalid)
+	}
+	return c.noEntraFields()
+}
+
+func (c Connection) noEntraFields() error {
+	if c.TenantID != "" || c.ClientID != "" || c.EntraAuth != "" || c.CertRef != "" {
+		return fmt.Errorf("%w: only an Entra connection has a tenant, client ID, entra_auth or cert_ref", ErrInvalid)
+	}
+	return nil
+}
+
+// validateEntra checks a KindEntra or KindEntraUser connection. Both name a tenant and, except
+// for a system-assigned managed identity, an app registration. Neither has GitHub or AWS fields.
+func (c Connection) validateEntra() error {
+	if c.AppID != "" || c.InstallationID != 0 || c.TokenRef != "" || c.AccessKeyID != "" || c.RoleARN != "" || c.Region != "" {
+		return fmt.Errorf("%w: an %s connection has no GitHub or AWS fields", ErrInvalid, c.Kind)
+	}
+	if c.BaseURL != "" && !strings.HasPrefix(c.BaseURL, "https://") && !strings.HasPrefix(c.BaseURL, "http://127.0.0.1") && !strings.HasPrefix(c.BaseURL, "http://localhost") {
+		return fmt.Errorf("%w: an Entra authority must be https", ErrInvalid)
+	}
+	if c.Kind == KindEntraUser {
+		if c.Scope != ScopePerson {
+			return fmt.Errorf("%w: an Entra user connection belongs to a person", ErrInvalid)
+		}
+		if c.TenantID == "" || c.ClientID == "" {
+			return fmt.Errorf("%w: an Entra user connection needs a tenant and a client ID", ErrInvalid)
+		}
+		if c.EntraAuth != "" || c.CertRef != "" {
+			return fmt.Errorf("%w: an Entra user connection has no entra_auth or cert_ref", ErrInvalid)
+		}
+		if c.KeyRef != "" {
+			return secretRef("key_ref", c.KeyRef)
+		}
+		return nil
+	}
+	if c.Scope != ScopeServer {
+		return fmt.Errorf("%w: an Entra app connection signs in as the server", ErrInvalid)
+	}
+	switch c.EntraAuth {
+	case EntraSecret, EntraCertificate:
+		if c.TenantID == "" || c.ClientID == "" {
+			return fmt.Errorf("%w: an Entra %s connection needs a tenant and a client ID", ErrInvalid, c.EntraAuth)
+		}
+		if err := secretRef("key_ref", c.KeyRef); err != nil {
+			return err
+		}
+		if c.EntraAuth == EntraCertificate {
+			return secretRef("cert_ref", c.CertRef)
+		}
+		if c.CertRef != "" {
+			return fmt.Errorf("%w: an Entra secret connection has no cert_ref", ErrInvalid)
+		}
+	case EntraManagedIdentity:
+		if c.KeyRef != "" || c.CertRef != "" {
+			return fmt.Errorf("%w: a managed identity holds no key_ref or cert_ref", ErrInvalid)
+		}
+	default:
+		return fmt.Errorf("%w: entra_auth must be secret, certificate or managed-identity", ErrInvalid)
 	}
 	return nil
 }

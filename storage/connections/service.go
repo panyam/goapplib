@@ -30,6 +30,10 @@ const LastUsedEvery = time.Hour
 //   - KindGCP: a Google token source from the service account key at KeyRef, or Application
 //     Default Credentials when KeyRef is empty.
 //   - KindAWS: an AWS key pair, or the AWS default chain, which the S3 driver signs with.
+//   - KindEntra: a Microsoft Graph token from the tenant's token endpoint, for a client secret or
+//     a certificate, or from the host's managed identity endpoint.
+//   - KindEntraUser: oneauth's outbound.UserTokens, as for KindGitHubUser, refreshed at the
+//     tenant's token endpoint. It needs WithUserTokens for the store and the master key.
 //
 // A Service is safe for concurrent use. Several processes can share one Store and one user-token
 // store, since oneauth refreshes a person's token with compare-and-swap.
@@ -41,6 +45,7 @@ type Service struct {
 	oauth  *oauth2.Config
 	client *http.Client
 	now    func() time.Time
+	miURL  string
 
 	check     ReadCheck
 	accessTTL time.Duration
@@ -69,8 +74,8 @@ type entry struct {
 // Option configures a Service.
 type Option func(*Service)
 
-// NewService returns a service over store. Without WithUserTokens, a KindGitHubUser connection
-// returns ErrNotConfigured.
+// NewService returns a service over store. Without WithUserTokens, a KindGitHubUser or
+// KindEntraUser connection returns ErrNotConfigured.
 func NewService(store Store, opts ...Option) *Service {
 	s := &Service{store: store, now: time.Now, entries: map[string]*entry{}}
 	for _, o := range opts {
@@ -81,8 +86,10 @@ func NewService(store Store, opts ...Option) *Service {
 
 // WithUserTokens lets the service hold people's own tokens. store keeps them sealed with a key
 // derived from the master key, which masterKeyRef names as a secret reference to 64 hex
-// characters ("env:NAME" or "file:/abs/path"). oauth is the OAuth app's config, which refreshes a
-// token and whose client ID and secret revoke one.
+// characters ("env:NAME" or "file:/abs/path"). oauth is the GitHub OAuth app's config, which
+// refreshes a KindGitHubUser token and whose client ID and secret revoke one. A KindEntraUser
+// connection builds its own config from its record, so it uses only store and the master key, and
+// oauth may be nil when the service holds no GitHub users.
 func WithUserTokens(store outbound.UserTokenStore, masterKeyRef string, oauth *oauth2.Config) Option {
 	return func(s *Service) { s.users, s.keyRef, s.oauth = store, masterKeyRef, oauth }
 }
@@ -101,7 +108,7 @@ func WithClock(now func() time.Time) Option {
 // Credentials returns how owner's connection id signs in, as mounts.Credentials. An empty owner
 // names a server connection. The signature fits the mounts registry's WithCredentials option.
 //
-// The GitHub kinds and KindGCP return mounts.BearerCredentials. KindAWS returns
+// The GitHub kinds, KindGCP and the Entra kinds return mounts.BearerCredentials. KindAWS returns
 // mounts.AWSCredentials with its secret resolved from KeyRef, or with DefaultChain set when the
 // record names no key.
 //
@@ -144,7 +151,8 @@ func (s *Service) Credentials(ctx context.Context, owner, id string) (mounts.Cre
 	return mounts.Bearer(&statusSource{svc: s, owner: owner, id: id, e: e}), nil
 }
 
-// SaveUserToken keeps tok as the token of owner's KindGitHubUser connection id, sealed, and sets
+// SaveUserToken keeps tok as the token of owner's KindGitHubUser or KindEntraUser connection id,
+// sealed, and sets
 // the record's status back to StatusOK. The app calls it from its OAuth callback after a person
 // connects, with the viewer set to owner. Any other viewer gets ErrNotOwner. The token must come from the app's own OAuth
 // flow, since Disconnect revokes it through the app. A pasted token goes through SavePastedToken.
@@ -173,7 +181,7 @@ func (s *Service) saveToken(ctx context.Context, owner, id string, tok *oauth2.T
 	if err != nil {
 		return err
 	}
-	if c.Kind != KindGitHubUser {
+	if !c.Kind.holdsUserToken() {
 		return fmt.Errorf("%w: %q is a %s connection, which has no stored user token", ErrInvalid, id, c.Kind)
 	}
 	e, err := s.entry(c)
@@ -203,7 +211,9 @@ func (s *Service) saveToken(ctx context.Context, owner, id string, tok *oauth2.T
 // revoke fails it returns the error and keeps both the token and the record, so the app can
 // retry. When the record's Pasted is set, it deletes the token with no call to GitHub, since the
 // app didn't issue it and can't revoke it. Other kinds have nothing to revoke here: an App
-// installation is removed on GitHub, and a fixed token by whoever issued it. A missing connection
+// installation is removed on GitHub, and a fixed token by whoever issued it. A KindEntraUser token
+// is deleted with no call to Entra, since Entra has no endpoint that revokes one token; the person
+// removes the app's consent in their account to end it there. A missing connection
 // is not an error. Once the record is gone, CanRead forgets the owner's kept answers.
 func (s *Service) Disconnect(ctx context.Context, owner, id string) error {
 	c, err := s.store.GetConnection(ctx, owner, id)
@@ -213,13 +223,13 @@ func (s *Service) Disconnect(ctx context.Context, owner, id string) error {
 	if err != nil {
 		return err
 	}
-	if c.Kind == KindGitHubUser {
+	if c.Kind.holdsUserToken() {
 		e, err := s.entry(c)
 		if err != nil {
 			return err
 		}
 		revoke := e.users.Revoke
-		if c.Pasted {
+		if c.Pasted || e.users.Revoker == nil {
 			revoke = e.users.Delete
 		}
 		if err := revoke(ctx, c.Owner); err != nil {
@@ -268,7 +278,7 @@ func (s *Service) entry(c Connection) (*entry, error) {
 		}
 		e.ts = st
 	case KindGitHubUser:
-		if s.users == nil {
+		if s.users == nil || s.oauth == nil {
 			return nil, fmt.Errorf("%w: %q needs WithUserTokens", ErrNotConfigured, c.ID)
 		}
 		key, err := s.masterKey()
@@ -291,6 +301,30 @@ func (s *Service) entry(c Connection) (*entry, error) {
 		e.ts = ts
 	case KindAWS:
 		// Credentials builds an AWS connection's value on each call, from the record.
+	case KindEntra:
+		ts, err := s.entraTokenSource(c)
+		if err != nil {
+			return nil, err
+		}
+		e.ts = ts
+	case KindEntraUser:
+		if s.users == nil {
+			return nil, fmt.Errorf("%w: %q needs WithUserTokens", ErrNotConfigured, c.ID)
+		}
+		key, err := s.masterKey()
+		if err != nil {
+			return nil, err
+		}
+		cfg, err := entraUserConfig(c)
+		if err != nil {
+			return nil, err
+		}
+		u, err := outbound.NewUserTokens(UserTokenProvider(c.ID), s.users, key, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("connections: %s: %w", c.ID, err)
+		}
+		u.HTTPClient = entraUserClient(s.client, c)
+		e.users, e.ts = u, u.TokenSource(c.Owner)
 	default:
 		return nil, fmt.Errorf("%w: unknown kind %q", ErrInvalid, c.Kind)
 	}
@@ -325,7 +359,8 @@ func (s *Service) masterKey() (string, error) {
 func sameSignIn(a, b Connection) bool {
 	return a.Kind == b.Kind && a.Scope == b.Scope && a.Owner == b.Owner && a.BaseURL == b.BaseURL &&
 		a.AppID == b.AppID && a.InstallationID == b.InstallationID && a.KeyRef == b.KeyRef && a.TokenRef == b.TokenRef &&
-		a.AccessKeyID == b.AccessKeyID && a.RoleARN == b.RoleARN && a.Region == b.Region
+		a.AccessKeyID == b.AccessKeyID && a.RoleARN == b.RoleARN && a.Region == b.Region &&
+		a.TenantID == b.TenantID && a.ClientID == b.ClientID && a.EntraAuth == b.EntraAuth && a.CertRef == b.CertRef
 }
 
 // statusSource keeps the connection's record in step with its token requests. A failure sets

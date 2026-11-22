@@ -209,18 +209,24 @@ type connectionEntity struct {
 	AccessKeyID    string    `datastore:"access_key_id,noindex"`
 	RoleARN        string    `datastore:"role_arn,noindex"`
 	Region         string    `datastore:"region,noindex"`
+	TenantID       string    `datastore:"tenant_id,noindex"`
+	ClientID       string    `datastore:"client_id,noindex"`
+	EntraAuth      string    `datastore:"entra_auth,noindex"`
+	CertRef        string    `datastore:"cert_ref,noindex"`
 }
 
 func toConnectionEntity(c connections.Connection) *connectionEntity {
 	return &connectionEntity{string(c.Kind), string(c.Scope), c.Owner, c.Name, c.BaseURL, c.AppID,
-		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC(), c.AccessKeyID, c.RoleARN, c.Region}
+		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC(), c.AccessKeyID, c.RoleARN, c.Region,
+		c.TenantID, c.ClientID, string(c.EntraAuth), c.CertRef}
 }
 
 func (e *connectionEntity) connection(id string) connections.Connection {
 	return connections.Connection{ID: id, Kind: connections.Kind(e.Kind), Scope: connections.Scope(e.Scope),
 		Owner: e.Owner, Name: e.Name, BaseURL: e.BaseURL, AppID: e.AppID, InstallationID: e.InstallationID,
 		KeyRef: e.KeyRef, TokenRef: e.TokenRef, Pasted: e.Pasted, Status: connections.Status(e.Status), LastError: e.LastError,
-		Created: e.Created.UTC(), LastUsed: e.LastUsed.UTC(), AccessKeyID: e.AccessKeyID, RoleARN: e.RoleARN, Region: e.Region}
+		Created: e.Created.UTC(), LastUsed: e.LastUsed.UTC(), AccessKeyID: e.AccessKeyID, RoleARN: e.RoleARN, Region: e.Region,
+		TenantID: e.TenantID, ClientID: e.ClientID, EntraAuth: connections.EntraAuth(e.EntraAuth), CertRef: e.CertRef}
 }
 
 // ConnectionStore is a connections.Store over Datastore.

@@ -16,11 +16,11 @@ This page is the design for [#153](https://github.com/panyam/goapplib/issues/153
 | `github-user` | person | the person's own OAuth token, sealed and refreshed | `outbound.UserTokens` | notation |
 | `aws` | server | an access key pair, or the AWS default chain, with an optional role to assume | none; the S3 driver signs | agni, designs in S3 (agni#1730) |
 | `gcp` | server | a service account key, or Application Default Credentials | `x/oauth2/google` | agni, designs in GCS (agni#1730) |
+| `entra` | server | an Entra app registration's client secret or certificate, or the Azure host's managed identity | none; the service talks to Entra | agni, designs in SharePoint (agni#1729) |
+| `entra-user` | person | the person's own Entra token, sealed and refreshed | `outbound.UserTokens` | agni, a person's OneDrive (agni#1729) |
 
 - **Server scope.** Anyone the app lets read a mount reads it through the connection. So the app's own sharing decides who sees what. agni#1728 calls this out for links made through the server's identity.
 - **Person scope.** The connection gives a token only to a request whose viewer is its `Owner`. The app sets the viewer with `WithViewer` from its own auth, and a request with no viewer, or a different one, gets `ErrNotOwner`. The service refuses before it reads the store, so the error says nothing about whether the owner has a connection with that ID. GitHub then decides what that person can read.
-
-A later kind is Entra for SharePoint (agni#1729). It adds a `Kind` and a token source, and the record shape holds it.
 
 The two cloud kinds sign in as the server alone, since a bucket has no per-person view to defer to:
 
@@ -28,6 +28,15 @@ The two cloud kinds sign in as the server alone, since a bucket has no per-perso
 - **`gcp`** keeps a service account key (its JSON file) behind `KeyRef`. With no `KeyRef`, it uses Application Default Credentials, such as workload identity on GKE. Its tokens carry the read-only `devstorage.read_only` scope (`GCSReadScope`), since a mount only reads.
 
 Neither takes a `BaseURL`. A test or an S3-compatible store sets the driver's endpoint instead.
+
+The two Entra kinds sign Microsoft Graph requests for the msgraph mount driver (#206). Both name a tenant (`TenantID`) and an app registration (`ClientID`). `BaseURL` is the Entra authority, and empty means `https://login.microsoftonline.com`, so a national cloud or a test's fake sets it.
+
+- **`entra`** signs in as the server, and `EntraAuth` says how. It never infers the mode from which fields are set.
+  - `secret` sends the client secret at `KeyRef`.
+  - `certificate` signs a client assertion (RFC 7523) with the RSA key at `KeyRef`. The assertion's `x5t` header is the SHA-1 thumbprint of the certificate at `CertRef`, which is how Entra finds the registered certificate. Each assertion lives five minutes and carries a fresh `jti`. The service checks that the key matches the certificate before it sends anything.
+  - `managed-identity` asks the Azure host's identity endpoint (IMDS) for a token, so the record holds no secret. `ClientID`, when set, picks a user-assigned identity. `WithManagedIdentityURL` changes the endpoint for a test. It is a service option rather than a record field, so a stored record can't send the host's identity token somewhere else.
+  - Tokens are for `GraphScope`, every Graph application permission an admin granted the app.
+- **`entra-user`** belongs to a person, and keeps their token in the user-token store as `github-user` does. oneauth refreshes it at the tenant's token endpoint with `GraphUserScope`. `KeyRef`, when set, is the app registration's client secret for a confidential client. A public client leaves it empty.
 
 ## The record
 
@@ -72,6 +81,8 @@ creds, err := svc.Credentials(connections.WithViewer(ctx, subject), subject, "al
 - `github-token`: `outbound.NewStatic(TokenRef)`.
 - `gcp`: `google.CredentialsFromJSONWithType` over the key at `KeyRef`, or `google.FindDefaultCredentials`.
 - `aws`: no token source. Each call resolves `KeyRef` and returns the key pair, or `DefaultChain` set when the record names no key.
+- `entra`: a token from the tenant's v2 token endpoint, or from IMDS, kept until it expires.
+- `entra-user`: the same `UserTokens` source as `github-user`, refreshed at the tenant's token endpoint. x/oauth2 sends no `scope` on a refresh, and Entra's v2 endpoint expects one, so the service's client adds `GraphUserScope` to each refresh request.
 - `github-user`: `UserTokens.TokenSource(owner)` under the connection's provider key. Each `Token` call reads the store, and refreshes with compare-and-swap when the token is close to expiry, so replicas don't fight. When the refresh token is dead, oneauth returns `outbound.ErrReconnect`. The service then sets the record's status to `reconnect`, and returns `ErrReconnect`.
 
 The service reuses each connection's source until the record's sign-in fields change. A new `KeyRef` or `InstallationID` builds a new one on the next call. Any other failure sets the status to `failed`, and the next token that works sets it back to `ok`. `Credentials` stamps `LastUsed` at most once an hour, so a busy mount doesn't write its connection's record on every request.
@@ -109,6 +120,8 @@ A person can also paste a token, such as a personal access token, instead of goi
 - **From the app's OAuth flow.** It revokes the token at GitHub with `outbound.GitHubRevoker`, then deletes the sealed token and the record. When the revoke fails, it keeps both so the app can retry, which is oneauth's rule.
 - **Pasted.** It deletes the sealed token and the record, and makes no call to GitHub. GitHub refuses to revoke a token through an app that didn't issue it. The person revokes a pasted token on GitHub's own settings page.
 
+A person signs in to Entra through oneauth's OIDC provider (`oauth2/oidc` in oneauth v0.3.16), with the tenant's v2 issuer (`https://login.microsoftonline.com/<tenant>/v2.0`), the Graph scopes the app needs plus `offline_access`, and the same client ID as the `entra-user` record. `connections.EntraEndpoint(record)` gives the authorize and token URLs the service refreshes at. The provider's `HandleUser` gets the token, and the app saves it with `SaveUserToken`, as for GitHub. `Disconnect` on an `entra-user` connection deletes the sealed token and the record with no call to Entra, since Entra has no endpoint that revokes one token. The person removes the app's consent in their Microsoft account to end it there.
+
 Each save writes the token and the record's `Pasted` separately, ordered so a failed second write leaves `Pasted` unset. Disconnect then tries the revoke and keeps everything, rather than skip the revoke of a token the app issued (#183).
 
 ## Where a secret can and can't end up
@@ -123,6 +136,8 @@ Each save writes the token and the record's `Pasted` separately, ordered so a fa
 ## Testing
 
 oneauth's `outbound/githubtest` is a fake GitHub that checks the App's JWT, answers the installation-token exchange, and refreshes and revokes user tokens the way GitHub does. It doesn't serve repo contents. This module's fake GitHub, from [#155](https://github.com/panyam/goapplib/issues/155), serves a repo's commits, tarballs and contents, and checks the token on every request. A consumer's tests use both.
+
+`storage/connections/entratest` is a fake Entra. It serves a tenant's token endpoint for client secrets, certificate assertions and refresh tokens, and an IMDS endpoint. It checks an assertion the way Entra does: the RS256 signature against the registered certificate, `x5t`, `aud`, `iss` and `sub`, a lifetime of at most ten minutes, and a `jti` it hasn't seen. `NewCertificate` makes a key and certificate pair, `SignIn` stands in for a person signing in, and `ValidToken` lets the msgraph driver's fake Graph trust the tokens it issues.
 
 ## The package
 

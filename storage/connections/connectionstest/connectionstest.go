@@ -35,6 +35,7 @@ func RunAll(t *testing.T, factory Factory) {
 		{"PutThenGet", testPutThenGet},
 		{"PastedRoundTrips", testPastedRoundTrips},
 		{"AWSFieldsRoundTrip", testAWSFieldsRoundTrip},
+		{"EntraFieldsRoundTrip", testEntraFieldsRoundTrip},
 		{"PutReplaces", testPutReplaces},
 		{"PutValidates", testPutValidates},
 		{"ListByOwner", testListByOwner},
@@ -110,6 +111,27 @@ func testAWSFieldsRoundTrip(t *testing.T, s connections.Store) {
 		t.Fatal(err)
 	}
 	got, err := s.GetConnection(ctx, "", "s3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got.Created, got.LastUsed = want.Created, want.LastUsed
+	if got != want {
+		t.Errorf("GetConnection = %+v, want %+v", got, want)
+	}
+}
+
+func testEntraFieldsRoundTrip(t *testing.T, s connections.Store) {
+	ctx := context.Background()
+	want := connections.Connection{
+		ID: "sharepoint", Kind: connections.KindEntra, Scope: connections.ScopeServer, Name: "contoso SharePoint",
+		BaseURL: "https://login.microsoftonline.us", TenantID: "contoso.onmicrosoft.com", ClientID: "11111111-2222-3333-4444-555555555555",
+		EntraAuth: connections.EntraCertificate, KeyRef: "file:/secrets/graph.key", CertRef: "file:/secrets/graph.crt",
+		Status: connections.StatusOK, Created: time.Date(2026, 11, 21, 9, 0, 0, 0, time.UTC),
+	}
+	if err := s.PutConnection(ctx, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetConnection(ctx, "", "sharepoint")
 	if err != nil {
 		t.Fatal(err)
 	}
