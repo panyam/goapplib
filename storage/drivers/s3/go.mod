@@ -13,6 +13,7 @@ require (
 	github.com/aws/smithy-go v1.28.9
 	github.com/johannesboyne/gofakes3 v1.2.0
 	github.com/panyam/goapplib/storage v0.7.26
+	golang.org/x/oauth2 v0.38.0
 )
 
 require (
@@ -31,7 +32,6 @@ require (
 	github.com/panyam/goutils v0.1.14 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
 	go.shabbyrobe.org/gocovmerge v0.0.0-20230507111327-fa4f82cfbf4d // indirect
-	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/tools v0.8.0 // indirect
 )
 
