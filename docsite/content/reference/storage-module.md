@@ -12,13 +12,14 @@ This page records the layout, the version policy and the dependency rule. The st
 ```
 storage/                  module github.com/panyam/goapplib/storage
   doc.go                  package storage
-  mounts/                 records, the registry, folder and GitHub drivers
-  connections/            server-held sign-ins
+  mounts/                 records, the registry, folder and GitHub drivers, the shared bucket code
+  connections/            server-held sign-ins: GitHub, AWS, GCP and Entra
   blobs/                  files kept once by hash, for snapshots and uploads
   backends/gorm/          its own module: mount and connection stores over GORM
   backends/gae/           its own module: mount and connection stores over Datastore
-  drivers/s3/             its own module, when it exists
-  drivers/gcs/            its own module, when it exists
+  drivers/s3/             its own module: S3 mounts, s3blobs, and S3 event parsing
+  drivers/gcs/            its own module: GCS mounts, gcsblobs, and Pub/Sub push parsing
+  drivers/msgraph/        its own module: SharePoint and OneDrive mounts over Microsoft Graph
 ```
 
 [Mounts](../mounts/), [Connections](../connections/) and [Blobs](../blobs/) have the design of each package, and say which parts are built so far.
@@ -37,7 +38,7 @@ A dependency that both modules have moves in both at once. An app that imports g
 
 ## Versions
 
-Every module in the repo moves in lock-step with goapplib's `VERSION`, as the TypeScript packages do. A release tags `vX.Y.Z` and `storage/vX.Y.Z` on the same commit, and later `storage/drivers/s3/vX.Y.Z` too. `go get github.com/panyam/goapplib/storage@v0.7.13` is then the same release as goapplib `v0.7.13` and `@panyam/tsappkit` `0.7.13`.
+Every module in the repo moves in lock-step with goapplib's `VERSION`, as the TypeScript packages do. A release tags `vX.Y.Z`, `storage/vX.Y.Z` and each backend and driver module, such as `storage/drivers/s3/vX.Y.Z`, on the same commit. `go get github.com/panyam/goapplib/storage@v0.7.13` is then the same release as goapplib `v0.7.13` and `@panyam/tsappkit` `0.7.13`.
 
 `scripts/release.sh` makes the tags. `scripts/go-modules.sh` lists every `go.mod` below the root except `docsite/`, and the release script tags each one. A new driver module gets tagged without anyone editing the release script.
 

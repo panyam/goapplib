@@ -1,6 +1,6 @@
 ---
 title: "Records, files and sign-ins"
-description: "Keeping an app's records in its own store, the files they point at in mounts (a folder or a GitHub repo), and the sign-ins that reach a private repo in connections, through a small notes app."
+description: "Keeping an app's records in its own store, the files they point at in mounts (a folder, a GitHub repo, an S3 or GCS bucket, or a SharePoint or OneDrive folder), and the sign-ins that reach them in connections, through a small notes app."
 ---
 
 Picture a notes app. Each note has a title, an author and a date, and the app keeps those in its own store, the way it keeps anything else. The note's text is a different matter. One team wants its notes in a folder on the server. Another wants them in a private GitHub repo, where each save is a commit they can review. So the app keeps the text in a mount, and the record says which mount and which path.
@@ -8,8 +8,8 @@ Picture a notes app. Each note has a title, an author and a date, and the app ke
 goapplib's storage module splits things three ways:
 
 - Records live in the app's own store. The library never sees them.
-- Files live in mounts. A mount is a named place: a folder, a GitHub repo, and later an S3 or GCS bucket. A file in one is `mount://<name>/<path>`.
-- Sign-ins live in connections. A connection is a sign-in the server holds for a service, such as a GitHub token. Its record names where the token is, such as the environment variable `env:NOTES_GITHUB_TOKEN`, and never holds the token.
+- Files live in mounts. A mount is a named place: a folder, a GitHub repo, a prefix in an S3 or GCS bucket, or a folder in SharePoint or OneDrive. A file in one is `mount://<name>/<path>`.
+- Sign-ins live in connections. A connection is a sign-in the server holds for a service, such as a GitHub token or an AWS key. Its record names where the token is, such as the environment variable `env:NOTES_GITHUB_TOKEN`, and never holds the token.
 
 The storage module is its own Go module, so an app that wants it adds a second `go get`:
 
@@ -50,11 +50,70 @@ Pin a mount when a record has to keep meaning the same bytes. agni saves circuit
 
 A live write passes the version of the file it read. If someone changed the file since, GitHub refuses the commit, and the registry returns `mounts.ErrConflict`. So two people saving the same note can't silently overwrite each other.
 
+## Large files in Git LFS
+
+Say a team keeps its board files in Git LFS. GitHub's tarball, raw host and Contents API all hand back a short pointer file in place of each LFS file. The GitHub driver sees a pointer, fetches the real file from the repo's LFS storage with the mount's token, and checks it against the pointer's size and SHA-256. So a snapshot, a live read and a read at an older commit all give the real bytes, and the app does nothing extra. When the object can't be fetched, the read fails with `mounts.ErrLFS` and names the path, so a short pointer never passes for the file.
+
+A folder mount over a checkout made without `git lfs pull` holds the same pointers, with no remote to fetch from. Reading one fails with `mounts.ErrLFS`, which tells the person to run `git lfs pull`.
+
+## Mounting a bucket
+
+A bucket mount works like a GitHub mount, with a prefix in place of a repo. The S3 and GCS drivers are their own modules, so an app that doesn't use them never downloads a cloud SDK:
+
+```sh
+go get github.com/panyam/goapplib/storage/drivers/s3
+go get github.com/panyam/goapplib/storage/drivers/gcs
+```
+
+The app adds them to the registry beside the others:
+
+```go
+reg := mounts.NewRegistry(mountRecords,
+	[]mounts.Driver{folder.New(), github.New(blobStore), s3.New(blobStore), gcs.New(blobStore)},
+	mounts.WithCredentials(tokens.Credentials))
+reg.Create(ctx, mounts.Mount{Name: "jetson", Kind: mounts.KindS3,
+	Source: "s3://designs/boards/jetson", Mode: mounts.ModeSnapshot, Connection: "aws-prod"})
+```
+
+A bucket has no commit to pin, so a snapshot pins each object instead. It records each object's version id where the bucket keeps versions, or its ETag where it doesn't. With versions on, the snapshot keeps reading the old bytes after someone overwrites an object. With them off, it can't, so reading a changed object fails with `mounts.ErrConflict` and names the path, and never serves the new bytes as the old ones. A live mount reads each object's latest version.
+
+## SharePoint and OneDrive
+
+The msgraph driver, `storage/drivers/msgraph`, mounts a folder in a SharePoint document library or a OneDrive through Microsoft Graph. A source names the drive and the folder, such as `msgraph://sites/<site-id>/drives/<drive-id>/root/Boards`, or `msgraph://me/drive/root/Boards` for the signed-in person's OneDrive. It signs with an `entra` or `entra-user` connection. A snapshot pins each file and reads the pinned version from the file's version history after the file changes. A library that keeps no history fails the read with `mounts.ErrConflict`, as an unversioned bucket does.
+
+## Hearing about changes
+
+An app that follows a branch or a prefix can poll `ResolveAt`, and a new version means something changed. Each source can also push:
+
+- GitHub sends a webhook. `github.ParsePush` checks its signature and returns a `mounts.Change`.
+- S3 sends object events to SQS or SNS. `s3.ParseEvent` reads an SQS message, and `s3.SNSVerifier.ParseSNS` checks an SNS push's signature first.
+- GCS sends object events through a Pub/Sub push. `gcs.ParsePush` checks the push's OIDC token first.
+- Graph sends change notifications to a subscription. `msgraph.ParseNotification` reads one, and `Delta` lists what changed since the app's last token.
+
+Each gives a `mounts.Change`. `Registry.Following` turns it into the mounts to check, and a bucket change for one object finds every mount whose prefix holds it. The app then calls `ResolveAt` on each mount, as it would after a poll.
+
+## Blobs in a bucket
+
+The notes app keeps snapshot files in `blobs.NewDir`, on the server's disk. A server with no persistent disk, on Kubernetes or Cloud Run, keeps them in a bucket instead, with the same `aws` or `gcp` connection:
+
+```go
+blobStore, err := s3blobs.New(ctx, "s3://acme-notes/blobs", creds)
+```
+
+`gcsblobs.New` does the same for `gs://`. Each blob is stored under its SHA-256, in the layout `blobs.Dir` uses, so an existing folder copies into a bucket as it is. A bucket can't make hard links, so a snapshot over a bucket store has no host path. [Blobs](../../reference/blobs/) covers how `Put` and the sweep work on a bucket.
+
 ## Connections and secrets
 
 The app saves a connection through `PutConnection`, and the store validates the record first. A token field has to hold a reference such as `env:NOTES_GITHUB_TOKEN` or `file:/run/secrets/github`. A pasted token fails validation, and the app answers 400. So the token never reaches the store, and the store's folder can be backed up as it is.
 
-Three kinds of connection exist. `github-token` is a fixed token, such as a personal access token. `github-app` is a GitHub App installation, which mints an hour-long token from the App's private key. `github-user` is a person's own GitHub account, connected through OAuth, whose token oneauth keeps sealed and refreshes. [Connections](../../reference/connections/) covers each one, and where a secret can and can't end up.
+The kinds of connection follow the services:
+
+- `github-token` is a fixed token, such as a personal access token. `github-app` is a GitHub App installation, which mints an hour-long token from the App's private key. `github-user` is a person's own GitHub account, connected through OAuth, whose token oneauth keeps sealed and refreshes.
+- `aws` signs S3 requests with a key pair from secret references, or with the host's default credential chain, such as an IAM role, and can assume a role on top.
+- `gcp` sends Cloud Storage a token from a service account key, or from Application Default Credentials, such as workload identity on GKE.
+- `entra` signs in to Microsoft Graph as an app registration, with a client secret, a certificate, or the Azure host's managed identity. `entra-user` is a person's own Microsoft account, kept and refreshed like `github-user`.
+
+A public repo or bucket needs no connection. [Connections](../../reference/connections/) covers each kind, and where a secret can and can't end up.
 
 ## Errors
 
@@ -99,4 +158,4 @@ With `GITHUB_TOKEN` and `STORAGE_EXERCISE_REPO=owner/repo` set, it also snapshot
 ## Further reading
 
 - [The storage module](../../reference/storage-module/) covers why storage is its own module, and how it's versioned.
-- [Mounts](../../reference/mounts/), [Connections](../../reference/connections/) and [Blobs](../../reference/blobs/) cover the design of each package, with its API.
+- [Mounts](../../reference/mounts/), [Connections](../../reference/connections/) and [Blobs](../../reference/blobs/) cover the design of each package, with its API. Mounts has each driver's details, the bucket events, and the fakes for tests.
