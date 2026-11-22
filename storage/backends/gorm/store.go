@@ -167,6 +167,7 @@ type connectionRow struct {
 	ClientID       string    `gorm:"column:client_id;size:64"`
 	EntraAuth      string    `gorm:"column:entra_auth;size:32"`
 	CertRef        string    `gorm:"column:cert_ref"`
+	Sealed         bool      `gorm:"column:sealed"`
 }
 
 // ConnectionTable is the table connection records live in. GORM can't change a table's primary
@@ -189,7 +190,7 @@ func (oldConnectionRow) TableName() string { return OldConnectionTable }
 func toConnectionRow(c connections.Connection) connectionRow {
 	return connectionRow{c.Owner, c.ID, string(c.Kind), string(c.Scope), c.Name, c.BaseURL, c.AppID,
 		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC(), c.AccessKeyID, c.RoleARN, c.Region,
-		c.TenantID, c.ClientID, string(c.EntraAuth), c.CertRef}
+		c.TenantID, c.ClientID, string(c.EntraAuth), c.CertRef, c.Sealed}
 }
 
 func (r connectionRow) connection() connections.Connection {
@@ -197,7 +198,7 @@ func (r connectionRow) connection() connections.Connection {
 		Owner: r.Owner, Name: r.Name, BaseURL: r.BaseURL, AppID: r.AppID, InstallationID: r.InstallationID,
 		KeyRef: r.KeyRef, TokenRef: r.TokenRef, Pasted: r.Pasted, Status: connections.Status(r.Status), LastError: r.LastError,
 		Created: r.Created.UTC(), LastUsed: r.LastUsed.UTC(), AccessKeyID: r.AccessKeyID, RoleARN: r.RoleARN, Region: r.Region,
-		TenantID: r.TenantID, ClientID: r.ClientID, EntraAuth: connections.EntraAuth(r.EntraAuth), CertRef: r.CertRef}
+		TenantID: r.TenantID, ClientID: r.ClientID, EntraAuth: connections.EntraAuth(r.EntraAuth), CertRef: r.CertRef, Sealed: r.Sealed}
 }
 
 // ConnectionStore is a connections.Store over a GORM database.

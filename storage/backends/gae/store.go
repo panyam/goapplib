@@ -213,12 +213,13 @@ type connectionEntity struct {
 	ClientID       string    `datastore:"client_id,noindex"`
 	EntraAuth      string    `datastore:"entra_auth,noindex"`
 	CertRef        string    `datastore:"cert_ref,noindex"`
+	Sealed         bool      `datastore:"sealed,noindex"`
 }
 
 func toConnectionEntity(c connections.Connection) *connectionEntity {
 	return &connectionEntity{string(c.Kind), string(c.Scope), c.Owner, c.Name, c.BaseURL, c.AppID,
 		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC(), c.AccessKeyID, c.RoleARN, c.Region,
-		c.TenantID, c.ClientID, string(c.EntraAuth), c.CertRef}
+		c.TenantID, c.ClientID, string(c.EntraAuth), c.CertRef, c.Sealed}
 }
 
 func (e *connectionEntity) connection(id string) connections.Connection {
@@ -226,7 +227,7 @@ func (e *connectionEntity) connection(id string) connections.Connection {
 		Owner: e.Owner, Name: e.Name, BaseURL: e.BaseURL, AppID: e.AppID, InstallationID: e.InstallationID,
 		KeyRef: e.KeyRef, TokenRef: e.TokenRef, Pasted: e.Pasted, Status: connections.Status(e.Status), LastError: e.LastError,
 		Created: e.Created.UTC(), LastUsed: e.LastUsed.UTC(), AccessKeyID: e.AccessKeyID, RoleARN: e.RoleARN, Region: e.Region,
-		TenantID: e.TenantID, ClientID: e.ClientID, EntraAuth: connections.EntraAuth(e.EntraAuth), CertRef: e.CertRef}
+		TenantID: e.TenantID, ClientID: e.ClientID, EntraAuth: connections.EntraAuth(e.EntraAuth), CertRef: e.CertRef, Sealed: e.Sealed}
 }
 
 // ConnectionStore is a connections.Store over Datastore.

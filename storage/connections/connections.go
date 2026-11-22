@@ -181,6 +181,13 @@ type Connection struct {
 	// SavePastedToken sets it and SaveUserToken clears it.
 	Pasted bool
 
+	// Sealed is set on a server connection whose secret is sealed in the user-token store, under
+	// the service's master key, rather than named by a reference. SaveServerSecret writes it, and
+	// nothing reads it back out. The field that would hold the reference stays empty: TokenRef
+	// for KindGitHubToken, and KeyRef for KindGitHubApp, KindAWS, KindGCP and a KindEntra secret
+	// or certificate. A KindEntra certificate's CertRef is still a reference.
+	Sealed bool
+
 	Status Status
 
 	// LastError is the last failure's message, with no secret in it. It is empty when Status

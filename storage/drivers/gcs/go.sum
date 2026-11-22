@@ -129,8 +129,8 @@ github.com/minio/minio-go/v7 v7.3.0 h1:HM4pFCSQq/TK+j0/zmorSh5ddh81iDgRgU0BG0Vz/
 github.com/minio/minio-go/v7 v7.3.0/go.mod h1:KUPWdecEO1LWyUz+sTGXAuf2jZHrPh5fCsRH86QbPfk=
 github.com/panyam/goutils v0.1.14 h1:PWM5jAzTSVHjWXbHD0CaifskSETFKHKaKIK5HrOg/uE=
 github.com/panyam/goutils v0.1.14/go.mod h1:lxEmbCJ04RY+KqFgo/+67bEdU2edpLYafMiJECTm3gQ=
-github.com/panyam/oneauth v0.3.17 h1:+kyrcBBXMPEXMXoM1WUiM5MbjwDfSO4vL2h6TXJnEFk=
-github.com/panyam/oneauth v0.3.17/go.mod h1:KovKb74ntC7sroSeMafW/lZ6lzjuC/KI0uhxezRcN+8=
+github.com/panyam/oneauth v0.3.18 h1:/gVZioRA+ILRIX76JgfUEvesAaNAy+sdUlIc1J028aE=
+github.com/panyam/oneauth v0.3.18/go.mod h1:KovKb74ntC7sroSeMafW/lZ6lzjuC/KI0uhxezRcN+8=
 github.com/philhofer/fwd v1.2.0 h1:e6DnBTl7vGY+Gz322/ASL4Gyp1FspeMvx1RNDoToZuM=
 github.com/philhofer/fwd v1.2.0/go.mod h1:RqIHx9QI14HlwKwm98g9Re5prTQ6LdeRQn+gXJFxsJM=
 github.com/pkg/xattr v0.4.12 h1:rRTkSyFNTRElv6pkA3zpjHpQ90p/OdHQC1GmGh1aTjM=
