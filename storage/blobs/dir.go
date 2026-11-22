@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"io/fs"
 	"os"
@@ -100,27 +99,8 @@ func (d *Dir) Open(ctx context.Context, h Hash) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &verifier{f: f, want: h, sum: sha256.New()}, nil
+	return Verify(f, h), nil
 }
-
-// verifier hashes what it reads, and returns ErrCorrupt in place of io.EOF when the bytes didn't
-// match.
-type verifier struct {
-	f    *os.File
-	want Hash
-	sum  hash.Hash
-}
-
-func (v *verifier) Read(p []byte) (int, error) {
-	n, err := v.f.Read(p)
-	v.sum.Write(p[:n])
-	if err == io.EOF && Hash("sha256:"+hex.EncodeToString(v.sum.Sum(nil))) != v.want {
-		return n, fmt.Errorf("%w: %s", ErrCorrupt, v.want)
-	}
-	return n, err
-}
-
-func (v *verifier) Close() error { return v.f.Close() }
 
 // Has implements Store.
 func (d *Dir) Has(ctx context.Context, h Hash) (bool, error) {

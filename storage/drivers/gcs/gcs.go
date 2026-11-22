@@ -63,6 +63,17 @@ func New(store blobs.Store, opts ...Option) *bucket.Driver {
 }
 
 func (o options) connect(ctx context.Context, name string, creds mounts.Credentials) (bucket.Bucket, error) {
+	c, err := o.newClient(ctx, creds)
+	if err != nil {
+		if errors.Is(err, mounts.ErrInvalidArgument) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("%w: gs://%s: %v", mounts.ErrUnavailable, name, err)
+	}
+	return &gcsBucket{b: c.Bucket(name), name: name}, nil
+}
+
+func (o options) newClient(ctx context.Context, creds mounts.Credentials) (*storage.Client, error) {
 	ts, err := mounts.TokenSourceOf(creds)
 	if err != nil {
 		return nil, err
@@ -79,11 +90,7 @@ func (o options) connect(ctx context.Context, name string, creds mounts.Credenti
 	if o.endpoint != "" {
 		opts = append(opts, option.WithEndpoint(o.endpoint))
 	}
-	c, err := storage.NewClient(ctx, append(opts, storage.WithJSONReads())...)
-	if err != nil {
-		return nil, fmt.Errorf("%w: gs://%s: %v", mounts.ErrUnavailable, name, err)
-	}
-	return &gcsBucket{b: c.Bucket(name), name: name}, nil
+	return storage.NewClient(ctx, append(opts, storage.WithJSONReads())...)
 }
 
 type gcsBucket struct {

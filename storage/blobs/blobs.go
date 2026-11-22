@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"strings"
 	"time"
@@ -99,3 +100,27 @@ type Linker interface {
 	// or missing h.
 	Link(h Hash, to string) error
 }
+
+// Verify wraps rc, the contents a store read for h, so that reading checks them against h. When
+// the bytes don't match, the final Read returns ErrCorrupt in place of io.EOF, as Store.Open
+// promises. A store outside this package returns it from Open.
+func Verify(rc io.ReadCloser, h Hash) io.ReadCloser {
+	return &verifier{rc: rc, want: h, sum: sha256.New()}
+}
+
+type verifier struct {
+	rc   io.ReadCloser
+	want Hash
+	sum  hash.Hash
+}
+
+func (v *verifier) Read(p []byte) (int, error) {
+	n, err := v.rc.Read(p)
+	v.sum.Write(p[:n])
+	if err == io.EOF && Hash("sha256:"+hex.EncodeToString(v.sum.Sum(nil))) != v.want {
+		return n, fmt.Errorf("%w: %s", ErrCorrupt, v.want)
+	}
+	return n, err
+}
+
+func (v *verifier) Close() error { return v.rc.Close() }
