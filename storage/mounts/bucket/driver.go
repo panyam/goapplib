@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"sort"
+	"strings"
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
@@ -271,3 +272,24 @@ var (
 	_ mounts.Preparer      = (*Driver)(nil)
 	_ mounts.VersionReader = (*Driver)(nil)
 )
+
+// ContainsSource reports whether changed, an object's source from a bucket event such as
+// "s3://designs/boards/jetson/README.md", is mountSource or lies under it. Both must be this
+// driver's scheme and name the same bucket, and the prefix must match whole path segments.
+func (d *Driver) ContainsSource(mountSource, changed string) bool {
+	m, err := ParseSource(d.scheme, mountSource)
+	if err != nil {
+		return false
+	}
+	rest, ok := strings.CutPrefix(changed, d.scheme+"://")
+	if !ok {
+		return false
+	}
+	name, key, _ := strings.Cut(rest, "/")
+	if name != m.Bucket {
+		return false
+	}
+	return m.Prefix == "" || key == m.Prefix || strings.HasPrefix(key, m.Prefix+"/")
+}
+
+var _ mounts.SourceContainer = (*Driver)(nil)

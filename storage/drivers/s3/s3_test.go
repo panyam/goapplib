@@ -29,7 +29,17 @@ var creds = mounts.AWSCredentials{AccessKeyID: "AKIAEXAMPLE", SecretAccessKey: "
 // fake starts gofakes3 with one bucket, "designs", and returns its URL and a client for seeding it.
 func fake(t *testing.T, versioned bool) (string, *awss3.Client) {
 	t.Helper()
-	srv := httptest.NewServer(ifMatch(gofakes3.New(s3mem.New()).Server()))
+	return fakeWith(t, versioned, nil)
+}
+
+// fakeWith is fake with wrap around the server, such as one that refuses a call.
+func fakeWith(t *testing.T, versioned bool, wrap func(http.Handler) http.Handler) (string, *awss3.Client) {
+	t.Helper()
+	h := ifMatch(gofakes3.New(s3mem.New()).Server())
+	if wrap != nil {
+		h = wrap(h)
+	}
+	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	c := awss3.New(awss3.Options{
 		Region: "us-east-1", BaseEndpoint: aws.String(srv.URL), UsePathStyle: true,
@@ -173,5 +183,47 @@ func TestLiveS3(t *testing.T) {
 	})
 	if err != nil || n == 0 {
 		t.Fatalf("walked %d files, %v; want at least one, read without error", n, err)
+	}
+}
+
+// TestListingFallsBackToETagsWithoutListVersions checks a reader role with no
+// s3:ListBucketVersions. S3 refuses ListObjectVersions with 403, so the driver lists with
+// ListObjectsV2 and pins ETags. On a versioned bucket a snapshot then fails once the object
+// changes, where a version pin would have served the old bytes.
+func TestListingFallsBackToETagsWithoutListVersions(t *testing.T) {
+	ctx := context.Background()
+	noVersions := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, ok := r.URL.Query()["versions"]; ok {
+				w.Header().Set("Content-Type", "application/xml")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?><Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>`))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+	url, c := fakeWith(t, true, noVersions)
+	put(t, c, "boards/jetson/README.md", "rev 1")
+	d := newDriver(t, url)
+	src := "s3://designs/boards/jetson"
+	v, err := d.Resolve(ctx, src, "", creds)
+	if err != nil {
+		t.Fatalf("Resolve with ListObjectVersions refused = %v, want the ListObjectsV2 fallback", err)
+	}
+	m, err := d.Prepare(ctx, mounts.Mount{Name: "jetson", Kind: mounts.KindS3, Source: src, Version: v, Mode: mounts.ModeSnapshot}, creds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fsys, err := d.Open(ctx, m, creds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, err := fs.ReadFile(fsys, "README.md"); err != nil || string(b) != "rev 1" {
+		t.Fatalf("ReadFile before the change = %q, %v", b, err)
+	}
+	put(t, c, "boards/jetson/README.md", "rev 2")
+	if b, err := fs.ReadFile(fsys, "README.md"); !errors.Is(err, mounts.ErrConflict) {
+		t.Errorf("ReadFile after the change = %q, %v; want ErrConflict from the ETag pin", b, err)
 	}
 }
