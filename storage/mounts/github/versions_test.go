@@ -3,6 +3,7 @@ package github_test
 import (
 	"context"
 	"errors"
+	"io"
 	"slices"
 	"strings"
 	"testing"
@@ -225,5 +226,65 @@ func TestListAtWithoutLFSReadsNoBlobs(t *testing.T) {
 	}
 	if n := len(e.gh.Requests()) - before; n != 1 {
 		t.Errorf("ListAt on a repo with no .gitattributes made %d requests, want only the tree", n)
+	}
+}
+
+// listThenFetch lists p at commit and fetches it, as agni does for a linked file, and returns the
+// size ListAt reported and the bytes FetchAt kept.
+func (e *env) listThenFetch(t *testing.T, commit, p string) (int64, string) {
+	t.Helper()
+	m := mounts.Mount{Name: "board", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeLive}
+	files, err := e.drv.ListAt(e.ctx, m, nil, commit, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(files, func(f mounts.File) bool { return f.Path == p })
+	if i < 0 {
+		t.Fatalf("ListAt didn't list %s", p)
+	}
+	h, _, err := e.drv.FetchAt(e.ctx, m, nil, commit, files[i])
+	if err != nil {
+		t.Fatalf("FetchAt: %v", err)
+	}
+	rc, err := e.blobs.Open(e.ctx, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rc.Close()
+	b, err := io.ReadAll(rc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files[i].Size, string(b)
+}
+
+func TestFetchAtKeepsAnLFSObjectSmallerThanItsPointer(t *testing.T) {
+	e := newEnv(t, false)
+	e.drv = github.New(e.blobs, github.WithBaseURL(e.gh.URL), github.WithRawURL(e.gh.RawURL()), github.WithLFSURL(e.gh.LFSURL()))
+	e.repo.Commit("main", map[string]string{".gitattributes": "*.kicad_sch filter=lfs diff=lfs merge=lfs -text\n"}, nil)
+	sch := "(kicad_sch (version 20231120) (generator eeschema))\n"
+	v, _ := e.repo.CommitLFS("main", "hw/bb.kicad_sch", sch)
+
+	size, got := e.listThenFetch(t, v, "hw/bb.kicad_sch")
+	if got != sch {
+		t.Errorf("FetchAt kept %q, want the LFS object %q", got, sch)
+	}
+	if size != int64(len(got)) {
+		t.Errorf("ListAt reported %d bytes, FetchAt kept %d", size, len(got))
+	}
+}
+
+func TestListAtFindsAnLFSPointerWithoutGitattributes(t *testing.T) {
+	e := newEnv(t, false)
+	e.drv = github.New(e.blobs, github.WithBaseURL(e.gh.URL), github.WithRawURL(e.gh.RawURL()), github.WithLFSURL(e.gh.LFSURL()))
+	gateway := strings.Repeat("(kicad_sch gateway)", 40)
+	v, _ := e.repo.CommitLFS("main", "hw/gateway.kicad_sch", gateway)
+
+	size, got := e.listThenFetch(t, v, "hw/gateway.kicad_sch")
+	if got != gateway {
+		t.Errorf("FetchAt kept %d bytes, want the %d-byte LFS object", len(got), len(gateway))
+	}
+	if size != int64(len(got)) {
+		t.Errorf("ListAt reported %d bytes, FetchAt kept %d", size, len(got))
 	}
 }
