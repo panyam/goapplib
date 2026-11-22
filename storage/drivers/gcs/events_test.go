@@ -96,7 +96,12 @@ func newGoogleEnv(t *testing.T) *googleEnv {
 
 func (g *googleEnv) token(t *testing.T, aud, email string) string {
 	t.Helper()
-	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{"iss": gcs.GoogleIssuer, "aud": aud, "sub": "1234",
+	return g.tokenFrom(t, gcs.GoogleIssuer, aud, email)
+}
+
+func (g *googleEnv) tokenFrom(t *testing.T, iss, aud, email string) string {
+	t.Helper()
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{"iss": iss, "aud": aud, "sub": "1234",
 		"email": email, "email_verified": true, "iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix()})
 	tok.Header["kid"] = "k1"
 	s, err := tok.SignedString(g.key)
@@ -155,5 +160,21 @@ func TestFollowingFindsGCSMountsUnderAPushedObject(t *testing.T) {
 	}
 	if !slices.Equal(got, []string{"jetson"}) {
 		t.Errorf("Following = %v, want [jetson]", got)
+	}
+}
+
+func TestGoogleVerifierAcceptsBothGoogleIssuerForms(t *testing.T) {
+	g := newGoogleEnv(t)
+	const aud, sa = "https://app.example.com/hooks/gcs", "pusher@acme.iam.gserviceaccount.com"
+	v := &gcs.GoogleVerifier{Audience: aud, Email: sa, JWKSURL: g.jwks}
+	for _, iss := range []string{"https://accounts.google.com", "accounts.google.com"} {
+		if _, err := gcs.ParsePush(push(finalize, g.tokenFrom(t, iss, aud, sa)), v); err != nil {
+			t.Errorf("issuer %q: ParsePush = %v, want accepted", iss, err)
+		}
+	}
+	for _, iss := range []string{"https://evil.example.com", "http://accounts.google.com", ""} {
+		if _, err := gcs.ParsePush(push(finalize, g.tokenFrom(t, iss, aud, sa)), v); !errors.Is(err, gcs.ErrUnauthenticated) {
+			t.Errorf("issuer %q: ParsePush = %v, want ErrUnauthenticated", iss, err)
+		}
 	}
 }

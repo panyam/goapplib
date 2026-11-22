@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/oneauth/client"
 	"github.com/panyam/oneauth/keys"
@@ -27,14 +28,16 @@ type PushVerifier interface {
 	VerifyPush(ctx context.Context, token string) error
 }
 
-// Google's issuer and signing keys for the OIDC tokens Pub/Sub sends.
+// Google's issuer and signing keys for the OIDC tokens Pub/Sub sends. Google issues ID tokens
+// with either issuer form, and its Pub/Sub docs say to accept both.
 const (
-	GoogleIssuer = "https://accounts.google.com"
-	GoogleJWKS   = "https://www.googleapis.com/oauth2/v3/certs"
+	GoogleIssuer     = "https://accounts.google.com"
+	GoogleIssuerBare = "accounts.google.com"
+	GoogleJWKS       = "https://www.googleapis.com/oauth2/v3/certs"
 )
 
-// GoogleVerifier checks a Pub/Sub push token's signature against Google's keys, its issuer, its
-// audience and, when Email is set, the service account that signed it. Share one per process,
+// GoogleVerifier checks a Pub/Sub push token's signature against Google's keys, its issuer
+// (either of Google's two forms), its audience and, when Email is set, the service account that signed it. Share one per process,
 // since it caches Google's keys. It fetches them on first use, and again when a token names an
 // unknown key, so a key rotation needs no restart.
 type GoogleVerifier struct {
@@ -45,7 +48,9 @@ type GoogleVerifier struct {
 	// account is refused. Leave it empty only when the audience alone is secret enough.
 	Email string
 
-	// Issuer and JWKSURL default to GoogleIssuer and GoogleJWKS. A test points them at a fake.
+	// Issuer, when set, is the one issuer a token must carry. Empty accepts either of Google's
+	// forms, GoogleIssuer or GoogleIssuerBare. JWKSURL defaults to GoogleJWKS. A test points them
+	// at a fake.
 	Issuer  string
 	JWKSURL string
 
@@ -74,7 +79,13 @@ func (g *GoogleVerifier) VerifyPush(ctx context.Context, token string) error {
 	})
 	iss := g.Issuer
 	if iss == "" {
+		// VerifyIDToken checks one exact issuer, so pick the form the token claims, from the two
+		// Google uses. VerifyIDToken then checks the signature and the issuer for real.
 		iss = GoogleIssuer
+		var c jwt.RegisteredClaims
+		if _, _, err := jwt.NewParser().ParseUnverified(token, &c); err == nil && c.Issuer == GoogleIssuerBare {
+			iss = GoogleIssuerBare
+		}
 	}
 	claims, err := client.VerifyIDToken(ctx, &client.VerifyIDTokenRequest{IDToken: token, Issuer: iss, ClientID: g.Audience, Keys: g.keys})
 	if err != nil {
