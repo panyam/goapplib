@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // refsPageSize is the default page size of ListRefs, and refsMaxPage the most GitHub returns in one
@@ -58,7 +57,7 @@ const tagsQuery = `query($owner: String!, $name: String!, $first: Int!, $after: 
 //
 // Commits come from the REST commits API, following parents from the branch's head. An empty
 // Branch is the default branch. A missing branch returns ErrNotFound.
-func (d *Driver) ListRefs(ctx context.Context, source string, req mounts.ListRefsRequest, ts oauth2.TokenSource) (mounts.RefPage, error) {
+func (d *Driver) ListRefs(ctx context.Context, source string, req mounts.ListRefsRequest, creds mounts.Credentials) (mounts.RefPage, error) {
 	rp, err := repo(source)
 	if err != nil {
 		return mounts.RefPage{}, err
@@ -70,9 +69,9 @@ func (d *Driver) ListRefs(ctx context.Context, source string, req mounts.ListRef
 	size = min(size, refsMaxPage)
 	switch req.Kind {
 	case mounts.RefTag:
-		return d.listTags(ctx, rp, size, req.PageToken, ts)
+		return d.listTags(ctx, rp, size, req.PageToken, creds)
 	case mounts.RefCommit:
-		return d.listCommits(ctx, rp, req.Branch, size, req.PageToken, ts)
+		return d.listCommits(ctx, rp, req.Branch, size, req.PageToken, creds)
 	}
 	return mounts.RefPage{}, fmt.Errorf("%w: GitHub lists tags or commits, not %q", mounts.ErrInvalidArgument, req.Kind)
 }
@@ -89,7 +88,7 @@ func pageNumber(token string) (int, error) {
 	return n, nil
 }
 
-func (d *Driver) listCommits(ctx context.Context, rp, branch string, size int, token string, ts oauth2.TokenSource) (mounts.RefPage, error) {
+func (d *Driver) listCommits(ctx context.Context, rp, branch string, size int, token string, creds mounts.Credentials) (mounts.RefPage, error) {
 	page, err := pageNumber(token)
 	if err != nil {
 		return mounts.RefPage{}, err
@@ -98,7 +97,7 @@ func (d *Driver) listCommits(ctx context.Context, rp, branch string, size int, t
 	if branch != "" {
 		q.Set("sha", branch)
 	}
-	resp, err := d.send(ctx, ts, http.MethodGet, rp+"/commits", q, nil)
+	resp, err := d.send(ctx, creds, http.MethodGet, rp+"/commits", q, nil)
 	if err != nil {
 		return mounts.RefPage{}, err
 	}
@@ -149,8 +148,8 @@ type gqlCommit struct {
 	MessageHeadline string    `json:"messageHeadline"`
 }
 
-func (d *Driver) listTags(ctx context.Context, rp string, size int, token string, ts oauth2.TokenSource) (mounts.RefPage, error) {
-	if ts == nil {
+func (d *Driver) listTags(ctx context.Context, rp string, size int, token string, creds mounts.Credentials) (mounts.RefPage, error) {
+	if creds == nil {
 		return d.listTagsREST(ctx, rp, min(size, anonTagsPage), token)
 	}
 	owner, name, _ := strings.Cut(strings.TrimPrefix(rp, "/repos/"), "/")
@@ -162,7 +161,7 @@ func (d *Driver) listTags(ctx context.Context, rp string, size int, token string
 	if err != nil {
 		return mounts.RefPage{}, err
 	}
-	resp, err := d.sendURL(ctx, ts, http.MethodPost, d.graphqlURL(), bytes.NewReader(b), true)
+	resp, err := d.sendURL(ctx, creds, http.MethodPost, d.graphqlURL(), bytes.NewReader(b), true)
 	if err != nil {
 		return mounts.RefPage{}, err
 	}

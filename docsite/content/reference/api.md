@@ -7,7 +7,7 @@ This page is generated. When the site builds, it reads goapplib's Go source on `
 
 A declaration marked `build: js && wasm` exists only in a build for the browser (`GOOS=js GOARCH=wasm`), and one marked `build: !(js && wasm)` only in a native one. [pkg.go.dev](https://pkg.go.dev/github.com/panyam/goapplib) has pretty much the same API for each tagged release, though it lags `main` until the next tag.
 
-The packages: [goapplib](#goapplib), [page](#page), [wasmhost](#wasmhost), and from the [storage module](../storage-module/), [mounts](#mounts), [connections](#connections), [blobs](#blobs), the [folder](#folder) and [github](#github) drivers, and the [gormstore](#gormstore) and [gaestore](#gaestore) backends. The two backends are modules of their own.
+The packages: [goapplib](#goapplib), [page](#page), [wasmhost](#wasmhost), and from the [storage module](../storage-module/), [mounts](#mounts), [connections](#connections), [blobs](#blobs), the [folder](#folder), [github](#github), [bucket](#bucket), [s3](#s3) and [gcs](#gcs) drivers, and the [gormstore](#gormstore) and [gaestore](#gaestore) backends. The s3 and gcs drivers and the two backends are modules of their own.
 
 {{ apiref "" }}
 
@@ -24,6 +24,12 @@ The packages: [goapplib](#goapplib), [page](#page), [wasmhost](#wasmhost), and f
 {{ apiref "storage/mounts/folder" }}
 
 {{ apiref "storage/mounts/github" }}
+
+{{ apiref "storage/mounts/bucket" }}
+
+{{ apiref "storage/drivers/s3" }}
+
+{{ apiref "storage/drivers/gcs" }}
 
 {{ apiref "storage/backends/gorm" }}
 

@@ -258,7 +258,7 @@ func TestCanReadDoesNotKeepAnAnswerFromBeforeAForget(t *testing.T) {
 	var calls atomic.Int32
 	a.svc = connections.NewService(a.store,
 		connections.WithClock(func() time.Time { return a.now }),
-		connections.WithReadCheck(func(ctx context.Context, baseURL, source string, ts oauth2.TokenSource) (bool, error) {
+		connections.WithReadCheck(func(ctx context.Context, baseURL, source string, ts mounts.Credentials) (bool, error) {
 			if calls.Add(1) == 1 {
 				close(entered)
 				<-release

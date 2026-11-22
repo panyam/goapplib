@@ -16,17 +16,16 @@ import (
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // snapshot streams the tarball of commit into the blob store and returns its manifest's hash.
 // It keeps regular files only, so links and devices never reach the snapshot, and refuses a path
 // that is absolute, unclean or climbs out of the repo.
-func (d *Driver) snapshot(ctx context.Context, rp, commit string, ts oauth2.TokenSource) (blobs.Hash, error) {
+func (d *Driver) snapshot(ctx context.Context, rp, commit string, creds mounts.Credentials) (blobs.Hash, error) {
 	if !commitSHA.MatchString(commit) {
 		return "", fmt.Errorf("%w: snapshot version %q isn't a commit sha", mounts.ErrInvalidArgument, commit)
 	}
-	resp, err := d.send(ctx, ts, http.MethodGet, rp+"/tarball/"+commit, nil, nil)
+	resp, err := d.send(ctx, creds, http.MethodGet, rp+"/tarball/"+commit, nil, nil)
 	if err != nil {
 		return "", err
 	}

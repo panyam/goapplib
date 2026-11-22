@@ -10,7 +10,6 @@ import (
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/goapplib/storage/mounts/fsstore"
 	"github.com/panyam/goapplib/storage/mounts/github"
-	"golang.org/x/oauth2"
 )
 
 // downloads lists the files the fake's raw host or git blobs endpoint served since the last call.
@@ -155,7 +154,7 @@ func TestTheRegistryReadsAPrivateRepoAtAVersionThroughItsConnection(t *testing.T
 		t.Fatal(err)
 	}
 	drv := github.New(e.blobs, github.WithBaseURL(e.gh.URL), github.WithRawURL(e.gh.RawURL()))
-	reg := mounts.NewRegistry(store, []mounts.Driver{drv}, mounts.WithCredentials(func(_ context.Context, _, conn string) (oauth2.TokenSource, error) {
+	reg := mounts.NewRegistry(store, []mounts.Driver{drv}, mounts.WithCredentials(func(_ context.Context, _, conn string) (mounts.Credentials, error) {
 		return static("ghs_installation"), nil
 	}))
 	if _, err := reg.Create(e.ctx, mounts.Mount{Name: "board", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeLive, Connection: "acme-app"}); err != nil {

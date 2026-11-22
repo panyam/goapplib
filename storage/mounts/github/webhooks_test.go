@@ -13,7 +13,6 @@ import (
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/goapplib/storage/mounts/fsstore"
 	"github.com/panyam/goapplib/storage/mounts/github"
-	"golang.org/x/oauth2"
 )
 
 func TestEnsureWebhookMakesThenUpdatesOneHook(t *testing.T) {
@@ -113,7 +112,7 @@ func TestARegistryWebhookDeliversAVerifiedPush(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := mounts.NewRegistry(store, []mounts.Driver{e.drv}, mounts.WithCredentials(func(context.Context, string, string) (oauth2.TokenSource, error) {
+	reg := mounts.NewRegistry(store, []mounts.Driver{e.drv}, mounts.WithCredentials(func(context.Context, string, string) (mounts.Credentials, error) {
 		return static("tok"), nil
 	}))
 	if _, err := reg.Create(e.ctx, mounts.Mount{Name: "board", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeLive, Connection: "c"}); err != nil {

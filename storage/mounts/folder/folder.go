@@ -25,11 +25,10 @@ import (
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // Driver serves mounts.KindFolder mounts, whose Source is the folder's absolute path. It
-// implements mounts.Writer, mounts.Localizer and mounts.VersionReader. It ignores token sources.
+// implements mounts.Writer, mounts.Localizer and mounts.VersionReader. It ignores credentials.
 //
 // A write's IfMatch check and the write itself happen under a lock per file held in this Driver,
 // so two writers in one process can't both pass the check. Writers in two processes, or two
@@ -77,7 +76,7 @@ func (d *Driver) Modes() []mounts.Mode { return []mounts.Mode{mounts.ModeLive} }
 // the files only when the version moved. A folder has no refs, so a non-empty ref returns
 // ErrInvalidArgument, as does a relative path or a file. A missing folder returns ErrNotFound, and
 // one over mounts.DefaultLimits' file count returns ErrTooLarge.
-func (d *Driver) Resolve(ctx context.Context, source, ref string, ts oauth2.TokenSource) (string, error) {
+func (d *Driver) Resolve(ctx context.Context, source, ref string, creds mounts.Credentials) (string, error) {
 	if !filepath.IsAbs(source) {
 		return "", fmt.Errorf("%w: folder %q isn't an absolute path", mounts.ErrInvalidArgument, source)
 	}
@@ -100,14 +99,14 @@ func (d *Driver) Resolve(ctx context.Context, source, ref string, ts oauth2.Toke
 // Open returns the folder's files as they are now. The fs.FS refuses a path through a link with an
 // error wrapping ErrInvalidPath, and its listings leave links out, so fs.WalkDir sees only regular
 // files and folders.
-func (d *Driver) Open(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource) (fs.FS, error) {
+func (d *Driver) Open(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (fs.FS, error) {
 	return linkFree{dir: m.Source, follow: d.follow}, nil
 }
 
 // Stat returns the file's version, "sha256:" and the hex SHA-256 of its contents. Content hashes,
 // unlike modification times, don't change when nothing did, and can't collide when a file changes
 // twice in one clock tick.
-func (d *Driver) Stat(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, p string) (mounts.FileVersion, error) {
+func (d *Driver) Stat(ctx context.Context, m mounts.Mount, creds mounts.Credentials, p string) (mounts.FileVersion, error) {
 	p, err := filePath(p)
 	if err != nil {
 		return "", err
@@ -127,7 +126,7 @@ func (d *Driver) Stat(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource
 // Put writes req.Data to req.Path through a temp file and a rename, so a reader sees the old file
 // or the new one and never part of either. It creates missing parent folders. The IfMatch check
 // follows mounts.PutRequest. The result's Mount version is empty, since a folder has none.
-func (d *Driver) Put(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, req mounts.PutRequest) (*mounts.WriteResult, error) {
+func (d *Driver) Put(ctx context.Context, m mounts.Mount, creds mounts.Credentials, req mounts.PutRequest) (*mounts.WriteResult, error) {
 	p, err := filePath(req.Path)
 	if err != nil {
 		return nil, err
@@ -169,7 +168,7 @@ func (d *Driver) Put(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource,
 // Delete removes req.Path when IfMatch is its current version or AnyVersion. Empty IfMatch never
 // matches an existing file, so it returns ErrConflict. A missing file returns ErrNotFound. Delete
 // leaves empty parent folders in place.
-func (d *Driver) Delete(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, req mounts.DeleteRequest) (*mounts.WriteResult, error) {
+func (d *Driver) Delete(ctx context.Context, m mounts.Mount, creds mounts.Credentials, req mounts.DeleteRequest) (*mounts.WriteResult, error) {
 	p, err := filePath(req.Path)
 	if err != nil {
 		return nil, err

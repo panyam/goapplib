@@ -10,7 +10,6 @@ import (
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goutils/mountfs"
-	"golang.org/x/oauth2"
 )
 
 // Registry is an app's one view of its mounts. It joins the fixed mounts from the server's
@@ -26,7 +25,7 @@ type Registry struct {
 	store   RecordStore
 	drivers map[Kind]Driver
 	fixed   map[string]Mount
-	creds   func(ctx context.Context, owner, connection string) (oauth2.TokenSource, error)
+	creds   CredentialsFunc
 	inUse   func(ctx context.Context, name string) (bool, error)
 	limits  Limits
 	every   time.Duration
@@ -48,7 +47,7 @@ type Option func(*Registry)
 // is written.
 type Preparer interface {
 	Driver
-	Prepare(ctx context.Context, m Mount, ts oauth2.TokenSource) (Mount, error)
+	Prepare(ctx context.Context, m Mount, creds Credentials) (Mount, error)
 }
 
 // NewRegistry returns a registry over store, serving the kinds of drivers. Two drivers of one kind
@@ -82,11 +81,11 @@ func WithFixed(ms ...Mount) Option {
 	}
 }
 
-// WithCredentials sets how the registry gets a mount's token source from its ConnectionOwner and
-// Connection. The connections service's TokenSource method has this signature. It is called with
-// the request's context, so a person's connection sees who is asking. A mount with an empty
-// Connection gets a nil token source without a call.
-func WithCredentials(f func(ctx context.Context, owner, connection string) (oauth2.TokenSource, error)) Option {
+// WithCredentials sets how the registry gets a mount's Credentials from its ConnectionOwner and
+// Connection. The connections service's Credentials method fits it. It is called with the
+// request's context, so a person's connection sees who is asking. A mount with an empty
+// Connection gets nil Credentials without a call.
+func WithCredentials(f CredentialsFunc) Option {
 	return func(r *Registry) { r.creds = f }
 }
 
@@ -178,17 +177,17 @@ func (r *Registry) Create(ctx context.Context, m Mount) (Mount, error) {
 	if _, ok := r.fixed[m.Name]; ok {
 		return Mount{}, fmt.Errorf("%w: mount %q comes from the server's configuration", ErrExists, m.Name)
 	}
-	ts, err := r.tokens(ctx, m)
+	creds, err := r.credentials(ctx, m)
 	if err != nil {
 		return Mount{}, err
 	}
-	if m.Version, err = d.Resolve(ctx, m.Source, m.Ref, ts); err != nil {
+	if m.Version, err = d.Resolve(ctx, m.Source, m.Ref, creds); err != nil {
 		return Mount{}, err
 	}
 	m.Created = r.now().UTC()
 	m.Manifest = ""
 	if p, ok := d.(Preparer); ok {
-		if m, err = p.Prepare(ctx, m, ts); err != nil {
+		if m, err = p.Prepare(ctx, m, creds); err != nil {
 			return Mount{}, err
 		}
 	}
@@ -275,18 +274,18 @@ func (r *Registry) HostPath(ctx context.Context, u URI) (string, error) {
 // Stat returns the current version of the file u names, for a later Put or Remove. A mount that
 // can't be written returns ErrReadOnly.
 func (r *Registry) Stat(ctx context.Context, u URI) (FileVersion, error) {
-	m, w, ts, err := r.writer(ctx, u.Mount)
+	m, w, creds, err := r.writer(ctx, u.Mount)
 	if err != nil {
 		return "", err
 	}
-	return w.Stat(ctx, m, ts, u.Path)
+	return w.Stat(ctx, m, creds, u.Path)
 }
 
 // Put writes a file in the mount named name, with req.Path cleaned by CleanPath. A snapshot mount,
 // or one whose driver isn't a Writer, returns ErrReadOnly. Data over the registry's MaxBytes
 // returns ErrTooLarge. The IfMatch rules are mounts.PutRequest's.
 func (r *Registry) Put(ctx context.Context, name string, req PutRequest) (*WriteResult, error) {
-	m, w, ts, err := r.writer(ctx, name)
+	m, w, creds, err := r.writer(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -299,12 +298,12 @@ func (r *Registry) Put(ctx context.Context, name string, req PutRequest) (*Write
 	if int64(len(req.Data)) > r.limits.MaxBytes {
 		return nil, fmt.Errorf("%w: %d bytes, the limit is %d", ErrTooLarge, len(req.Data), r.limits.MaxBytes)
 	}
-	return w.Put(ctx, m, ts, req)
+	return w.Put(ctx, m, creds, req)
 }
 
 // Remove deletes a file in the mount named name, under the same rules as Put.
 func (r *Registry) Remove(ctx context.Context, name string, req DeleteRequest) (*WriteResult, error) {
-	m, w, ts, err := r.writer(ctx, name)
+	m, w, creds, err := r.writer(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +313,7 @@ func (r *Registry) Remove(ctx context.Context, name string, req DeleteRequest) (
 	if req.Path == "" {
 		return nil, fmt.Errorf("%w: the mount's root isn't a file", ErrInvalidPath)
 	}
-	return w.Delete(ctx, m, ts, req)
+	return w.Delete(ctx, m, creds, req)
 }
 
 func (r *Registry) refresh(ctx context.Context) ([]Mount, error) {
@@ -359,7 +358,7 @@ func (r *Registry) driver(m Mount) (Driver, error) {
 	return d, nil
 }
 
-func (r *Registry) tokens(ctx context.Context, m Mount) (oauth2.TokenSource, error) {
+func (r *Registry) credentials(ctx context.Context, m Mount) (Credentials, error) {
 	if m.Connection == "" {
 		return nil, nil
 	}
@@ -378,14 +377,14 @@ func (r *Registry) open(ctx context.Context, name string) (fs.FS, error) {
 	if err != nil {
 		return nil, err
 	}
-	ts, err := r.tokens(ctx, m)
+	creds, err := r.credentials(ctx, m)
 	if err != nil {
 		return nil, err
 	}
-	return d.Open(ctx, m, ts)
+	return d.Open(ctx, m, creds)
 }
 
-func (r *Registry) writer(ctx context.Context, name string) (Mount, Writer, oauth2.TokenSource, error) {
+func (r *Registry) writer(ctx context.Context, name string) (Mount, Writer, Credentials, error) {
 	m, err := r.Get(ctx, name)
 	if err != nil {
 		return Mount{}, nil, nil, err
@@ -401,11 +400,11 @@ func (r *Registry) writer(ctx context.Context, name string) (Mount, Writer, oaut
 	if !ok {
 		return Mount{}, nil, nil, fmt.Errorf("%w: %s mounts can't be written", ErrReadOnly, m.Kind)
 	}
-	ts, err := r.tokens(ctx, m)
+	creds, err := r.credentials(ctx, m)
 	if err != nil {
 		return Mount{}, nil, nil, err
 	}
-	return m, w, ts, nil
+	return m, w, creds, nil
 }
 
 func serves(d Driver, mode Mode) bool {

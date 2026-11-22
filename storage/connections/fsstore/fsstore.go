@@ -62,18 +62,21 @@ type record struct {
 	LastError      string    `yaml:"last_error,omitempty"`
 	Created        time.Time `yaml:"created"`
 	LastUsed       time.Time `yaml:"last_used,omitempty"`
+	AccessKeyID    string    `yaml:"access_key_id,omitempty"`
+	RoleARN        string    `yaml:"role_arn,omitempty"`
+	Region         string    `yaml:"region,omitempty"`
 }
 
 func toRecord(c connections.Connection) record {
 	return record{c.ID, string(c.Kind), string(c.Scope), c.Owner, c.Name, c.BaseURL, c.AppID,
-		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC()}
+		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC(), c.AccessKeyID, c.RoleARN, c.Region}
 }
 
 func (r record) connection() connections.Connection {
 	return connections.Connection{ID: r.ID, Kind: connections.Kind(r.Kind), Scope: connections.Scope(r.Scope),
 		Owner: r.Owner, Name: r.Name, BaseURL: r.BaseURL, AppID: r.AppID, InstallationID: r.InstallationID,
 		KeyRef: r.KeyRef, TokenRef: r.TokenRef, Pasted: r.Pasted, Status: connections.Status(r.Status), LastError: r.LastError,
-		Created: r.Created, LastUsed: r.LastUsed}
+		Created: r.Created, LastUsed: r.LastUsed, AccessKeyID: r.AccessKeyID, RoleARN: r.RoleARN, Region: r.Region}
 }
 
 // peopleDir holds a folder per person, each with that person's connections.

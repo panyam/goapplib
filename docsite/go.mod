@@ -7,6 +7,7 @@ toolchain go1.27.4
 require github.com/panyam/s3gen v0.1.6
 
 require (
+	cloud.google.com/go/compute/metadata v0.10.0 // indirect
 	connectrpc.com/connect v1.19.1 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/adrg/frontmatter v0.2.0 // indirect
@@ -21,7 +22,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
 	github.com/morrisxyang/xreflect v0.0.0-20231001053442-6df0df9858ba // indirect
 	github.com/panyam/goutils v0.1.14 // indirect
-	github.com/panyam/oneauth v0.3.14 // indirect
+	github.com/panyam/oneauth v0.3.16 // indirect
 	github.com/panyam/templar v0.1.0 // indirect
 	github.com/radovskyb/watcher v1.0.7 // indirect
 	github.com/yuin/goldmark v1.8.2 // indirect

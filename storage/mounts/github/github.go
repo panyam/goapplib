@@ -6,8 +6,9 @@
 // life, and after a restart, without asking GitHub again. A live mount reads a branch through the
 // Contents API, and each Put or Delete is one commit on it.
 //
-// The driver sends each request with the token source the registry hands it, which comes from the
-// mount's connection. A private repo answers 404 to a request without a valid token, so the driver
+// The driver sends each request with the bearer token of the mounts.BearerCredentials the registry
+// hands it, which come from the mount's connection. Other kinds of credentials return
+// ErrInvalidArgument. A private repo answers 404 to a request without a valid token, so the driver
 // reports ErrNotFound for it, as GitHub intends.
 package github
 
@@ -26,7 +27,6 @@ import (
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // DefaultBaseURL is GitHub's API root. GitHub Enterprise and tests set another with WithBaseURL.
@@ -109,20 +109,20 @@ var commitSHA = regexp.MustCompile(`^([0-9a-f]{40}|[0-9a-f]{64})$`)
 // Resolve checks the repo and returns the commit ref points at. An empty ref means the repo's
 // default branch. A missing repo or ref returns ErrNotFound, and so does a private repo the token
 // can't read.
-func (d *Driver) Resolve(ctx context.Context, source, ref string, ts oauth2.TokenSource) (string, error) {
+func (d *Driver) Resolve(ctx context.Context, source, ref string, creds mounts.Credentials) (string, error) {
 	rp, err := repo(source)
 	if err != nil {
 		return "", err
 	}
 	if ref == "" {
-		if ref, err = d.defaultBranch(ctx, rp, ts); err != nil {
+		if ref, err = d.defaultBranch(ctx, rp, creds); err != nil {
 			return "", err
 		}
 	}
 	var c struct {
 		SHA string `json:"sha"`
 	}
-	if err := d.call(ctx, ts, http.MethodGet, rp+"/commits/"+url.PathEscape(ref), nil, nil, false, &c); err != nil {
+	if err := d.call(ctx, creds, http.MethodGet, rp+"/commits/"+url.PathEscape(ref), nil, nil, false, &c); err != nil {
 		return "", err
 	}
 	if !commitSHA.MatchString(c.SHA) {
@@ -131,11 +131,11 @@ func (d *Driver) Resolve(ctx context.Context, source, ref string, ts oauth2.Toke
 	return c.SHA, nil
 }
 
-func (d *Driver) defaultBranch(ctx context.Context, rp string, ts oauth2.TokenSource) (string, error) {
+func (d *Driver) defaultBranch(ctx context.Context, rp string, creds mounts.Credentials) (string, error) {
 	var r struct {
 		DefaultBranch string `json:"default_branch"`
 	}
-	if err := d.call(ctx, ts, http.MethodGet, rp, nil, nil, false, &r); err != nil {
+	if err := d.call(ctx, creds, http.MethodGet, rp, nil, nil, false, &r); err != nil {
 		return "", err
 	}
 	if r.DefaultBranch == "" {
@@ -148,7 +148,7 @@ func (d *Driver) defaultBranch(ctx context.Context, rp string, ts oauth2.TokenSo
 // into the blob store and sets m.Manifest. For a live mount it sets m.Ref to the default branch
 // when it is empty, so later writes name the branch. A live mount's Ref must be a branch, since
 // GitHub commits a write onto a branch.
-func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource) (mounts.Mount, error) {
+func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (mounts.Mount, error) {
 	rp, err := repo(m.Source)
 	if err != nil {
 		return m, err
@@ -158,14 +158,14 @@ func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, ts oauth2.TokenSou
 		if d.blobs == nil {
 			return m, fmt.Errorf("%w: this GitHub driver has no blob store for snapshots", mounts.ErrInvalidArgument)
 		}
-		h, err := d.snapshot(ctx, rp, m.Version, ts)
+		h, err := d.snapshot(ctx, rp, m.Version, creds)
 		if err != nil {
 			return m, err
 		}
 		m.Manifest = string(h)
 	case mounts.ModeLive:
 		if m.Ref == "" {
-			if m.Ref, err = d.defaultBranch(ctx, rp, ts); err != nil {
+			if m.Ref, err = d.defaultBranch(ctx, rp, creds); err != nil {
 				return m, err
 			}
 		}
@@ -176,9 +176,9 @@ func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, ts oauth2.TokenSou
 }
 
 // Open returns the mount's files: a snapshot's from its manifest and the blob store, or a live
-// mount's from the Contents API at its branch. A live mount's fs.FS keeps ctx and ts for the
+// mount's from the Contents API at its branch. A live mount's fs.FS keeps ctx and creds for the
 // requests it makes later.
-func (d *Driver) Open(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource) (fs.FS, error) {
+func (d *Driver) Open(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (fs.FS, error) {
 	switch m.Mode {
 	case mounts.ModeSnapshot:
 		t, err := d.tree(ctx, m)
@@ -191,7 +191,7 @@ func (d *Driver) Open(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource
 		if err != nil {
 			return nil, err
 		}
-		return liveFS{ctx: ctx, d: d, rp: rp, ref: m.Ref, ts: ts}, nil
+		return liveFS{ctx: ctx, d: d, rp: rp, ref: m.Ref, creds: creds}, nil
 	}
 	return nil, fmt.Errorf("%w: GitHub mounts don't support mode %q", mounts.ErrInvalidArgument, m.Mode)
 }
@@ -199,10 +199,10 @@ func (d *Driver) Open(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource
 // call sends one API request and decodes a JSON answer into out, which may be nil. It maps
 // statuses onto the mounts sentinels: 404 to ErrNotFound, 409 to ErrConflict, 422 to ErrConflict
 // for a write and ErrNotFound for a read, and anything else that isn't 2xx, rate limits and
-// rejected tokens included, to ErrUnavailable. An error from ts passes through unwrapped, so a
+// rejected tokens included, to ErrUnavailable. An error from creds passes through unwrapped, so a
 // caller can tell a connection that needs a reconnect.
-func (d *Driver) call(ctx context.Context, ts oauth2.TokenSource, method, p string, q url.Values, body any, write bool, out any) error {
-	resp, err := d.send(ctx, ts, method, p, q, body)
+func (d *Driver) call(ctx context.Context, creds mounts.Credentials, method, p string, q url.Values, body any, write bool, out any) error {
+	resp, err := d.send(ctx, creds, method, p, q, body)
 	if err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func (d *Driver) call(ctx context.Context, ts oauth2.TokenSource, method, p stri
 	return nil
 }
 
-func (d *Driver) send(ctx context.Context, ts oauth2.TokenSource, method, p string, q url.Values, body any) (*http.Response, error) {
+func (d *Driver) send(ctx context.Context, creds mounts.Credentials, method, p string, q url.Values, body any) (*http.Response, error) {
 	var rd io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -232,12 +232,12 @@ func (d *Driver) send(ctx context.Context, ts oauth2.TokenSource, method, p stri
 	if len(q) > 0 {
 		u += "?" + q.Encode()
 	}
-	return d.sendURL(ctx, ts, method, u, rd, body != nil)
+	return d.sendURL(ctx, creds, method, u, rd, body != nil)
 }
 
 // sendURL sends one request to the full URL u, such as the GraphQL endpoint, which isn't under the
 // REST base on GitHub Enterprise.
-func (d *Driver) sendURL(ctx context.Context, ts oauth2.TokenSource, method, u string, rd io.Reader, hasBody bool) (*http.Response, error) {
+func (d *Driver) sendURL(ctx context.Context, creds mounts.Credentials, method, u string, rd io.Reader, hasBody bool) (*http.Response, error) {
 	p := u
 	req, err := http.NewRequestWithContext(ctx, method, u, rd)
 	if err != nil {
@@ -248,12 +248,8 @@ func (d *Driver) sendURL(ctx context.Context, ts oauth2.TokenSource, method, u s
 	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if ts != nil {
-		tok, err := ts.Token()
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	if err := authorize(req, creds); err != nil {
+		return nil, err
 	}
 	resp, err := d.client.Do(req)
 	if err != nil {
@@ -289,3 +285,16 @@ var (
 	_ mounts.Writer    = (*Driver)(nil)
 	_ mounts.Localizer = (*Driver)(nil)
 )
+
+// authorize sets req's bearer token from creds. Nil credentials send none. An error from the token
+// source passes through unwrapped, as call documents.
+func authorize(req *http.Request, creds mounts.Credentials) error {
+	tok, err := mounts.BearerToken(creds)
+	if err != nil {
+		return err
+	}
+	if tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
+	return nil
+}

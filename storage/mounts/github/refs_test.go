@@ -14,7 +14,6 @@ import (
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/goapplib/storage/mounts/fsstore"
 	"github.com/panyam/goapplib/storage/mounts/github"
-	"golang.org/x/oauth2"
 )
 
 func names(rs []mounts.Ref) []string {
@@ -169,7 +168,7 @@ func TestAPushReachesTheMountsFollowingItThroughTheRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := mounts.NewRegistry(store, []mounts.Driver{e.drv}, mounts.WithCredentials(func(context.Context, string, string) (oauth2.TokenSource, error) {
+	reg := mounts.NewRegistry(store, []mounts.Driver{e.drv}, mounts.WithCredentials(func(context.Context, string, string) (mounts.Credentials, error) {
 		return static("tok"), nil
 	}))
 	// The record says Acme, and GitHub's push says acme.

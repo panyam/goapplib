@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"golang.org/x/oauth2"
 )
 
 // RefLister is a Driver that lists the versions its sources have, so an app can offer a list of
@@ -18,7 +16,7 @@ type RefLister interface {
 	// branch, newest first. A source or branch that doesn't exist returns ErrNotFound. A request
 	// the driver can't serve, such as tags with no token on a host that needs one, returns
 	// ErrInvalidArgument.
-	ListRefs(ctx context.Context, source string, req ListRefsRequest, ts oauth2.TokenSource) (RefPage, error)
+	ListRefs(ctx context.Context, source string, req ListRefsRequest, creds Credentials) (RefPage, error)
 }
 
 // RefKind says what a ref names.
@@ -86,9 +84,9 @@ func (r *Registry) ListRefs(ctx context.Context, name string, req ListRefsReques
 	if !ok {
 		return RefPage{}, fmt.Errorf("%w: %s mounts can't list refs", ErrInvalidArgument, m.Kind)
 	}
-	ts, err := r.tokens(ctx, m)
+	creds, err := r.credentials(ctx, m)
 	if err != nil {
 		return RefPage{}, err
 	}
-	return rl.ListRefs(ctx, m.Source, req, ts)
+	return rl.ListRefs(ctx, m.Source, req, creds)
 }

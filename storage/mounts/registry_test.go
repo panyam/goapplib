@@ -25,16 +25,12 @@ type fakeGitHub struct{ tokens []string }
 func (f *fakeGitHub) Kind() mounts.Kind    { return mounts.KindGitHub }
 func (f *fakeGitHub) Modes() []mounts.Mode { return []mounts.Mode{mounts.ModeSnapshot} }
 
-func (f *fakeGitHub) note(ts oauth2.TokenSource) {
-	if ts == nil {
-		f.tokens = append(f.tokens, "")
-		return
-	}
-	tok, _ := ts.Token()
-	f.tokens = append(f.tokens, tok.AccessToken)
+func (f *fakeGitHub) note(ts mounts.Credentials) {
+	tok, _ := mounts.BearerToken(ts)
+	f.tokens = append(f.tokens, tok)
 }
 
-func (f *fakeGitHub) Resolve(_ context.Context, source, ref string, ts oauth2.TokenSource) (string, error) {
+func (f *fakeGitHub) Resolve(_ context.Context, source, ref string, ts mounts.Credentials) (string, error) {
 	f.note(ts)
 	if source != "github://acme/boards" {
 		return "", mounts.ErrNotFound
@@ -42,13 +38,13 @@ func (f *fakeGitHub) Resolve(_ context.Context, source, ref string, ts oauth2.To
 	return "c0ffee" + ref, nil
 }
 
-func (f *fakeGitHub) Prepare(_ context.Context, m mounts.Mount, ts oauth2.TokenSource) (mounts.Mount, error) {
+func (f *fakeGitHub) Prepare(_ context.Context, m mounts.Mount, ts mounts.Credentials) (mounts.Mount, error) {
 	f.note(ts)
 	m.Manifest = "sha256:manifest-of-" + m.Version
 	return m, nil
 }
 
-func (f *fakeGitHub) Open(_ context.Context, m mounts.Mount, ts oauth2.TokenSource) (fs.FS, error) {
+func (f *fakeGitHub) Open(_ context.Context, m mounts.Mount, ts mounts.Credentials) (fs.FS, error) {
 	f.note(ts)
 	return fstest.MapFS{"board.kicad_sch": {Data: []byte("at " + m.Version)}}, nil
 }
@@ -82,12 +78,12 @@ func (e *env) registry(t *testing.T) *mounts.Registry {
 	}
 	return mounts.NewRegistry(store, []mounts.Driver{folder.New(), e.gh},
 		mounts.WithFixed(mounts.Mount{Name: "notes", Kind: mounts.KindFolder, Source: e.notes, Mode: mounts.ModeLive}),
-		mounts.WithCredentials(func(_ context.Context, owner, conn string) (oauth2.TokenSource, error) {
+		mounts.WithCredentials(func(_ context.Context, owner, conn string) (mounts.Credentials, error) {
 			tok, ok := e.tokens[owner+"/"+conn]
 			if !ok {
 				return nil, errors.New("no such connection")
 			}
-			return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok}), nil
+			return mounts.Bearer(oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok})), nil
 		}),
 		mounts.WithInUse(func(_ context.Context, name string) (bool, error) { return e.inUse[name], nil }),
 		mounts.WithLimits(mounts.Limits{MaxBytes: 16}),

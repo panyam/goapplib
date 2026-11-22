@@ -3,13 +3,12 @@ package mounts
 import (
 	"context"
 	"io/fs"
-
-	"golang.org/x/oauth2"
 )
 
-// Driver reads one Kind of source. The registry calls it with the token source of the mount's
+// Driver reads one Kind of source. The registry calls it with the Credentials of the mount's
 // connection, or nil for a public or local source. A driver doesn't know about connections or
-// viewers. It sends the token it is given.
+// viewers. It signs with the credentials it is given, and returns ErrInvalidArgument for a kind
+// of Credentials it can't sign with.
 type Driver interface {
 	// Kind is the Kind of mount this driver serves.
 	Kind() Kind
@@ -21,13 +20,13 @@ type Driver interface {
 	// Resolve checks source and turns ref into a version: a commit for GitHub, an empty string
 	// for a folder. An empty ref means the source's default, such as the default branch. A
 	// source or ref that doesn't exist returns ErrNotFound.
-	Resolve(ctx context.Context, source, ref string, ts oauth2.TokenSource) (version string, err error)
+	Resolve(ctx context.Context, source, ref string, creds Credentials) (version string, err error)
 
 	// Open returns the mount's files. For a snapshot mount they are the files at m.Version, and
 	// the same call returns the same bytes for the life of the mount. For a live mount they are
 	// the source's latest. Paths in the fs.FS are clean, relative and slash-separated, so a
 	// URI's Path opens directly. Only regular files and folders appear in it, never links.
-	Open(ctx context.Context, m Mount, ts oauth2.TokenSource) (fs.FS, error)
+	Open(ctx context.Context, m Mount, creds Credentials) (fs.FS, error)
 }
 
 // Writer is a Driver that can change a live mount. A write to a snapshot mount returns
@@ -37,13 +36,13 @@ type Writer interface {
 
 	// Stat returns the current version of the file at p, which a later Put or Delete passes as
 	// IfMatch. For GitHub it is the file's blob sha. A missing file returns ErrNotFound.
-	Stat(ctx context.Context, m Mount, ts oauth2.TokenSource, p string) (FileVersion, error)
+	Stat(ctx context.Context, m Mount, creds Credentials, p string) (FileVersion, error)
 
 	// Put creates or replaces the file at req.Path. A GitHub Put is one commit.
-	Put(ctx context.Context, m Mount, ts oauth2.TokenSource, req PutRequest) (*WriteResult, error)
+	Put(ctx context.Context, m Mount, creds Credentials, req PutRequest) (*WriteResult, error)
 
 	// Delete removes the file at req.Path. A GitHub Delete is one commit.
-	Delete(ctx context.Context, m Mount, ts oauth2.TokenSource, req DeleteRequest) (*WriteResult, error)
+	Delete(ctx context.Context, m Mount, creds Credentials, req DeleteRequest) (*WriteResult, error)
 }
 
 // FileVersion identifies one version of one file, in the driver's own format.

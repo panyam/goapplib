@@ -86,7 +86,7 @@ func TestLiveGitHub(t *testing.T) {
 		t.Log("STORAGE_LIVE_GITHUB_TOKEN unset, so tags aren't listed")
 		return
 	}
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok})
+	ts := mounts.Bearer(oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok}))
 	tags, err := d.ListRefs(ctx, "github://golang/go", mounts.ListRefsRequest{Kind: mounts.RefTag, PageSize: 5}, ts)
 	if err != nil || len(tags.Refs) != 5 || tags.NextPageToken == "" {
 		t.Fatalf("golang/go tags = %+v, %v; want a full page and a next token", tags, err)

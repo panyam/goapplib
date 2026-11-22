@@ -15,11 +15,10 @@ import (
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // Moves returns true. A folder has no history, so a sync always reads it as it is now.
-func (d *Driver) Moves(ctx context.Context, source, ref string, ts oauth2.TokenSource) (bool, error) {
+func (d *Driver) Moves(ctx context.Context, source, ref string, creds mounts.Credentials) (bool, error) {
 	return true, nil
 }
 
@@ -39,7 +38,7 @@ func checkVersion(version string) error {
 // "" or one Resolve returned, and is ignored, since a folder can't be read as of an older version.
 // Any other version returns ErrInvalidArgument. Links and anything else that isn't a regular file
 // are left out, and a path through a link returns ErrInvalidPath.
-func (d *Driver) ListAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, version, under string) ([]mounts.File, error) {
+func (d *Driver) ListAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, version, under string) ([]mounts.File, error) {
 	if err := checkVersion(version); err != nil {
 		return nil, err
 	}
@@ -130,7 +129,7 @@ func (d *Driver) walk(ctx context.Context, dir, under string, fn func(p string, 
 
 // FetchAt reads f from the folder as it is now and keeps it in the driver's blob store. fetched is
 // true when the store didn't hold the contents yet. version is checked as ListAt checks it.
-func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, version string, f mounts.File) (blobs.Hash, bool, error) {
+func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, version string, f mounts.File) (blobs.Hash, bool, error) {
 	if d.blobs == nil {
 		return "", false, fmt.Errorf("%w: this folder driver has no blob store; pass WithBlobs", mounts.ErrInvalidArgument)
 	}
@@ -160,7 +159,7 @@ func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSou
 }
 
 // ListRefs returns an empty page. A folder has no tags and no commits.
-func (d *Driver) ListRefs(ctx context.Context, source string, req mounts.ListRefsRequest, ts oauth2.TokenSource) (mounts.RefPage, error) {
+func (d *Driver) ListRefs(ctx context.Context, source string, req mounts.ListRefsRequest, creds mounts.Credentials) (mounts.RefPage, error) {
 	return mounts.RefPage{}, nil
 }
 

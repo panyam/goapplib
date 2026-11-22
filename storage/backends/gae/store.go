@@ -206,18 +206,21 @@ type connectionEntity struct {
 	LastError      string    `datastore:"last_error,noindex"`
 	Created        time.Time `datastore:"created,noindex"`
 	LastUsed       time.Time `datastore:"last_used,noindex"`
+	AccessKeyID    string    `datastore:"access_key_id,noindex"`
+	RoleARN        string    `datastore:"role_arn,noindex"`
+	Region         string    `datastore:"region,noindex"`
 }
 
 func toConnectionEntity(c connections.Connection) *connectionEntity {
 	return &connectionEntity{string(c.Kind), string(c.Scope), c.Owner, c.Name, c.BaseURL, c.AppID,
-		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC()}
+		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC(), c.AccessKeyID, c.RoleARN, c.Region}
 }
 
 func (e *connectionEntity) connection(id string) connections.Connection {
 	return connections.Connection{ID: id, Kind: connections.Kind(e.Kind), Scope: connections.Scope(e.Scope),
 		Owner: e.Owner, Name: e.Name, BaseURL: e.BaseURL, AppID: e.AppID, InstallationID: e.InstallationID,
 		KeyRef: e.KeyRef, TokenRef: e.TokenRef, Pasted: e.Pasted, Status: connections.Status(e.Status), LastError: e.LastError,
-		Created: e.Created.UTC(), LastUsed: e.LastUsed.UTC()}
+		Created: e.Created.UTC(), LastUsed: e.LastUsed.UTC(), AccessKeyID: e.AccessKeyID, RoleARN: e.RoleARN, Region: e.Region}
 }
 
 // ConnectionStore is a connections.Store over Datastore.

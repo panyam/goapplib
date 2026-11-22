@@ -90,7 +90,7 @@ func Open(cfg Config) (*App, error) {
 	a.mounts = mounts.NewRegistry(mountRecords,
 		[]mounts.Driver{folder.New(), github.New(blobStore, ghOpts...)},
 		mounts.WithFixed(mounts.Mount{Name: "local", Kind: mounts.KindFolder, Source: cfg.NotesDir, Mode: mounts.ModeLive}),
-		mounts.WithCredentials(tokens.TokenSource),
+		mounts.WithCredentials(tokens.Credentials),
 		mounts.WithInUse(a.pointsInto),
 	)
 	return a, nil

@@ -50,7 +50,7 @@ func newEnv(t *testing.T, private bool, opts ...github.Option) *env {
 	return &env{ctx: context.Background(), gh: gh, repo: repo, blobs: b, drv: drv, views: views}
 }
 
-func (e *env) create(t *testing.T, m mounts.Mount, ts oauth2.TokenSource) mounts.Mount {
+func (e *env) create(t *testing.T, m mounts.Mount, ts mounts.Credentials) mounts.Mount {
 	t.Helper()
 	v, err := e.drv.Resolve(e.ctx, m.Source, m.Ref, ts)
 	if err != nil {
@@ -63,8 +63,8 @@ func (e *env) create(t *testing.T, m mounts.Mount, ts oauth2.TokenSource) mounts
 	return m
 }
 
-func static(tok string) oauth2.TokenSource {
-	return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok})
+func static(tok string) mounts.Credentials {
+	return mounts.Bearer(oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok}))
 }
 
 func TestResolve(t *testing.T) {
@@ -280,7 +280,7 @@ func TestPrivateRepoNeedsTheToken(t *testing.T) {
 		t.Errorf("a rejected token = %v, want ErrUnavailable", err)
 	}
 	boom := errors.New("connect again")
-	if _, err := e.drv.Resolve(e.ctx, e.repo.Source(), "", failing{boom}); !errors.Is(err, boom) {
+	if _, err := e.drv.Resolve(e.ctx, e.repo.Source(), "", mounts.Bearer(failing{boom})); !errors.Is(err, boom) {
 		t.Errorf("a token source error = %v, want it passed through", err)
 	}
 }
@@ -365,4 +365,12 @@ func mustPath(t *testing.T, d *blobs.Dir, h blobs.Hash) string {
 		t.Fatal(err)
 	}
 	return p
+}
+
+func TestAWSCredentialsAreRefused(t *testing.T) {
+	e := newEnv(t, false)
+	_, err := e.drv.Resolve(e.ctx, e.repo.Source(), "", mounts.AWSCredentials{DefaultChain: true})
+	if !errors.Is(err, mounts.ErrInvalidArgument) {
+		t.Fatalf("Resolve with AWS credentials = %v, want ErrInvalidArgument", err)
+	}
 }
