@@ -43,17 +43,32 @@ type SourceMatcher interface {
 	SameSource(a, b string) bool
 }
 
+// SourceContainer is a Driver whose change events name something inside a source, such as one
+// object under a bucket prefix, so a change matches every mount whose source holds it. A bucket
+// event names "s3://designs/boards/jetson/README.md", and a mount of "s3://designs/boards" or
+// "s3://designs" follows it.
+type SourceContainer interface {
+	Driver
+
+	// ContainsSource reports whether changed, the Source of a Change, is mountSource or lies
+	// under it. It works on whole path segments, so "s3://b/ab" isn't under "s3://b/a".
+	ContainsSource(mountSource, changed string) bool
+}
+
 // Following returns the mounts of kind whose source is c.Source and whose ref is c.Ref, or empty
-// when c is a change to the default branch. Snapshot and live mounts both match, since an app
-// may want to move a snapshot's links forward. A mount pinned to a commit never matches. A kind
-// with no driver returns ErrInvalidArgument.
+// when c is a change to the default branch. For a SourceContainer driver, a mount follows a change
+// whose source lies under the mount's, and a bucket change's empty Ref matches a bucket mount's.
+// Snapshot and live mounts both match, since an app may want to move a snapshot's links forward. A
+// mount pinned to a commit never matches. A kind with no driver returns ErrInvalidArgument.
 func (r *Registry) Following(ctx context.Context, kind Kind, c Change) ([]Mount, error) {
 	d, ok := r.drivers[kind]
 	if !ok {
 		return nil, fmt.Errorf("%w: no driver for kind %q", ErrInvalidArgument, kind)
 	}
 	same := func(a, b string) bool { return a == b }
-	if sm, ok := d.(SourceMatcher); ok {
+	if sc, ok := d.(SourceContainer); ok {
+		same = sc.ContainsSource
+	} else if sm, ok := d.(SourceMatcher); ok {
 		same = sm.SameSource
 	}
 	all, err := r.List(ctx)
