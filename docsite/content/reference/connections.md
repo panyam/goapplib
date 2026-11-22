@@ -14,17 +14,26 @@ This page is the design for [#153](https://github.com/panyam/goapplib/issues/153
 | `github-app` | server | a JWT from the App's key, traded for an hour-long installation token | `outbound.GitHubAppInstallation` | agni, an org's repos |
 | `github-token` | server or person | a fixed token, such as a personal access token | `outbound.Static` | agni, one engineer's repos |
 | `github-user` | person | the person's own OAuth token, sealed and refreshed | `outbound.UserTokens` | notation |
+| `aws` | server | an access key pair, or the AWS default chain, with an optional role to assume | none; the S3 driver signs | agni, designs in S3 (agni#1730) |
+| `gcp` | server | a service account key, or Application Default Credentials | `x/oauth2/google` | agni, designs in GCS (agni#1730) |
 
 - **Server scope.** Anyone the app lets read a mount reads it through the connection. So the app's own sharing decides who sees what. agni#1728 calls this out for links made through the server's identity.
 - **Person scope.** The connection gives a token only to a request whose viewer is its `Owner`. The app sets the viewer with `WithViewer` from its own auth, and a request with no viewer, or a different one, gets `ErrNotOwner`. The service refuses before it reads the store, so the error says nothing about whether the owner has a connection with that ID. GitHub then decides what that person can read.
 
-Later kinds are the server's own cloud identity for S3 and GCS (agni#1730), and Entra for SharePoint (agni#1729). They add a `Kind` and a token source, and the record shape holds them.
+A later kind is Entra for SharePoint (agni#1729). It adds a `Kind` and a token source, and the record shape holds it.
+
+The two cloud kinds sign in as the server alone, since a bucket has no per-person view to defer to:
+
+- **`aws`** keeps `AccessKeyID` in the record, since AWS doesn't treat it as a secret, and the secret access key behind `KeyRef`. Both or neither must be set. With neither, the S3 driver uses the AWS SDK's default chain, such as an EC2 instance role or an IRSA role on Kubernetes. `RoleARN` names a role to assume first, and `Region` sets the region. The service resolves `KeyRef` on each call and returns `mounts.AWSCredentials`, so the S3 driver builds its own provider and the storage module never imports the AWS SDK.
+- **`gcp`** keeps a service account key (its JSON file) behind `KeyRef`. With no `KeyRef`, it uses Application Default Credentials, such as workload identity on GKE. Its tokens carry the read-only `devstorage.read_only` scope (`GCSReadScope`), since a mount only reads.
+
+Neither takes a `BaseURL`. A test or an S3-compatible store sets the driver's endpoint instead.
 
 ## The record
 
 `Connection` keeps the ID, kind, scope and owner, a display name, the API base URL, and the fields for its kind. It also keeps a `Status` and `LastError`, so a settings page can show "connect again" without opening a token. `Validate` checks that the fields fit the kind and scope. It refuses an App installation with a person scope, and a user connection that carries a secret reference.
 
-A connection's key is its owner and ID. A server connection's owner is empty. Say alice keeps a connection named `gh`. bob can still make his own `gh`, and the server can have a `gh` of its own, and they are three records. Every call that names a connection takes the owner beside the ID: `GetConnection(ctx, owner, id)`, `TokenSource(ctx, owner, id)`, `Disconnect(ctx, owner, id)`, and a mount's `ConnectionOwner` beside its `Connection` (#197). The service never works out an owner from the viewer, so a call means the same record whoever makes it.
+A connection's key is its owner and ID. A server connection's owner is empty. Say alice keeps a connection named `gh`. bob can still make his own `gh`, and the server can have a `gh` of its own, and they are three records. Every call that names a connection takes the owner beside the ID: `GetConnection(ctx, owner, id)`, `Credentials(ctx, owner, id)`, `Disconnect(ctx, owner, id)`, and a mount's `ConnectionOwner` beside its `Connection` (#197). The service never works out an owner from the viewer, so a call means the same record whoever makes it.
 
 `Store` gets, lists, puts and deletes records. `ListConnections(owner)` gives a person's connections for a settings page, and the server's with an empty owner. `CanRead`, below, uses the same list to answer whether a viewer can read a source.
 
@@ -47,25 +56,27 @@ A record never holds a secret. A secret field holds an oneauth secret reference 
 
 A person's own token is different, since nobody can put it in an env var for them. oneauth's `UserTokens` seals it with AES-GCM under a key derived from one master key, and keeps it in a `UserTokenStore`. That store has folder, GORM and Datastore backends since oneauth v0.3.6. The key is `UserTokenProvider(connection ID)` plus the owner's subject. Keying by connection rather than by "github" lets one person hold two GitHub connections, such as github.com and an Enterprise host. The master key itself comes from a secret reference in the service's configuration.
 
-## Token sources
+## Credentials
 
 An app builds one `Service` over its store. `WithUserTokens` gives it oneauth's user-token store, the master key's secret reference, and the OAuth app's config:
 
 ```go
 svc := connections.NewService(store,
 	connections.WithUserTokens(fs.NewFSUserTokenStore(dir), "env:CONNECTIONS_KEY", githubOAuth))
-ts, err := svc.TokenSource(connections.WithViewer(ctx, subject), subject, "alice-gh")
+creds, err := svc.Credentials(connections.WithViewer(ctx, subject), subject, "alice-gh")
 ```
 
-`TokenSource` has the signature the mounts registry's `WithCredentials` takes, which passes a mount's `ConnectionOwner` and `Connection`. For each kind:
+`Credentials` has the signature the mounts registry's `WithCredentials` takes, which passes a mount's `ConnectionOwner` and `Connection`. The GitHub kinds and `gcp` return `mounts.BearerCredentials` over a token source, and `aws` returns `mounts.AWSCredentials`. For each kind:
 
 - `github-app`: one `outbound.GitHubAppInstallation` per connection, built on first use and kept. Every mount on the connection shares its cached token, which oneauth refreshes five minutes before it expires. Installation tokens live only in memory.
 - `github-token`: `outbound.NewStatic(TokenRef)`.
+- `gcp`: `google.CredentialsFromJSONWithType` over the key at `KeyRef`, or `google.FindDefaultCredentials`.
+- `aws`: no token source. Each call resolves `KeyRef` and returns the key pair, or `DefaultChain` set when the record names no key.
 - `github-user`: `UserTokens.TokenSource(owner)` under the connection's provider key. Each `Token` call reads the store, and refreshes with compare-and-swap when the token is close to expiry, so replicas don't fight. When the refresh token is dead, oneauth returns `outbound.ErrReconnect`. The service then sets the record's status to `reconnect`, and returns `ErrReconnect`.
 
-The service reuses each connection's source until the record's sign-in fields change. A new `KeyRef` or `InstallationID` builds a new one on the next call. Any other failure sets the status to `failed`, and the next token that works sets it back to `ok`. `TokenSource` stamps `LastUsed` at most once an hour, so a busy mount doesn't write its connection's record on every request.
+The service reuses each connection's source until the record's sign-in fields change. A new `KeyRef` or `InstallationID` builds a new one on the next call. Any other failure sets the status to `failed`, and the next token that works sets it back to `ok`. `Credentials` stamps `LastUsed` at most once an hour, so a busy mount doesn't write its connection's record on every request.
 
-A driver wraps the source in an `oauth2.Transport` and sends it with every request.
+A bearer driver wraps the source in an `oauth2.Transport` and sends it with every request. The S3 driver builds an AWS credentials provider from `AWSCredentials` instead.
 
 ## Can this viewer read it?
 
@@ -76,7 +87,7 @@ svc := connections.NewService(store, connections.WithReadCheck(githubDriver.CanR
 id, err := svc.CanRead(connections.WithViewer(ctx, subject), "github://acme/board")
 ```
 
-- `CanRead` lists the viewer's connections in ID order. For each one it builds the token source and calls the read check, and it returns the first connection that can read the source.
+- `CanRead` lists the viewer's connections in ID order. For each one it gets its credentials and calls the read check, and it returns the first connection that can read the source.
 - The GitHub driver's `CanRead` is the read check. It asks for the repo, and a 404 counts as a definite no, which is also how GitHub answers a private repo the token can't see. A connection to another host than the driver serves gets a no without a request.
 - When no connection can read, or the viewer has none, `CanRead` returns `ErrNoAccess`. A request with no viewer returns `ErrNotOwner`. If a check failed, such as a rejected token, and no connection succeeded, `CanRead` returns that failure rather than a no, since the answer isn't known.
 - It keeps each yes or no for a minute per viewer and source (`WithAccessTTL` changes that), so a page with many links to one repo asks GitHub once. It doesn't keep a failure.

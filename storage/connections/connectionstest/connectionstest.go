@@ -34,6 +34,7 @@ func RunAll(t *testing.T, factory Factory) {
 		{"GetMissing", testGetMissing},
 		{"PutThenGet", testPutThenGet},
 		{"PastedRoundTrips", testPastedRoundTrips},
+		{"AWSFieldsRoundTrip", testAWSFieldsRoundTrip},
 		{"PutReplaces", testPutReplaces},
 		{"PutValidates", testPutValidates},
 		{"ListByOwner", testListByOwner},
@@ -90,6 +91,27 @@ func testPutThenGet(t *testing.T, s connections.Store) {
 	}
 	if !got.Created.Equal(want.Created) || !got.LastUsed.Equal(want.LastUsed) {
 		t.Errorf("times = %v, %v; want %v, %v", got.Created, got.LastUsed, want.Created, want.LastUsed)
+	}
+	got.Created, got.LastUsed = want.Created, want.LastUsed
+	if got != want {
+		t.Errorf("GetConnection = %+v, want %+v", got, want)
+	}
+}
+
+func testAWSFieldsRoundTrip(t *testing.T, s connections.Store) {
+	ctx := context.Background()
+	want := connections.Connection{
+		ID: "s3", Kind: connections.KindAWS, Scope: connections.ScopeServer, Name: "design bucket",
+		AccessKeyID: "AKIAEXAMPLE", KeyRef: "env:AWS_SECRET", RoleARN: "arn:aws:iam::123456789012:role/reader",
+		Region: "eu-west-1", Status: connections.StatusOK,
+		Created: time.Date(2026, 11, 21, 9, 0, 0, 0, time.UTC),
+	}
+	if err := s.PutConnection(ctx, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetConnection(ctx, "", "s3")
+	if err != nil {
+		t.Fatal(err)
 	}
 	got.Created, got.LastUsed = want.Created, want.LastUsed
 	if got != want {

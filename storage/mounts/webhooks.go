@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"golang.org/x/oauth2"
 )
 
 // WebhookManager is a Driver that can make a source send a webhook to the app on each change, so
@@ -19,12 +17,12 @@ type WebhookManager interface {
 	// req.Secret, or updates the hook already sending to req.URL. A token that can't manage the
 	// source's hooks returns ErrPermissionDenied, and a request the source refuses, such as a URL
 	// it won't send to, returns ErrInvalidArgument.
-	EnsureWebhook(ctx context.Context, source string, req WebhookRequest, ts oauth2.TokenSource) (Webhook, error)
+	EnsureWebhook(ctx context.Context, source string, req WebhookRequest, creds Credentials) (Webhook, error)
 
 	// DeleteWebhook removes the hooks on source that send to url. No such hook is not an error,
 	// so deleting twice is safe. A token that can't manage the source's hooks returns
 	// ErrPermissionDenied.
-	DeleteWebhook(ctx context.Context, source, url string, ts oauth2.TokenSource) error
+	DeleteWebhook(ctx context.Context, source, url string, creds Credentials) error
 }
 
 // WebhookRequest describes a hook. URL is where the source sends each delivery, and must be an
@@ -59,11 +57,11 @@ func (r *Registry) EnsureWebhook(ctx context.Context, name string, req WebhookRe
 	if len(req.Events) == 0 {
 		req.Events = []string{"push"}
 	}
-	wm, m, ts, err := r.webhooks(ctx, name)
+	wm, m, creds, err := r.webhooks(ctx, name)
 	if err != nil {
 		return Webhook{}, err
 	}
-	return wm.EnsureWebhook(ctx, m.Source, req, ts)
+	return wm.EnsureWebhook(ctx, m.Source, req, creds)
 }
 
 // DeleteWebhook removes the hooks that send the source's changes of the mount named name to url,
@@ -73,14 +71,14 @@ func (r *Registry) DeleteWebhook(ctx context.Context, name, url string) error {
 	if err := checkHookURL(url); err != nil {
 		return err
 	}
-	wm, m, ts, err := r.webhooks(ctx, name)
+	wm, m, creds, err := r.webhooks(ctx, name)
 	if err != nil {
 		return err
 	}
-	return wm.DeleteWebhook(ctx, m.Source, url, ts)
+	return wm.DeleteWebhook(ctx, m.Source, url, creds)
 }
 
-func (r *Registry) webhooks(ctx context.Context, name string) (WebhookManager, Mount, oauth2.TokenSource, error) {
+func (r *Registry) webhooks(ctx context.Context, name string) (WebhookManager, Mount, Credentials, error) {
 	m, err := r.Get(ctx, name)
 	if err != nil {
 		return nil, Mount{}, nil, err
@@ -96,11 +94,11 @@ func (r *Registry) webhooks(ctx context.Context, name string) (WebhookManager, M
 	if m.Connection == "" {
 		return nil, Mount{}, nil, fmt.Errorf("%w: mount %q has no connection, and managing a webhook needs a token", ErrInvalidArgument, m.Name)
 	}
-	ts, err := r.tokens(ctx, m)
+	creds, err := r.credentials(ctx, m)
 	if err != nil {
 		return nil, Mount{}, nil, err
 	}
-	return wm, m, ts, nil
+	return wm, m, creds, nil
 }
 
 func checkHookURL(s string) error {

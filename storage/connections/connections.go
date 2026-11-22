@@ -29,6 +29,17 @@ const (
 	// The token is sealed in oneauth's user-token store under UserTokenProvider(ID) and the
 	// person's subject, and refreshed there.
 	KindGitHubUser Kind = "github-user"
+
+	// KindAWS signs S3 requests with SigV4. With KeyRef set, it uses the key pair of
+	// AccessKeyID and the secret access key at KeyRef. With neither, it uses the AWS SDK's default
+	// chain, such as an EC2 instance role or an IRSA role on Kubernetes. RoleARN, when set, is a
+	// role to assume first. It is a server connection only.
+	KindAWS Kind = "aws"
+
+	// KindGCP signs Google Cloud Storage requests with an OAuth token. With KeyRef set, the token
+	// comes from the service account key at KeyRef. Without it, from Application Default
+	// Credentials, such as workload identity on GKE. It is a server connection only.
+	KindGCP Kind = "gcp"
 )
 
 // Scope says whose sign-in a connection is.
@@ -85,8 +96,21 @@ type Connection struct {
 	AppID          string
 	InstallationID int64
 
-	// KeyRef is where a KindGitHubApp's private key is, as a secret reference.
+	// KeyRef is a secret reference to a KindGitHubApp's private key, a KindAWS secret access
+	// key, or a KindGCP service account key (its JSON file).
 	KeyRef string
+
+	// AccessKeyID is a KindAWS access key's ID. AWS doesn't treat it as a secret, so the record
+	// keeps it as it is. It is set exactly when KeyRef is.
+	AccessKeyID string
+
+	// RoleARN is a role a KindAWS connection assumes before signing, such as
+	// "arn:aws:iam::123456789012:role/reader". Empty means none.
+	RoleARN string
+
+	// Region is a KindAWS connection's region, such as "us-east-1". Empty leaves it to the
+	// driver.
+	Region string
 
 	// TokenRef is where a KindGitHubToken's token is, as a secret reference.
 	TokenRef string

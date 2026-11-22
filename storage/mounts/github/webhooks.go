@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // hook is the part of GitHub's hook object the driver reads.
@@ -31,12 +30,12 @@ type hook struct {
 // token's webhooks permission. It answers 404 to a token that can read the repo but can't manage
 // its hooks, so 404 and 403 return mounts.ErrPermissionDenied. 422, such as for a URL GitHub won't
 // send to, returns mounts.ErrInvalidArgument with GitHub's message.
-func (d *Driver) EnsureWebhook(ctx context.Context, source string, req mounts.WebhookRequest, ts oauth2.TokenSource) (mounts.Webhook, error) {
+func (d *Driver) EnsureWebhook(ctx context.Context, source string, req mounts.WebhookRequest, creds mounts.Credentials) (mounts.Webhook, error) {
 	rp, err := repo(source)
 	if err != nil {
 		return mounts.Webhook{}, err
 	}
-	hooks, err := d.listHooks(ctx, rp, ts)
+	hooks, err := d.listHooks(ctx, rp, creds)
 	if err != nil {
 		return mounts.Webhook{}, err
 	}
@@ -50,7 +49,7 @@ func (d *Driver) EnsureWebhook(ctx context.Context, source string, req mounts.We
 	for _, h := range hooks {
 		if h.Config.URL == req.URL {
 			created = false
-			if err := d.hookCall(ctx, ts, http.MethodPatch, rp+"/hooks/"+strconv.FormatInt(h.ID, 10), body, &out); err != nil {
+			if err := d.hookCall(ctx, creds, http.MethodPatch, rp+"/hooks/"+strconv.FormatInt(h.ID, 10), body, &out); err != nil {
 				return mounts.Webhook{}, err
 			}
 			break
@@ -58,7 +57,7 @@ func (d *Driver) EnsureWebhook(ctx context.Context, source string, req mounts.We
 	}
 	if created {
 		body["name"] = "web"
-		if err := d.hookCall(ctx, ts, http.MethodPost, rp+"/hooks", body, &out); err != nil {
+		if err := d.hookCall(ctx, creds, http.MethodPost, rp+"/hooks", body, &out); err != nil {
 			return mounts.Webhook{}, err
 		}
 	}
@@ -68,18 +67,18 @@ func (d *Driver) EnsureWebhook(ctx context.Context, source string, req mounts.We
 // DeleteWebhook removes the repo's hooks that send to url. It lists the hooks first, so a 404
 // means the token can't manage them, which returns mounts.ErrPermissionDenied, and a hook that is
 // already gone isn't an error.
-func (d *Driver) DeleteWebhook(ctx context.Context, source, url string, ts oauth2.TokenSource) error {
+func (d *Driver) DeleteWebhook(ctx context.Context, source, url string, creds mounts.Credentials) error {
 	rp, err := repo(source)
 	if err != nil {
 		return err
 	}
-	hooks, err := d.listHooks(ctx, rp, ts)
+	hooks, err := d.listHooks(ctx, rp, creds)
 	if err != nil {
 		return err
 	}
 	for _, h := range hooks {
 		if h.Config.URL == url {
-			if err := d.hookCall(ctx, ts, http.MethodDelete, rp+"/hooks/"+strconv.FormatInt(h.ID, 10), nil, nil); err != nil {
+			if err := d.hookCall(ctx, creds, http.MethodDelete, rp+"/hooks/"+strconv.FormatInt(h.ID, 10), nil, nil); err != nil {
 				return err
 			}
 		}
@@ -89,13 +88,13 @@ func (d *Driver) DeleteWebhook(ctx context.Context, source, url string, ts oauth
 
 // listHooks reads one page of 100 hooks. GitHub allows at most 20 hooks per event on a repo, so
 // one page holds them all.
-func (d *Driver) listHooks(ctx context.Context, rp string, ts oauth2.TokenSource) ([]hook, error) {
+func (d *Driver) listHooks(ctx context.Context, rp string, creds mounts.Credentials) ([]hook, error) {
 	var hooks []hook
-	err := d.hookCall(ctx, ts, http.MethodGet, rp+"/hooks?per_page=100", nil, &hooks)
+	err := d.hookCall(ctx, creds, http.MethodGet, rp+"/hooks?per_page=100", nil, &hooks)
 	return hooks, err
 }
 
-func (d *Driver) hookCall(ctx context.Context, ts oauth2.TokenSource, method, p string, body, out any) error {
+func (d *Driver) hookCall(ctx context.Context, creds mounts.Credentials, method, p string, body, out any) error {
 	var rd io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -104,7 +103,7 @@ func (d *Driver) hookCall(ctx context.Context, ts oauth2.TokenSource, method, p 
 		}
 		rd = bytes.NewReader(b)
 	}
-	resp, err := d.sendURL(ctx, ts, method, d.base+p, rd, body != nil)
+	resp, err := d.sendURL(ctx, creds, method, d.base+p, rd, body != nil)
 	if err != nil {
 		return err
 	}

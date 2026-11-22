@@ -11,13 +11,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // DefaultRawURL is the host that serves a repo's files by commit and path. Its downloads don't
@@ -39,7 +39,7 @@ var gitBlobID = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 // Moves reports whether ref moves: an empty ref, which is the default branch, or a branch. A full
 // commit sha doesn't, and neither does a tag.
-func (d *Driver) Moves(ctx context.Context, source, ref string, ts oauth2.TokenSource) (bool, error) {
+func (d *Driver) Moves(ctx context.Context, source, ref string, creds mounts.Credentials) (bool, error) {
 	rp, err := repo(source)
 	if err != nil {
 		return false, err
@@ -50,7 +50,7 @@ func (d *Driver) Moves(ctx context.Context, source, ref string, ts oauth2.TokenS
 	if commitSHA.MatchString(ref) {
 		return false, nil
 	}
-	err = d.call(ctx, ts, http.MethodGet, rp+"/branches/"+url.PathEscape(ref), nil, nil, false, nil)
+	err = d.call(ctx, creds, http.MethodGet, rp+"/branches/"+url.PathEscape(ref), nil, nil, false, nil)
 	if errors.Is(err, mounts.ErrNotFound) {
 		return false, nil
 	}
@@ -59,8 +59,8 @@ func (d *Driver) Moves(ctx context.Context, source, ref string, ts oauth2.TokenS
 
 // ListAt lists the files at commit under the path under, from one call to the trees API per commit.
 // A tree GitHub truncates returns ErrTooLarge, since a partial list would hide files.
-func (d *Driver) ListAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, commit, under string) ([]mounts.File, error) {
-	all, err := d.treeAt(ctx, m, ts, commit)
+func (d *Driver) ListAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, commit, under string) ([]mounts.File, error) {
+	all, err := d.treeAt(ctx, m, creds, commit)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func shown(p string) string {
 
 // treeAt is every regular file in the repo at commit, sorted by path. Links (mode 120000),
 // submodules and paths that are unclean or climb out are left out.
-func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, commit string) ([]mounts.File, error) {
+func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, commit string) ([]mounts.File, error) {
 	rp, err := repo(m.Source)
 	if err != nil {
 		return nil, err
@@ -99,12 +99,10 @@ func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 	// The key carries a hash of the token, so a list read with one connection's token is never
 	// served to a caller with another token or none, which would show a private repo's files.
 	key := rp + "@" + commit
-	if ts != nil {
-		tok, err := ts.Token()
-		if err != nil {
-			return nil, err
-		}
-		sum := sha256.Sum256([]byte(tok.AccessToken))
+	if tok, err := mounts.BearerToken(creds); err != nil {
+		return nil, err
+	} else if tok != "" {
+		sum := sha256.Sum256([]byte(tok))
 		key += "#" + hex.EncodeToString(sum[:8])
 	}
 	d.mu.Lock()
@@ -123,7 +121,7 @@ func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 		} `json:"tree"`
 		Truncated bool `json:"truncated"`
 	}
-	if err := d.call(ctx, ts, http.MethodGet, rp+"/git/trees/"+commit, url.Values{"recursive": {"1"}}, nil, false, &t); err != nil {
+	if err := d.call(ctx, creds, http.MethodGet, rp+"/git/trees/"+commit, url.Values{"recursive": {"1"}}, nil, false, &t); err != nil {
 		return nil, err
 	}
 	if t.Truncated {
@@ -140,6 +138,9 @@ func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 		out = append(out, mounts.File{Path: e.Path, ID: e.SHA, Size: e.Size})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	if err := d.lfsSizesAt(ctx, m, creds, commit, out); err != nil {
+		return nil, err
+	}
 	d.mu.Lock()
 	if len(d.trees) >= treeCacheSize {
 		clear(d.trees)
@@ -149,10 +150,65 @@ func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 	return out, nil
 }
 
+// lfsSizesCap caps how many small blobs' LFS answers a Driver keeps.
+const lfsSizesCap = 50_000
+
+// lfsSizesAt sets the Size of each Git LFS pointer in files to its object's size (#208). It reads
+// a small blob only when a .gitattributes file at commit has filter=lfs, and remembers each answer
+// by git blob id, so a later commit reads only the small blobs that changed. Its result goes into
+// treeAt's cache with the list, so one commit costs these reads once per token.
+func (d *Driver) lfsSizesAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, commit string, files []mounts.File) error {
+	lfs := false
+	for _, f := range files {
+		if path.Base(f.Path) != ".gitattributes" {
+			continue
+		}
+		b, err := d.download(ctx, m, creds, commit, f)
+		if err != nil {
+			return err
+		}
+		if bytes.Contains(b, []byte("filter=lfs")) {
+			lfs = true
+			break
+		}
+	}
+	if !lfs {
+		return nil
+	}
+	for i, f := range files {
+		if f.Size > mounts.MaxLFSPointerSize {
+			continue
+		}
+		d.mu.Lock()
+		size, known := d.lfsSizes[f.ID]
+		d.mu.Unlock()
+		if !known {
+			b, err := d.download(ctx, m, creds, commit, f)
+			if err != nil {
+				return err
+			}
+			size = -1
+			if ptr, ok := mounts.ParseLFSPointer(b); ok && gitBlobSHA(b) == f.ID {
+				size = ptr.Size
+			}
+			d.mu.Lock()
+			if len(d.lfsSizes) >= lfsSizesCap {
+				clear(d.lfsSizes)
+			}
+			d.lfsSizes[f.ID] = size
+			d.mu.Unlock()
+		}
+		if size >= 0 {
+			files[i].Size = size
+		}
+	}
+	return nil
+}
+
 // FetchAt keeps f's contents in the blob store. When the store is a blobs.Aliases that maps f.ID
 // to a blob it holds, nothing is downloaded. A download is checked against f.ID before it's kept.
 // A Git LFS pointer is swapped for its object, and f.ID then maps to the object's blob.
-func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, commit string, f mounts.File) (blobs.Hash, bool, error) {
+func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, commit string, f mounts.File) (blobs.Hash, bool, error) {
 	if d.blobs == nil {
 		return "", false, fmt.Errorf("%w: this GitHub driver has no blob store", mounts.ErrInvalidArgument)
 	}
@@ -170,7 +226,7 @@ func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSou
 	if f.Size > d.limits.MaxBytes {
 		return "", false, fmt.Errorf("%w: %s is %d bytes", mounts.ErrTooLarge, f.Path, f.Size)
 	}
-	b, err := d.download(ctx, m, ts, commit, f)
+	b, err := d.download(ctx, m, creds, commit, f)
 	if err != nil {
 		return "", false, err
 	}
@@ -183,7 +239,7 @@ func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSou
 		if err != nil {
 			return "", false, err
 		}
-		hashes, err := d.lfsStore(ctx, rp, ts, []lfsFile{{Path: f.Path, LFSPointer: ptr}})
+		hashes, err := d.lfsStore(ctx, rp, creds, []lfsFile{{Path: f.Path, LFSPointer: ptr}})
 		if err != nil {
 			return "", false, err
 		}
@@ -201,7 +257,7 @@ func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, ts oauth2.TokenSou
 
 // download reads f at commit from the raw host, or from the git blobs API when the driver has no
 // raw host.
-func (d *Driver) download(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, commit string, f mounts.File) ([]byte, error) {
+func (d *Driver) download(ctx context.Context, m mounts.Mount, creds mounts.Credentials, commit string, f mounts.File) ([]byte, error) {
 	rp, err := repo(m.Source)
 	if err != nil {
 		return nil, err
@@ -224,12 +280,8 @@ func (d *Driver) download(ctx context.Context, m mounts.Mount, ts oauth2.TokenSo
 	if raw == "" {
 		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	}
-	if ts != nil {
-		tok, err := ts.Token()
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	if err := authorize(req, creds); err != nil {
+		return nil, err
 	}
 	resp, err := d.client.Do(req)
 	if err != nil {

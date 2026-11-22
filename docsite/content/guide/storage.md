@@ -31,7 +31,7 @@ Here is the whole app, `docsite/examples/notes` in goapplib's repo. Its test and
 - `connstore` keeps the connection records, one YAML file each.
 - `blobs.NewDir` keeps GitHub snapshots' files, each stored once under its SHA-256.
 
-The registry joins them with two drivers, `folder` and `github`. `WithFixed` adds the `local` folder mount, which comes from the server's configuration and never from a request. `WithCredentials` hands the registry the connections service's `TokenSource`, so the GitHub driver sends the mount's connection token with each request.
+The registry joins them with two drivers, `folder` and `github`. `WithFixed` adds the `local` folder mount, which comes from the server's configuration and never from a request. `WithCredentials` hands the registry the connections service's `Credentials`, so the GitHub driver sends the mount's connection token with each request.
 
 ## Writing and reading a note
 
@@ -68,7 +68,7 @@ The storage packages return errors that wrap sentinels such as `mounts.ErrNotFou
 
 A driver serves one kind of mount. It implements `mounts.Driver`, which resolves a ref to a version and opens a mount as an `fs.FS`. Three optional interfaces sit on top. `Writer` adds `Stat`, `Put` and `Delete`. `Localizer` adds `HostPath`, for code that needs a real file on disk. `Preparer` adds a step when a mount is made, such as downloading a snapshot. The app passes the driver to `NewRegistry` beside the others.
 
-A driver gets an `oauth2.TokenSource` for each call, or nil for a public source, and knows nothing about connections. One that needs a big SDK, such as AWS's, goes in its own module under `storage/drivers/`, so apps that don't use it never download it. [Mounts](../../reference/mounts/) has the contracts, and how the GitHub driver meets them.
+A driver gets `mounts.Credentials` for each call, or nil for a public source, and knows nothing about connections. GitHub takes a bearer token, and S3 takes an AWS key pair or the default chain. One that needs a big SDK goes in its own module under `storage/drivers/`, as the S3 and GCS drivers do, so apps that don't use it never download it. [Mounts](../../reference/mounts/) has the contracts, and how the GitHub driver meets them.
 
 ## Testing against a fake GitHub
 

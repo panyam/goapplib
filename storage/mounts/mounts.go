@@ -19,6 +19,14 @@ const (
 
 	// KindGitHub is a GitHub repository, read through GitHub's REST API.
 	KindGitHub Kind = "github"
+
+	// KindS3 is a prefix in an S3 bucket, "s3://<bucket>/<prefix>". The driver is in the
+	// storage/drivers/s3 module.
+	KindS3 Kind = "s3"
+
+	// KindGCS is a prefix in a Google Cloud Storage bucket, "gs://<bucket>/<prefix>". The driver
+	// is in the storage/drivers/gcs module.
+	KindGCS Kind = "gcs"
 )
 
 // Mode says whether a mount's files can change after it is made.

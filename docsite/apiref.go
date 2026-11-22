@@ -33,6 +33,9 @@ var apiPackages = []apiPackage{
 	{"storage/blobs", "github.com/panyam/goapplib/storage/blobs", "blobs"},
 	{"storage/mounts/folder", "github.com/panyam/goapplib/storage/mounts/folder", "folder"},
 	{"storage/mounts/github", "github.com/panyam/goapplib/storage/mounts/github", "github"},
+	{"storage/mounts/bucket", "github.com/panyam/goapplib/storage/mounts/bucket", "bucket"},
+	{"storage/drivers/s3", "github.com/panyam/goapplib/storage/drivers/s3", "s3"},
+	{"storage/drivers/gcs", "github.com/panyam/goapplib/storage/drivers/gcs", "gcs"},
 	{"storage/backends/gorm", "github.com/panyam/goapplib/storage/backends/gorm", "gormstore"},
 	{"storage/backends/gae", "github.com/panyam/goapplib/storage/backends/gae", "gaestore"},
 }

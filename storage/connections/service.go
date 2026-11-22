@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/oneauth/outbound"
 	"golang.org/x/oauth2"
 )
@@ -18,7 +19,7 @@ import (
 // store write on every request.
 const LastUsedEvery = time.Hour
 
-// Service hands out token sources for connections, and connects and disconnects people. It reads
+// Service hands out credentials for connections, and connects and disconnects people. It reads
 // records from a Store and builds each connection's token source from oneauth's outbound package:
 //
 //   - KindGitHubApp: one outbound.GitHubAppInstallation per connection, kept while the record is
@@ -26,6 +27,9 @@ const LastUsedEvery = time.Hour
 //   - KindGitHubToken: outbound.NewStatic over TokenRef.
 //   - KindGitHubUser: oneauth's outbound.UserTokens under UserTokenProvider(ID) and the owner's
 //     subject. It needs WithUserTokens.
+//   - KindGCP: a Google token source from the service account key at KeyRef, or Application
+//     Default Credentials when KeyRef is empty.
+//   - KindAWS: an AWS key pair, or the AWS default chain, which the S3 driver signs with.
 //
 // A Service is safe for concurrent use. Several processes can share one Store and one user-token
 // store, since oneauth refreshes a person's token with compare-and-swap.
@@ -94,23 +98,26 @@ func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
 }
 
-// TokenSource returns the token source for owner's connection id. An empty owner names a server
-// connection. A mounts driver wraps the source in an oauth2.Transport. The signature fits the
-// mounts registry's WithCredentials option.
+// Credentials returns how owner's connection id signs in, as mounts.Credentials. An empty owner
+// names a server connection. The signature fits the mounts registry's WithCredentials option.
 //
-// A person's connection gives a source only when Viewer(ctx) is owner. Otherwise TokenSource
+// The GitHub kinds and KindGCP return mounts.BearerCredentials. KindAWS returns
+// mounts.AWSCredentials with its secret resolved from KeyRef, or with DefaultChain set when the
+// record names no key.
+//
+// A person's connection gives credentials only when Viewer(ctx) is owner. Otherwise Credentials
 // returns ErrNotOwner without reading the store, so the error says nothing about whether owner
 // has a connection with that ID. A request with no viewer gets ErrNotOwner too. A missing
 // connection returns ErrNotFound. A user connection without WithUserTokens returns
 // ErrNotConfigured.
 //
-// The returned source's Token returns ErrReconnect, wrapping outbound.ErrReconnect, when a
+// A bearer source's Token returns ErrReconnect, wrapping outbound.ErrReconnect, when a
 // person's token can't be refreshed, and sets the record's Status to StatusReconnect. Any other
 // failure sets StatusFailed. LastError gets the message, which never holds a token. The next
 // token that works sets Status back to StatusOK.
 //
-// TokenSource also stamps the record's LastUsed, at most once per LastUsedEvery.
-func (s *Service) TokenSource(ctx context.Context, owner, id string) (oauth2.TokenSource, error) {
+// Credentials also stamps the record's LastUsed, at most once per LastUsedEvery.
+func (s *Service) Credentials(ctx context.Context, owner, id string) (mounts.Credentials, error) {
 	if owner != "" && Viewer(ctx) != owner {
 		return nil, fmt.Errorf("%w: %q", ErrNotOwner, id)
 	}
@@ -128,10 +135,13 @@ func (s *Service) TokenSource(ctx context.Context, owner, id string) (oauth2.Tok
 			return nil, err
 		}
 	}
+	if c.Kind == KindAWS {
+		return awsCredentials(c)
+	}
 	if c.Status != StatusOK {
 		e.failed.Store(true)
 	}
-	return &statusSource{svc: s, owner: owner, id: id, e: e}, nil
+	return mounts.Bearer(&statusSource{svc: s, owner: owner, id: id, e: e}), nil
 }
 
 // SaveUserToken keeps tok as the token of owner's KindGitHubUser connection id, sealed, and sets
@@ -273,6 +283,14 @@ func (s *Service) entry(c Connection) (*entry, error) {
 		u.Revoker = &outbound.GitHubRevoker{ClientID: s.oauth.ClientID, ClientSecret: s.oauth.ClientSecret,
 			BaseURL: c.BaseURL, HTTPClient: s.client}
 		e.users, e.ts = u, u.TokenSource(c.Owner)
+	case KindGCP:
+		ts, err := gcpTokenSource(c)
+		if err != nil {
+			return nil, err
+		}
+		e.ts = ts
+	case KindAWS:
+		// Credentials builds an AWS connection's value on each call, from the record.
 	default:
 		return nil, fmt.Errorf("%w: unknown kind %q", ErrInvalid, c.Kind)
 	}
@@ -306,7 +324,8 @@ func (s *Service) masterKey() (string, error) {
 // use: Name, Status, LastError and the times.
 func sameSignIn(a, b Connection) bool {
 	return a.Kind == b.Kind && a.Scope == b.Scope && a.Owner == b.Owner && a.BaseURL == b.BaseURL &&
-		a.AppID == b.AppID && a.InstallationID == b.InstallationID && a.KeyRef == b.KeyRef && a.TokenRef == b.TokenRef
+		a.AppID == b.AppID && a.InstallationID == b.InstallationID && a.KeyRef == b.KeyRef && a.TokenRef == b.TokenRef &&
+		a.AccessKeyID == b.AccessKeyID && a.RoleARN == b.RoleARN && a.Region == b.Region
 }
 
 // statusSource keeps the connection's record in step with its token requests. A failure sets

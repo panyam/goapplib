@@ -19,13 +19,13 @@ type hookGitHub struct {
 	deleted []string
 }
 
-func (h *hookGitHub) EnsureWebhook(_ context.Context, source string, req mounts.WebhookRequest, ts oauth2.TokenSource) (mounts.Webhook, error) {
+func (h *hookGitHub) EnsureWebhook(_ context.Context, source string, req mounts.WebhookRequest, ts mounts.Credentials) (mounts.Webhook, error) {
 	h.note(ts)
 	h.ensured = append(h.ensured, req)
 	return mounts.Webhook{ID: "1", URL: req.URL, Events: req.Events, Created: true}, nil
 }
 
-func (h *hookGitHub) DeleteWebhook(_ context.Context, source, url string, ts oauth2.TokenSource) error {
+func (h *hookGitHub) DeleteWebhook(_ context.Context, source, url string, ts mounts.Credentials) error {
 	h.note(ts)
 	h.deleted = append(h.deleted, url)
 	return nil
@@ -39,8 +39,8 @@ func hookRegistry(t *testing.T, gh mounts.Driver) (*mounts.Registry, context.Con
 	}
 	reg := mounts.NewRegistry(store, []mounts.Driver{folder.New(), gh},
 		mounts.WithFixed(mounts.Mount{Name: "notes", Kind: mounts.KindFolder, Source: t.TempDir(), Mode: mounts.ModeLive}),
-		mounts.WithCredentials(func(_ context.Context, _, conn string) (oauth2.TokenSource, error) {
-			return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "tok-" + conn}), nil
+		mounts.WithCredentials(func(_ context.Context, _, conn string) (mounts.Credentials, error) {
+			return mounts.Bearer(oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "tok-" + conn})), nil
 		}))
 	ctx := context.Background()
 	for _, m := range []mounts.Mount{

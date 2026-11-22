@@ -2,6 +2,7 @@ package connections
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/oneauth/outbound"
@@ -58,8 +59,42 @@ func (c Connection) Validate() error {
 		if c.KeyRef != "" || c.TokenRef != "" || c.AppID != "" || c.InstallationID != 0 {
 			return fmt.Errorf("%w: a GitHub user connection keeps its token in the user-token store, not in the record", ErrInvalid)
 		}
+	case KindAWS, KindGCP:
+		return c.validateCloud()
 	default:
 		return fmt.Errorf("%w: unknown kind %q", ErrInvalid, c.Kind)
+	}
+	if c.AccessKeyID != "" || c.RoleARN != "" || c.Region != "" {
+		return fmt.Errorf("%w: only an AWS connection has an access key ID, role or region", ErrInvalid)
+	}
+	return nil
+}
+
+// validateCloud checks a KindAWS or KindGCP connection. Both sign in as the server, have no
+// GitHub fields, and keep any key behind a secret reference.
+func (c Connection) validateCloud() error {
+	if c.Scope != ScopeServer {
+		return fmt.Errorf("%w: an %s connection signs in as the server", ErrInvalid, c.Kind)
+	}
+	if c.BaseURL != "" || c.AppID != "" || c.InstallationID != 0 || c.TokenRef != "" {
+		return fmt.Errorf("%w: an %s connection has no base URL, app fields or token_ref", ErrInvalid, c.Kind)
+	}
+	if c.KeyRef != "" {
+		if err := secretRef("key_ref", c.KeyRef); err != nil {
+			return err
+		}
+	}
+	if c.Kind == KindGCP {
+		if c.AccessKeyID != "" || c.RoleARN != "" || c.Region != "" {
+			return fmt.Errorf("%w: only an AWS connection has an access key ID, role or region", ErrInvalid)
+		}
+		return nil
+	}
+	if (c.AccessKeyID == "") != (c.KeyRef == "") {
+		return fmt.Errorf("%w: an AWS key pair needs both access_key_id and key_ref, or neither for the default chain", ErrInvalid)
+	}
+	if c.RoleARN != "" && !strings.HasPrefix(c.RoleARN, "arn:") {
+		return fmt.Errorf("%w: role_arn must be an ARN", ErrInvalid)
 	}
 	return nil
 }

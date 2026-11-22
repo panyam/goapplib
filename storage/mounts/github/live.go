@@ -14,7 +14,6 @@ import (
 	"path"
 
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // content is one entry from the Contents API: a file with its contents, or one item of a folder's
@@ -30,8 +29,8 @@ type content struct {
 }
 
 // contents fetches p at ref. A file comes back as one entry, a folder as its listing.
-func (d *Driver) contents(ctx context.Context, ts oauth2.TokenSource, rp, ref, p string) (*content, []content, error) {
-	resp, err := d.send(ctx, ts, http.MethodGet, rp+"/contents/"+escapePath(p), url.Values{"ref": {ref}}, nil)
+func (d *Driver) contents(ctx context.Context, creds mounts.Credentials, rp, ref, p string) (*content, []content, error) {
+	resp, err := d.send(ctx, creds, http.MethodGet, rp+"/contents/"+escapePath(p), url.Values{"ref": {ref}}, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -58,7 +57,7 @@ func (d *Driver) contents(ctx context.Context, ts oauth2.TokenSource, rp, ref, p
 }
 
 // raw fetches a file's bytes, for a file over the Contents API's 1 MB inline limit.
-func (d *Driver) raw(ctx context.Context, ts oauth2.TokenSource, rp, ref, p string) ([]byte, error) {
+func (d *Driver) raw(ctx context.Context, creds mounts.Credentials, rp, ref, p string) ([]byte, error) {
 	u := d.base + rp + "/contents/" + escapePath(p) + "?" + url.Values{"ref": {ref}}.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
@@ -66,12 +65,8 @@ func (d *Driver) raw(ctx context.Context, ts oauth2.TokenSource, rp, ref, p stri
 	}
 	req.Header.Set("Accept", "application/vnd.github.raw+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	if ts != nil {
-		tok, err := ts.Token()
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	if err := authorize(req, creds); err != nil {
+		return nil, err
 	}
 	resp, err := d.client.Do(req)
 	if err != nil {
@@ -92,11 +87,11 @@ func escapePath(p string) string {
 // commit. A Git LFS pointer reads as its object. Links and submodules don't appear in listings,
 // and opening one fails with mounts.ErrInvalidPath.
 type liveFS struct {
-	ctx context.Context
-	d   *Driver
-	rp  string
-	ref string
-	ts  oauth2.TokenSource
+	ctx   context.Context
+	d     *Driver
+	rp    string
+	ref   string
+	creds mounts.Credentials
 }
 
 func (l liveFS) Open(name string) (fs.File, error) {
@@ -107,7 +102,7 @@ func (l liveFS) Open(name string) (fs.File, error) {
 	if p == "." {
 		p = ""
 	}
-	c, list, err := l.d.contents(l.ctx, l.ts, l.rp, l.ref, p)
+	c, list, err := l.d.contents(l.ctx, l.creds, l.rp, l.ref, p)
 	if errors.Is(err, mounts.ErrNotFound) {
 		return nil, pathErr("open", name, fs.ErrNotExist)
 	}
@@ -131,12 +126,12 @@ func (l liveFS) Open(name string) (fs.File, error) {
 	}
 	data, err := base64.StdEncoding.DecodeString(c.Content)
 	if err != nil || (c.Encoding != "base64" || int64(len(data)) != c.Size) && c.Size > 0 {
-		if data, err = l.d.raw(l.ctx, l.ts, l.rp, l.ref, p); err != nil {
+		if data, err = l.d.raw(l.ctx, l.creds, l.rp, l.ref, p); err != nil {
 			return nil, pathErr("open", name, err)
 		}
 	}
 	if ptr, ok := mounts.ParseLFSPointer(data); ok {
-		if data, err = l.d.lfsRead(l.ctx, l.rp, l.ts, lfsFile{Path: p, LFSPointer: ptr}); err != nil {
+		if data, err = l.d.lfsRead(l.ctx, l.rp, l.creds, lfsFile{Path: p, LFSPointer: ptr}); err != nil {
 			return nil, pathErr("open", name, err)
 		}
 	}
@@ -164,12 +159,12 @@ func (d *Driver) live(m mounts.Mount, p string) (string, string, error) {
 // Stat returns the file's git blob sha, the version a Put or Delete passes as IfMatch. A folder
 // returns ErrInvalidArgument, and a missing file ErrNotFound. A snapshot mount returns
 // ErrReadOnly, since its files have no versions to write against.
-func (d *Driver) Stat(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, p string) (mounts.FileVersion, error) {
+func (d *Driver) Stat(ctx context.Context, m mounts.Mount, creds mounts.Credentials, p string) (mounts.FileVersion, error) {
 	rp, clean, err := d.live(m, p)
 	if err != nil {
 		return "", err
 	}
-	c, _, err := d.contents(ctx, ts, rp, m.Ref, clean)
+	c, _, err := d.contents(ctx, creds, rp, m.Ref, clean)
 	if err != nil {
 		return "", err
 	}
@@ -190,11 +185,11 @@ type writeResp struct {
 
 // ifMatch turns a request's IfMatch into the sha GitHub wants: none to create, the file's
 // current sha for AnyVersion, or the caller's.
-func (d *Driver) ifMatch(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, p string, v mounts.FileVersion) (string, error) {
+func (d *Driver) ifMatch(ctx context.Context, m mounts.Mount, creds mounts.Credentials, p string, v mounts.FileVersion) (string, error) {
 	if v != mounts.AnyVersion {
 		return string(v), nil
 	}
-	cur, err := d.Stat(ctx, m, ts, p)
+	cur, err := d.Stat(ctx, m, creds, p)
 	if errors.Is(err, mounts.ErrNotFound) {
 		return "", nil
 	}
@@ -204,12 +199,12 @@ func (d *Driver) ifMatch(ctx context.Context, m mounts.Mount, ts oauth2.TokenSou
 // Put writes req.Data to req.Path as one commit on the mount's branch. An empty IfMatch sends no
 // sha, so GitHub refuses to replace an existing file and Put returns ErrConflict. A stale IfMatch
 // returns ErrConflict too. The result names the new commit and the file's new blob sha.
-func (d *Driver) Put(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, req mounts.PutRequest) (*mounts.WriteResult, error) {
+func (d *Driver) Put(ctx context.Context, m mounts.Mount, creds mounts.Credentials, req mounts.PutRequest) (*mounts.WriteResult, error) {
 	rp, p, err := d.live(m, req.Path)
 	if err != nil {
 		return nil, err
 	}
-	sha, err := d.ifMatch(ctx, m, ts, p, req.IfMatch)
+	sha, err := d.ifMatch(ctx, m, creds, p, req.IfMatch)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +217,7 @@ func (d *Driver) Put(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource,
 		body["sha"] = sha
 	}
 	var out writeResp
-	if err := d.call(ctx, ts, http.MethodPut, rp+"/contents/"+escapePath(p), nil, body, true, &out); err != nil {
+	if err := d.call(ctx, creds, http.MethodPut, rp+"/contents/"+escapePath(p), nil, body, true, &out); err != nil {
 		return nil, err
 	}
 	res := &mounts.WriteResult{Mount: out.Commit.SHA}
@@ -234,7 +229,7 @@ func (d *Driver) Put(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource,
 
 // Delete removes req.Path as one commit on the mount's branch. IfMatch must be the file's current
 // version or AnyVersion; a stale one returns ErrConflict, and an empty one ErrInvalidArgument.
-func (d *Driver) Delete(ctx context.Context, m mounts.Mount, ts oauth2.TokenSource, req mounts.DeleteRequest) (*mounts.WriteResult, error) {
+func (d *Driver) Delete(ctx context.Context, m mounts.Mount, creds mounts.Credentials, req mounts.DeleteRequest) (*mounts.WriteResult, error) {
 	rp, p, err := d.live(m, req.Path)
 	if err != nil {
 		return nil, err
@@ -242,7 +237,7 @@ func (d *Driver) Delete(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 	if req.IfMatch == "" {
 		return nil, fmt.Errorf("%w: Delete needs IfMatch, the file's version or AnyVersion", mounts.ErrInvalidArgument)
 	}
-	sha, err := d.ifMatch(ctx, m, ts, p, req.IfMatch)
+	sha, err := d.ifMatch(ctx, m, creds, p, req.IfMatch)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +250,7 @@ func (d *Driver) Delete(ctx context.Context, m mounts.Mount, ts oauth2.TokenSour
 	}
 	var out writeResp
 	body := map[string]string{"message": msg, "sha": sha, "branch": m.Ref}
-	if err := d.call(ctx, ts, http.MethodDelete, rp+"/contents/"+escapePath(p), nil, body, true, &out); err != nil {
+	if err := d.call(ctx, creds, http.MethodDelete, rp+"/contents/"+escapePath(p), nil, body, true, &out); err != nil {
 		return nil, err
 	}
 	return &mounts.WriteResult{Mount: out.Commit.SHA}, nil

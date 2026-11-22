@@ -17,18 +17,17 @@ import (
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // snapshot streams the tarball of commit into the blob store and returns its manifest's hash. A
 // Git LFS pointer in it is swapped for its object, from the LFS API.
 // It keeps regular files only, so links and devices never reach the snapshot, and refuses a path
 // that is absolute, unclean or climbs out of the repo.
-func (d *Driver) snapshot(ctx context.Context, rp, commit string, ts oauth2.TokenSource) (blobs.Hash, error) {
+func (d *Driver) snapshot(ctx context.Context, rp, commit string, creds mounts.Credentials) (blobs.Hash, error) {
 	if !commitSHA.MatchString(commit) {
 		return "", fmt.Errorf("%w: snapshot version %q isn't a commit sha", mounts.ErrInvalidArgument, commit)
 	}
-	resp, err := d.send(ctx, ts, http.MethodGet, rp+"/tarball/"+commit, nil, nil)
+	resp, err := d.send(ctx, creds, http.MethodGet, rp+"/tarball/"+commit, nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -89,7 +88,7 @@ func (d *Driver) snapshot(ctx context.Context, rp, commit string, ts oauth2.Toke
 	// The tarball carries an LFS file as its pointer, so each pointer's object comes from the LFS
 	// API once the tarball is read.
 	if len(pointers) > 0 {
-		hashes, err := d.lfsStore(ctx, rp, ts, pointers)
+		hashes, err := d.lfsStore(ctx, rp, creds, pointers)
 		if err != nil {
 			return "", err
 		}

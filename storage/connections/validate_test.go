@@ -14,6 +14,10 @@ func TestValidateAcceptsEachKind(t *testing.T) {
 		{ID: "alice-pat", Kind: KindGitHubToken, Scope: ScopePerson, Owner: "alice", TokenRef: "env:ALICE_TOKEN"},
 		{ID: "alice-gh", Kind: KindGitHubUser, Scope: ScopePerson, Owner: "alice"},
 		{ID: "alice-paste", Kind: KindGitHubUser, Scope: ScopePerson, Owner: "alice", Pasted: true},
+		{ID: "s3-keys", Kind: KindAWS, Scope: ScopeServer, AccessKeyID: "AKIAEXAMPLE", KeyRef: "env:AWS_SECRET", Region: "us-east-1"},
+		{ID: "s3-chain", Kind: KindAWS, Scope: ScopeServer, RoleARN: "arn:aws:iam::123456789012:role/reader"},
+		{ID: "gcs-key", Kind: KindGCP, Scope: ScopeServer, KeyRef: "file:/run/secrets/sa.json"},
+		{ID: "gcs-adc", Kind: KindGCP, Scope: ScopeServer},
 	} {
 		if err := c.Validate(); err != nil {
 			t.Errorf("%s: %v", c.ID, err)
@@ -37,6 +41,17 @@ func TestValidateRejects(t *testing.T) {
 		"relative file ref":      {ID: "x", Kind: KindGitHubToken, Scope: ScopeServer, TokenRef: "file:secrets/t"},
 		"user with token_ref":    {ID: "x", Kind: KindGitHubUser, Scope: ScopePerson, Owner: "alice", TokenRef: "env:T"},
 		"server user connection": {ID: "x", Kind: KindGitHubUser, Scope: ScopeServer},
+		"aws for a person":       {ID: "x", Kind: KindAWS, Scope: ScopePerson, Owner: "alice"},
+		"aws key without secret": {ID: "x", Kind: KindAWS, Scope: ScopeServer, AccessKeyID: "AKIAEXAMPLE"},
+		"aws secret without key": {ID: "x", Kind: KindAWS, Scope: ScopeServer, KeyRef: "env:S"},
+		"aws raw secret":         {ID: "x", Kind: KindAWS, Scope: ScopeServer, AccessKeyID: "AKIAEXAMPLE", KeyRef: raw},
+		"aws role not an arn":    {ID: "x", Kind: KindAWS, Scope: ScopeServer, RoleARN: "reader"},
+		"aws with base url":      {ID: "x", Kind: KindAWS, Scope: ScopeServer, BaseURL: "https://s3.example"},
+		"aws with token_ref":     {ID: "x", Kind: KindAWS, Scope: ScopeServer, TokenRef: "env:T"},
+		"gcp for a person":       {ID: "x", Kind: KindGCP, Scope: ScopePerson, Owner: "alice"},
+		"gcp raw key":            {ID: "x", Kind: KindGCP, Scope: ScopeServer, KeyRef: raw},
+		"gcp with a role":        {ID: "x", Kind: KindGCP, Scope: ScopeServer, RoleARN: "arn:aws:iam::1:role/r"},
+		"github with a region":   {ID: "x", Kind: KindGitHubToken, Scope: ScopeServer, TokenRef: "env:T", Region: "us-east-1"},
 	} {
 		err := c.Validate()
 		if !errors.Is(err, ErrInvalid) {

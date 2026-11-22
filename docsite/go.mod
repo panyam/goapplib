@@ -7,6 +7,7 @@ toolchain go1.27.4
 require github.com/panyam/s3gen v0.1.6
 
 require (
+	cloud.google.com/go/compute/metadata v0.10.0 // indirect
 	connectrpc.com/connect v1.19.1 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/adrg/frontmatter v0.2.0 // indirect

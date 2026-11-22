@@ -15,7 +15,6 @@ import (
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
-	"golang.org/x/oauth2"
 )
 
 // lfsBatchSize is how many objects one batch request asks for. GitHub accepts 100.
@@ -56,18 +55,18 @@ func lfsErr(p string, reason error, format string, args ...any) error {
 
 // lfsActions asks the batch API of the repo at rp where each file's object downloads from. A
 // file whose object the API refuses fails the whole call, with its path named.
-func (d *Driver) lfsActions(ctx context.Context, rp string, ts oauth2.TokenSource, files []lfsFile) (map[string]lfsAction, error) {
+func (d *Driver) lfsActions(ctx context.Context, rp string, creds mounts.Credentials, files []lfsFile) (map[string]lfsAction, error) {
 	out := map[string]lfsAction{}
 	for start := 0; start < len(files); start += lfsBatchSize {
 		batch := files[start:min(start+lfsBatchSize, len(files))]
-		if err := d.lfsBatch(ctx, rp, ts, batch, out); err != nil {
+		if err := d.lfsBatch(ctx, rp, creds, batch, out); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
 }
 
-func (d *Driver) lfsBatch(ctx context.Context, rp string, ts oauth2.TokenSource, files []lfsFile, out map[string]lfsAction) error {
+func (d *Driver) lfsBatch(ctx context.Context, rp string, creds mounts.Credentials, files []lfsFile, out map[string]lfsAction) error {
 	type object struct {
 		OID  string `json:"oid"`
 		Size int64  `json:"size"`
@@ -95,13 +94,13 @@ func (d *Driver) lfsBatch(ctx context.Context, rp string, ts oauth2.TokenSource,
 	}
 	hreq.Header.Set("Accept", "application/vnd.git-lfs+json")
 	hreq.Header.Set("Content-Type", "application/vnd.git-lfs+json")
-	if ts != nil {
-		tok, err := ts.Token()
-		if err != nil {
-			return err
-		}
+	tok, err := mounts.BearerToken(creds)
+	if err != nil {
+		return err
+	}
+	if tok != "" {
 		// The LFS API takes a token as a basic-auth password, as git does.
-		hreq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("x-access-token:"+tok.AccessToken)))
+		hreq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("x-access-token:"+tok)))
 	}
 	first := files[0].Path
 	resp, err := d.client.Do(hreq)
@@ -218,7 +217,7 @@ func lfsHash(f lfsFile) blobs.Hash { return blobs.Hash("sha256:" + f.OID) }
 
 // lfsStore keeps each file's object in the blob store and returns their hashes by oid. An object
 // the store holds already isn't downloaded.
-func (d *Driver) lfsStore(ctx context.Context, rp string, ts oauth2.TokenSource, files []lfsFile) (map[string]blobs.Hash, error) {
+func (d *Driver) lfsStore(ctx context.Context, rp string, creds mounts.Credentials, files []lfsFile) (map[string]blobs.Hash, error) {
 	out := map[string]blobs.Hash{}
 	var need []lfsFile
 	for _, f := range files {
@@ -238,7 +237,7 @@ func (d *Driver) lfsStore(ctx context.Context, rp string, ts oauth2.TokenSource,
 	if len(need) == 0 {
 		return out, nil
 	}
-	acts, err := d.lfsActions(ctx, rp, ts, need)
+	acts, err := d.lfsActions(ctx, rp, creds, need)
 	if err != nil {
 		return nil, err
 	}
@@ -258,11 +257,11 @@ func (d *Driver) lfsStore(ctx context.Context, rp string, ts oauth2.TokenSource,
 }
 
 // lfsRead returns f's object, for a live read, which keeps nothing in the blob store.
-func (d *Driver) lfsRead(ctx context.Context, rp string, ts oauth2.TokenSource, f lfsFile) ([]byte, error) {
+func (d *Driver) lfsRead(ctx context.Context, rp string, creds mounts.Credentials, f lfsFile) ([]byte, error) {
 	if f.Size > d.limits.MaxBytes {
 		return nil, fmt.Errorf("%w: %s is an LFS object of %d bytes", mounts.ErrTooLarge, f.Path, f.Size)
 	}
-	acts, err := d.lfsActions(ctx, rp, ts, []lfsFile{f})
+	acts, err := d.lfsActions(ctx, rp, creds, []lfsFile{f})
 	if err != nil {
 		return nil, err
 	}

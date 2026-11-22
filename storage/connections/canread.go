@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/oauth2"
+	"github.com/panyam/goapplib/storage/mounts"
 )
 
 // ErrNoAccess means none of the viewer's connections can read the source, or the viewer has
@@ -17,11 +17,11 @@ var ErrNoAccess = errors.New("connections: no connection of the viewer's can rea
 // DefaultAccessTTL is how long CanRead keeps an answer for one viewer and source.
 const DefaultAccessTTL = time.Minute
 
-// ReadCheck asks a service whether ts can read source, using the API at baseURL. It returns false
+// ReadCheck asks a service whether creds can read source, using the API at baseURL. It returns false
 // with a nil error for a definite no, such as GitHub's 404 for a private repo, and also when
 // baseURL isn't the host it serves. Any other failure is an error. The GitHub driver's CanRead
 // method is one.
-type ReadCheck func(ctx context.Context, baseURL, source string, ts oauth2.TokenSource) (bool, error)
+type ReadCheck func(ctx context.Context, baseURL, source string, creds mounts.Credentials) (bool, error)
 
 // WithReadCheck sets how CanRead asks a service whether a connection can read a source. Without
 // it, CanRead returns ErrNotConfigured.
@@ -50,7 +50,7 @@ func (a answer) result() (string, error) {
 // "github://acme/board". An app calls it to decide whether to show a person something it linked
 // from a private repo, as agni#1728 does.
 //
-// It tries the viewer's own connections in ID order, each with its token source, and returns the
+// It tries the viewer's own connections in ID order, each with its credentials, and returns the
 // first one the read check says can read. A request with no viewer returns ErrNotOwner. When none
 // can, or the viewer has no connection, it returns ErrNoAccess. When a check failed and none
 // succeeded, it returns that failure instead of ErrNoAccess, since the answer isn't known.
@@ -87,10 +87,10 @@ func (s *Service) CanRead(ctx context.Context, source string) (string, error) {
 	var failed error
 	found := ""
 	for _, c := range conns {
-		ts, err := s.TokenSource(ctx, viewer, c.ID)
+		creds, err := s.Credentials(ctx, viewer, c.ID)
 		if err == nil {
 			var yes bool
-			if yes, err = s.check(ctx, c.BaseURL, source, ts); err == nil && yes {
+			if yes, err = s.check(ctx, c.BaseURL, source, creds); err == nil && yes {
 				found = c.ID
 				break
 			}
