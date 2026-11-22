@@ -1,8 +1,11 @@
 package gcsblobs_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -40,10 +43,35 @@ type clock struct {
 func (c *clock) now() time.Time      { c.mu.Lock(); defer c.mu.Unlock(); return c.t }
 func (c *clock) add(d time.Duration) { c.mu.Lock(); c.t = c.t.Add(d); c.mu.Unlock() }
 
+// serial sends one request at a time. fake-gcs-server v1.56 patches an object's metadata map
+// without a lock, so two concurrent metadata updates of one object crash the test process with
+// "concurrent map iteration and map write". Real GCS has no such limit. The store still sends
+// from many goroutines at once, so ConcurrentPutsOfTheSameBytes still interleaves its Puts.
+type serial struct {
+	mu   sync.Mutex
+	next http.RoundTripper
+}
+
+func (s *serial) RoundTrip(r *http.Request) (*http.Response, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	resp, err := s.next.RoundTrip(r)
+	if err != nil {
+		return nil, err
+	}
+	// Read the body inside the lock, so the fake has finished with the request before another
+	// one starts.
+	b, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	resp.Body = io.NopCloser(bytes.NewReader(b))
+	return resp, err
+}
+
 func newStore(t *testing.T, srv *fakestorage.Server, source string, clk *clock) *gcsblobs.Store {
 	t.Helper()
+	hc := &http.Client{Transport: &serial{next: http.DefaultTransport}}
 	s, err := gcsblobs.New(context.Background(), source, creds,
-		gcsblobs.WithGCSOptions(gcsdrv.WithEndpoint(srv.URL()+"/storage/v1/")), gcsblobs.WithTempDir(t.TempDir()), gcsblobs.WithClock(clk.now))
+		gcsblobs.WithGCSOptions(gcsdrv.WithEndpoint(srv.URL()+"/storage/v1/"), gcsdrv.WithHTTPClient(hc)), gcsblobs.WithTempDir(t.TempDir()), gcsblobs.WithClock(clk.now))
 	if err != nil {
 		t.Fatal(err)
 	}
