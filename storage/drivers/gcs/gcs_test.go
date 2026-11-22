@@ -35,13 +35,13 @@ func put(srv *fakestorage.Server, key, data string) {
 	srv.CreateObject(fakestorage.Object{ObjectAttrs: fakestorage.ObjectAttrs{BucketName: "designs", Name: key}, Content: []byte(data)})
 }
 
-func newDriver(t *testing.T, srv *fakestorage.Server) *bucket.Driver {
+func newDriver(t *testing.T, srv *fakestorage.Server, opts ...gcs.Option) *bucket.Driver {
 	t.Helper()
 	store, err := blobs.NewDir(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	return gcs.New(store, gcs.WithEndpoint(srv.URL()+"/storage/v1/"))
+	return gcs.New(store, append([]gcs.Option{gcs.WithEndpoint(srv.URL() + "/storage/v1/")}, opts...)...)
 }
 
 func TestDriverContract(t *testing.T) {

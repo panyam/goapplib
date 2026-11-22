@@ -31,6 +31,7 @@ type Bucket struct {
 	versions bool
 	objs     map[string][]version
 	next     int
+	offline  bool
 }
 
 // New returns an empty bucket.
@@ -53,9 +54,23 @@ func (b *Bucket) Put(key string, data []byte) {
 	b.objs[key] = []version{v}
 }
 
+// Offline makes every later connection fail with mounts.ErrUnavailable, as if the service were
+// down, so a test can show what works without the bucket.
+func (b *Bucket) Offline() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.offline = true
+}
+
 // Connector returns a bucket.Connector serving b under name, and ErrNotFound for any other name.
 func (b *Bucket) Connector(name string) bucket.Connector {
 	return func(_ context.Context, n string, _ mounts.Credentials) (bucket.Bucket, error) {
+		b.mu.Lock()
+		offline := b.offline
+		b.mu.Unlock()
+		if offline {
+			return nil, fmt.Errorf("%w: the bucket is offline", mounts.ErrUnavailable)
+		}
 		if n != name {
 			return missing{}, nil
 		}

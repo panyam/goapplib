@@ -43,13 +43,13 @@ func fake(t *testing.T, versions bool) (*graphtest.Server, *graphtest.Drive) {
 	return g, d
 }
 
-func newDriver(t *testing.T, g *graphtest.Server) *msgraph.Driver {
+func newDriver(t *testing.T, g *graphtest.Server, opts ...msgraph.Option) *msgraph.Driver {
 	t.Helper()
 	store, err := blobs.NewDir(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	return msgraph.New(store, msgraph.WithBaseURL(g.BaseURL()))
+	return msgraph.New(store, append([]msgraph.Option{msgraph.WithBaseURL(g.BaseURL())}, opts...)...)
 }
 
 func TestDriverContract(t *testing.T) {

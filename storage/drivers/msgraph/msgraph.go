@@ -54,7 +54,7 @@ const Scheme = "msgraph"
 var ErrResyncRequired = errors.New("msgraph: delta token expired, resync required")
 
 // Driver serves mounts.KindMSGraph mounts. The embedded bucket.Driver implements mounts.Driver,
-// mounts.Preparer and mounts.VersionReader. Driver adds Delta and the subscription calls.
+// mounts.Preparer, mounts.VersionReader and mounts.Localizer. Driver adds Delta and the subscription calls.
 type Driver struct {
 	*bucket.Driver
 	base   string
@@ -65,6 +65,7 @@ type options struct {
 	base   string
 	client *http.Client
 	limits mounts.Limits
+	views  string
 }
 
 // Option configures a Driver.
@@ -81,6 +82,10 @@ func WithHTTPClient(c *http.Client) Option { return func(o *options) { o.client 
 // mounts.DefaultLimits' value.
 func WithLimits(l mounts.Limits) Option { return func(o *options) { o.limits = l } }
 
+// WithViews sets the folder where HostPath builds snapshot views, as bucket.WithViews does. With a
+// store that can link, creating a snapshot mount then downloads all of its files.
+func WithViews(dir string) Option { return func(o *options) { o.views = dir } }
+
 // New returns a Graph driver keeping snapshot listings in store.
 func New(store blobs.Store, opts ...Option) *Driver {
 	o := options{base: DefaultBaseURL, client: http.DefaultClient}
@@ -88,7 +93,7 @@ func New(store blobs.Store, opts ...Option) *Driver {
 		f(&o)
 	}
 	d := &Driver{base: o.base, client: o.client}
-	d.Driver = bucket.New(mounts.KindMSGraph, Scheme, d.connect, store, bucket.WithLimits(o.limits))
+	d.Driver = bucket.New(mounts.KindMSGraph, Scheme, d.connect, store, bucket.WithLimits(o.limits), bucket.WithViews(o.views))
 	return d
 }
 

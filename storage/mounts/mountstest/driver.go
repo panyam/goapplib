@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"maps"
+	"os"
 	"slices"
 	"testing"
 	"testing/fstest"
@@ -43,6 +44,20 @@ type DriverFixture struct {
 	// bucket without versioning, so opening the changed file must fail with its path named rather
 	// than serve the new bytes. False means a snapshot keeps serving the old bytes.
 	SnapshotFailsOnChange bool
+
+	// HostPaths lists the modes whose mounts get a folder on disk from the driver's HostPath, such
+	// as live for the folder driver, or snapshot for a driver with views. A driver that is a
+	// mounts.Localizer must return mounts.ErrNotLocal for every other mode.
+	HostPaths []mounts.Mode
+
+	// Views is the folder where the driver builds snapshot views, if it builds them. RunDriver
+	// removes it to check that HostPath rebuilds a view.
+	Views string
+
+	// Offline makes Source unreachable, as if its bucket or repo were gone. RunDriver calls it
+	// last, to check that a snapshot's view and files come from the blob store alone. Nil skips
+	// that check.
+	Offline func(t *testing.T)
 }
 
 // DriverFactory returns a fixture whose Source holds files. Each call gets its own source.
@@ -104,6 +119,29 @@ func RunDriver(t *testing.T, newFixture DriverFactory) {
 				}
 			})
 
+			t.Run("HostPath", func(t *testing.T) {
+				l, ok := f.Driver.(mounts.Localizer)
+				local := slices.Contains(f.HostPaths, mode)
+				if !ok {
+					if local {
+						t.Fatalf("HostPaths lists %s, but the driver isn't a mounts.Localizer", mode)
+					}
+					t.Skip("the driver isn't a mounts.Localizer")
+				}
+				if !local {
+					if _, err := l.HostPath(m, "README.md"); !errors.Is(err, mounts.ErrNotLocal) {
+						t.Errorf("HostPath of a %s mount = %v, want ErrNotLocal", mode, err)
+					}
+					return
+				}
+				hostFiles(t, l, m, DriverFiles)
+				for _, p := range []string{"../README.md", "/README.md", "board/../../README.md"} {
+					if _, err := l.HostPath(m, p); !errors.Is(err, mounts.ErrInvalidPath) {
+						t.Errorf("HostPath(%q) = %v, want ErrInvalidPath", p, err)
+					}
+				}
+			})
+
 			t.Run("AfterChange", func(t *testing.T) {
 				if f.Change == nil {
 					t.Skip("the fixture can't change its source")
@@ -133,9 +171,55 @@ func RunDriver(t *testing.T, newFixture DriverFactory) {
 					if other, err := fs.ReadFile(fsys, "board/main.kicad_sch"); err != nil || string(other) != DriverFiles["board/main.kicad_sch"] {
 						t.Errorf("an unchanged file = %q, %v; want its pinned bytes", other, err)
 					}
+					if slices.Contains(f.HostPaths, mode) {
+						removeViews(t, f)
+						hostFiles(t, f.Driver.(mounts.Localizer), m, DriverFiles)
+					}
+				}
+			})
+
+			t.Run("ViewWithoutTheSource", func(t *testing.T) {
+				if mode != mounts.ModeSnapshot || !slices.Contains(f.HostPaths, mode) || f.Offline == nil {
+					t.Skip("needs a snapshot view and a fixture that can take its source offline")
+				}
+				removeViews(t, f)
+				f.Offline(t)
+				hostFiles(t, f.Driver.(mounts.Localizer), m, DriverFiles)
+				fsys, err := f.Driver.Open(ctx, m, f.Creds)
+				if err != nil {
+					t.Fatalf("Open with the source offline = %v", err)
+				}
+				for p, want := range DriverFiles {
+					if got, err := fs.ReadFile(fsys, p); err != nil || string(got) != want {
+						t.Errorf("ReadFile(%q) with the source offline = %q, %v; want %q", p, got, err, want)
+					}
 				}
 			})
 		})
+	}
+}
+
+// hostFiles checks that HostPath gives each of files as a real file with its pinned bytes.
+func hostFiles(t *testing.T, l mounts.Localizer, m mounts.Mount, files map[string]string) {
+	t.Helper()
+	for p, want := range files {
+		hp, err := l.HostPath(m, p)
+		if err != nil {
+			t.Fatalf("HostPath(%q) = %v", p, err)
+		}
+		if got, err := os.ReadFile(hp); err != nil || string(got) != want {
+			t.Errorf("the host file for %q read %q, %v; want %q", p, got, err, want)
+		}
+	}
+}
+
+func removeViews(t *testing.T, f DriverFixture) {
+	t.Helper()
+	if f.Views == "" {
+		return
+	}
+	if err := os.RemoveAll(f.Views); err != nil {
+		t.Fatal(err)
 	}
 }
 

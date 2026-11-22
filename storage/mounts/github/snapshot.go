@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -211,40 +210,20 @@ func (d *Driver) HostPath(m mounts.Mount, p string) (string, error) {
 	return filepath.Join(view, filepath.FromSlash(clean)), nil
 }
 
-// buildView makes view if it is missing. It builds in a temp folder beside it and renames, so a
-// half-built view is never visible, and two processes building at once leave one whole view.
+// buildView makes view from the mount's manifest if it is missing, through mounts.BuildView. The
+// lock spares two calls in this process from building the same view twice.
 func (d *Driver) buildView(m mounts.Mount, view string, linker blobs.Linker) error {
 	d.viewMu.Lock()
 	defer d.viewMu.Unlock()
-	if _, err := os.Stat(view); err == nil {
-		return nil
-	}
-	t, err := d.tree(context.Background(), m)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(view), 0o750); err != nil {
-		return err
-	}
-	tmp, err := os.MkdirTemp(filepath.Dir(view), ".build-*")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(tmp)
-	for p, e := range t.files {
-		to := filepath.Join(tmp, filepath.FromSlash(p))
-		if err := os.MkdirAll(filepath.Dir(to), 0o750); err != nil {
-			return err
+	return mounts.BuildView(view, linker, func() (blobs.Manifest, error) {
+		t, err := d.tree(context.Background(), m)
+		if err != nil {
+			return nil, err
 		}
-		if err := linker.Link(e.Hash, to); err != nil {
-			return err
+		man := make(blobs.Manifest, 0, len(t.files))
+		for _, e := range t.files {
+			man = append(man, e)
 		}
-	}
-	if err := os.Rename(tmp, view); err != nil {
-		if _, statErr := os.Stat(view); statErr == nil {
-			return nil
-		}
-		return err
-	}
-	return nil
+		return man, nil
+	})
 }

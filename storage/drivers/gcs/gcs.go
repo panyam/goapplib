@@ -36,6 +36,7 @@ type options struct {
 	endpoint string
 	client   *http.Client
 	limits   mounts.Limits
+	views    string
 }
 
 // Option configures the driver.
@@ -52,6 +53,10 @@ func WithHTTPClient(c *http.Client) Option { return func(o *options) { o.client 
 // WithLimits caps a source's objects and bytes, as bucket.WithLimits does.
 func WithLimits(l mounts.Limits) Option { return func(o *options) { o.limits = l } }
 
+// WithViews sets the folder where HostPath builds snapshot views, as bucket.WithViews does. With a
+// store that can link, creating a snapshot mount then downloads all of its files.
+func WithViews(dir string) Option { return func(o *options) { o.views = dir } }
+
 // New returns a driver for mounts.KindGCS. store keeps each Resolve's listing, as bucket.New
 // describes.
 func New(store blobs.Store, opts ...Option) *bucket.Driver {
@@ -59,7 +64,7 @@ func New(store blobs.Store, opts ...Option) *bucket.Driver {
 	for _, f := range opts {
 		f(&o)
 	}
-	return bucket.New(mounts.KindGCS, "gs", o.connect, store, bucket.WithLimits(o.limits))
+	return bucket.New(mounts.KindGCS, "gs", o.connect, store, bucket.WithLimits(o.limits), bucket.WithViews(o.views))
 }
 
 func (o options) connect(ctx context.Context, name string, creds mounts.Credentials) (bucket.Bucket, error) {

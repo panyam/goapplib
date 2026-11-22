@@ -8,21 +8,25 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
 )
 
-// Driver serves one kind of bucket mount. It implements mounts.Driver, mounts.Preparer and
-// mounts.VersionReader. It can't write, so a live mount is read-only.
+// Driver serves one kind of bucket mount. It implements mounts.Driver, mounts.Preparer,
+// mounts.VersionReader and mounts.Localizer. It can't write, so a live mount is read-only.
 type Driver struct {
 	kind    mounts.Kind
 	scheme  string
 	connect Connector
 	blobs   blobs.Store
 	limits  mounts.Limits
+	views   string
+	viewMu  sync.Mutex
 }
 
 // Option configures a Driver.
@@ -31,6 +35,13 @@ type Option func(*Driver)
 // WithLimits caps how many objects and bytes a source may hold. A zero field keeps
 // mounts.DefaultLimits' value. Past either, Resolve returns mounts.ErrTooLarge.
 func WithLimits(l mounts.Limits) Option { return func(d *Driver) { d.limits = l } }
+
+// WithViews sets the folder where HostPath builds each snapshot's view, as links to the blob store.
+// It takes effect only when the store is a blobs.Linker, such as a blobs.Dir, or a blobs.Cached in
+// front of a bucket store. Then Prepare fetches every file of a new snapshot into the store, so
+// creating a snapshot mount downloads all of it, and Open reads the snapshot from the store
+// instead of the bucket. Without it, HostPath returns mounts.ErrNotLocal.
+func WithViews(dir string) Option { return func(d *Driver) { d.views = dir } }
 
 // New returns a driver for kind, whose sources look like "<scheme>://<bucket>/<prefix>". connect
 // opens a bucket for each call. store keeps each Resolve's listing, which a snapshot mount and
@@ -106,7 +117,11 @@ func (d *Driver) Resolve(ctx context.Context, source, ref string, creds mounts.C
 }
 
 // Prepare pins a snapshot mount to the listing its Resolve kept, by setting Manifest to a
-// blobs.Manifest whose one entry is that listing. A live mount comes back unchanged.
+// blobs.Manifest that lists the listing. With WithViews and a linking store, it also fetches each
+// object at its pinned version into the store and lists it in the manifest, so the registry's
+// BlobRefs keeps the files and a view can be rebuilt without the bucket. An object whose pinned
+// version is gone fails as Open would, with mounts.ErrConflict. A live mount comes back
+// unchanged.
 func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (mounts.Mount, error) {
 	if m.Mode != mounts.ModeSnapshot {
 		return m, nil
@@ -118,7 +133,25 @@ func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Crede
 	if l.Source != m.Source {
 		return m, fmt.Errorf("%w: version %s lists %s, not %s", mounts.ErrInvalidArgument, m.Version, l.Source, m.Source)
 	}
-	h, err := blobs.PutManifest(ctx, d.blobs, blobs.Manifest{{Path: listingPath, Hash: blobs.Hash(m.Version)}})
+	man := blobs.Manifest{{Path: listingPath, Hash: blobs.Hash(m.Version)}}
+	if d.fetches() {
+		src, b, err := d.open(ctx, m.Source, creds)
+		if err != nil {
+			return m, err
+		}
+		for _, o := range l.Objects {
+			p := src.relPath(o.Key)
+			if p == "" {
+				continue
+			}
+			fh, err := d.fetch(ctx, b, p, o)
+			if err != nil {
+				return m, err
+			}
+			man = append(man, blobs.ManifestEntry{Path: filesDir + p, Hash: fh, Size: o.Size})
+		}
+	}
+	h, err := blobs.PutManifest(ctx, d.blobs, man)
 	if err != nil {
 		return m, err
 	}
@@ -127,39 +160,83 @@ func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Crede
 }
 
 // Open returns a snapshot mount's files at the versions its listing pinned, or a live mount's
-// latest objects. Opening a snapshot file whose pinned version is gone, or whose ETag changed on
-// a bucket without versions, fails with an fs.PathError naming the file and wrapping
+// latest objects. A snapshot whose files Prepare fetched reads them from the blob store and never
+// asks the bucket. Otherwise, opening a snapshot file whose pinned version is gone, or whose ETag
+// changed on a bucket without versions, fails with an fs.PathError naming the file and wrapping
 // mounts.ErrConflict.
 func (d *Driver) Open(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (fs.FS, error) {
-	src, b, err := d.open(ctx, m.Source, creds)
-	if err != nil {
-		return nil, err
-	}
 	switch m.Mode {
 	case mounts.ModeLive:
-		return liveFS{ctx: ctx, b: b, src: src}, nil
-	case mounts.ModeSnapshot:
-		h, err := blobs.ParseHash(m.Manifest)
-		if err != nil {
-			return nil, fmt.Errorf("%w: snapshot mount %q has no manifest", mounts.ErrInvalidArgument, m.Name)
-		}
-		if d.blobs == nil {
-			return nil, fmt.Errorf("%w: %s", mounts.ErrInvalidArgument, errNoBlobs)
-		}
-		man, err := blobs.GetManifest(ctx, d.blobs, h)
+		src, b, err := d.open(ctx, m.Source, creds)
 		if err != nil {
 			return nil, err
 		}
-		if len(man) != 1 || man[0].Path != listingPath {
-			return nil, fmt.Errorf("%w: snapshot mount %q's manifest isn't a bucket listing", mounts.ErrInvalidArgument, m.Name)
+		return liveFS{ctx: ctx, b: b, src: src}, nil
+	case mounts.ModeSnapshot:
+		src, err := ParseSource(d.scheme, m.Source)
+		if err != nil {
+			return nil, err
 		}
-		l, err := d.listing(ctx, string(man[0].Hash))
+		l, files, err := d.pinned(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		if files != nil {
+			s := newSnapshotFS(ctx, nil, src, l.Objects)
+			s.store, s.hashes = d.blobs, files
+			return s, nil
+		}
+		src, b, err := d.open(ctx, m.Source, creds)
 		if err != nil {
 			return nil, err
 		}
 		return newSnapshotFS(ctx, b, src, l.Objects), nil
 	}
 	return nil, fmt.Errorf("%w: %s mounts don't support mode %q", mounts.ErrInvalidArgument, d.kind, m.Mode)
+}
+
+// HostPath returns where p of a snapshot mount is on disk, in the folder WithViews set. The first
+// call for a mount builds its view there, as links to the files Prepare fetched, so a restart that
+// lost the folder rebuilds it from the blob store without asking the bucket. A live mount, a
+// driver without WithViews or a linking store, or a snapshot made before views were set, returns
+// mounts.ErrNotLocal.
+func (d *Driver) HostPath(m mounts.Mount, p string) (string, error) {
+	clean, err := mounts.CleanPath(p)
+	if err != nil {
+		return "", err
+	}
+	linker, ok := d.blobs.(blobs.Linker)
+	if m.Mode != mounts.ModeSnapshot || d.views == "" || !ok {
+		return "", fmt.Errorf("%w: %s mount %q", mounts.ErrNotLocal, d.kind, m.Name)
+	}
+	if err := mounts.ValidName(m.Name); err != nil {
+		return "", err
+	}
+	v, err := blobs.ParseHash(m.Version)
+	if err != nil {
+		return "", fmt.Errorf("%w: snapshot version %q isn't a listing hash", mounts.ErrInvalidArgument, m.Version)
+	}
+	view := filepath.Join(d.views, m.Name, strings.TrimPrefix(string(v), "sha256:"))
+	d.viewMu.Lock()
+	defer d.viewMu.Unlock()
+	err = mounts.BuildView(view, linker, func() (blobs.Manifest, error) {
+		_, files, err := d.pinned(context.Background(), m)
+		if err != nil {
+			return nil, err
+		}
+		if files == nil {
+			return nil, fmt.Errorf("%w: %s mount %q was made before the driver had views, so make it again", mounts.ErrNotLocal, d.kind, m.Name)
+		}
+		man := make(blobs.Manifest, 0, len(files))
+		for p, h := range files {
+			man = append(man, blobs.ManifestEntry{Path: p, Hash: h})
+		}
+		return man, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(view, filepath.FromSlash(clean)), nil
 }
 
 // Moves reports true for the empty ref, the only one a bucket has, since the latest objects can
@@ -211,18 +288,83 @@ func (d *Driver) FetchAt(ctx context.Context, m mounts.Mount, creds mounts.Crede
 		if fileID(o) != f.ID {
 			return "", false, fmt.Errorf("%w: %s is %s in version %s, not %s", mounts.ErrInvalidArgument, f.Path, fileID(o), version, f.ID)
 		}
-		if o.Size > d.limits.MaxBytes {
-			return "", false, fmt.Errorf("%w: %s is %d bytes", mounts.ErrTooLarge, f.Path, o.Size)
-		}
-		rc, _, err := b.Get(ctx, o.Key, &o)
-		if err != nil {
-			return "", false, fmt.Errorf("%s: %w", f.Path, err)
-		}
-		defer rc.Close()
-		h, err := d.blobs.Put(ctx, io.LimitReader(rc, o.Size))
+		h, err := d.fetch(ctx, b, f.Path, o)
 		return h, err == nil, err
 	}
 	return "", false, fmt.Errorf("%w: %s isn't in version %s", mounts.ErrNotFound, f.Path, version)
+}
+
+// fetch copies o's pinned version, the file at p, into the blob store.
+func (d *Driver) fetch(ctx context.Context, b Bucket, p string, o Object) (blobs.Hash, error) {
+	if o.Size > d.limits.MaxBytes {
+		return "", fmt.Errorf("%w: %s is %d bytes", mounts.ErrTooLarge, p, o.Size)
+	}
+	rc, _, err := b.Get(ctx, o.Key, &o)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", p, err)
+	}
+	defer rc.Close()
+	return d.blobs.Put(ctx, io.LimitReader(rc, o.Size))
+}
+
+// fetches says whether Prepare fetches a snapshot's files, which it does when HostPath can use
+// them.
+func (d *Driver) fetches() bool {
+	_, ok := d.blobs.(blobs.Linker)
+	return d.views != "" && ok
+}
+
+// pinned reads a snapshot mount's manifest. It returns the listing, and each file's blob when
+// Prepare fetched them. files is nil for a snapshot whose files stay in the bucket.
+func (d *Driver) pinned(ctx context.Context, m mounts.Mount) (l listing, files map[string]blobs.Hash, err error) {
+	h, err := blobs.ParseHash(m.Manifest)
+	if err != nil {
+		return l, nil, fmt.Errorf("%w: snapshot mount %q has no manifest", mounts.ErrInvalidArgument, m.Name)
+	}
+	if d.blobs == nil {
+		return l, nil, fmt.Errorf("%w: %s", mounts.ErrInvalidArgument, errNoBlobs)
+	}
+	man, err := blobs.GetManifest(ctx, d.blobs, h)
+	if err != nil {
+		return l, nil, err
+	}
+	notListing := fmt.Errorf("%w: snapshot mount %q's manifest isn't a bucket listing", mounts.ErrInvalidArgument, m.Name)
+	var lh blobs.Hash
+	files = map[string]blobs.Hash{}
+	for _, e := range man {
+		if e.Path == listingPath {
+			lh = e.Hash
+			continue
+		}
+		p, ok := strings.CutPrefix(e.Path, filesDir)
+		if !ok {
+			return l, nil, notListing
+		}
+		files[p] = e.Hash
+	}
+	if lh == "" {
+		return l, nil, notListing
+	}
+	if l, err = d.listing(ctx, string(lh)); err != nil {
+		return l, nil, err
+	}
+	src, err := ParseSource(d.scheme, l.Source)
+	if err != nil {
+		return l, nil, err
+	}
+	listed := 0
+	for _, o := range l.Objects {
+		if p := src.relPath(o.Key); p != "" {
+			listed++
+			if _, ok := files[p]; !ok && len(files) > 0 {
+				return l, nil, fmt.Errorf("%w: snapshot mount %q's manifest has no blob for %s", mounts.ErrInvalidArgument, m.Name, p)
+			}
+		}
+	}
+	if len(files) == 0 && listed > 0 {
+		return l, nil, nil
+	}
+	return l, files, nil
 }
 
 func fileID(o Object) string {
@@ -271,6 +413,7 @@ func (d *Driver) listing(ctx context.Context, version string) (listing, error) {
 var (
 	_ mounts.Preparer      = (*Driver)(nil)
 	_ mounts.VersionReader = (*Driver)(nil)
+	_ mounts.Localizer     = (*Driver)(nil)
 )
 
 // ContainsSource reports whether changed, an object's source from a bucket event such as
