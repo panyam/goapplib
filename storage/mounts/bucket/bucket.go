@@ -113,3 +113,7 @@ func (s Source) relPath(key string) string {
 // listingPath is where the listing sits in a snapshot's blobs.Manifest. The manifest lists the
 // listing as its one file, so the registry's BlobRefs keeps the listing through a sweep.
 const listingPath = ".bucket-listing.json"
+
+// filesDir is where Prepare lists each fetched file in a snapshot's manifest, as filesDir and the
+// file's path, so no object's path can collide with listingPath.
+const filesDir = "files/"

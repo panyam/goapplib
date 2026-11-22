@@ -51,9 +51,27 @@ Say agni runs on Kubernetes with no persistent volume. It keeps uploads in a buc
 - The upload is conditional, with `If-None-Match: *` on S3 and `ifGenerationMatch=0` on GCS. Two servers putting the same bytes never overwrite each other. The loser finds the blob there, and moves its written time forward in the object's metadata, so the sweep's grace period starts again as `Put` promises. On S3 that copies the object onto itself, since S3 can't change metadata in place.
 - `Open` checks the bytes against the hash as it reads, through `blobs.Verify`, as `Dir` does.
 - `Sweep` lists `<prefix>/sha256/` and ages each unreferenced blob by its written time, or by the object's own time for a blob copied in some other way. On S3 it reads each unreferenced blob's metadata with a HEAD, since a listing leaves metadata out. Objects under the prefix that aren't named like blobs are left alone.
-- They implement `Store` without `Linker`, since a bucket can't hard-link. A snapshot over them serves an `fs.FS` and has no host path. An app that needs files on disk keeps a cache in front.
+- They implement `Store` without `Linker`, since a bucket can't hard-link. On its own, a snapshot over them serves an `fs.FS` and has no host path. An app that needs files on disk puts `blobs.Cached` in front (see below).
 
 `blobs/blobstest.RunStore` checks any `Store` against this page's contract: round trips, a missing or malformed hash, corruption, the refresh on a second `Put`, the sweep's grace period and referrers, and concurrent `Put`s of the same bytes. `Dir`, `s3blobs` and `gcsblobs` all run it, the bucket stores against gofakes3 and fake-gcs-server. Live tests run with `STORAGE_LIVE_S3=s3://<bucket>/<prefix>` or `STORAGE_LIVE_GCS=gs://<bucket>/<prefix>`, using each cloud's default credentials.
+
+## A local cache in front of a bucket
+
+Say agni keeps its blobs in S3, and its engine opens real files. A view needs blobs on the server's disk, so it needs a `Linker`, and `s3blobs` isn't one. `blobs.NewCached(remote, localDir)` wraps the bucket store with a local `Dir`, and the result is a `Linker` (#219).
+
+- `Put` writes the local copy, then uploads that copy, and returns after both. A pod that dies after `Put` loses nothing.
+- `Open` and `Link` serve the local copy. On a miss they fetch the blob from the remote and keep it. The remote's reader checks the hash, so a corrupt remote blob fails with `ErrCorrupt` and is never kept.
+- `Has` asks the local copy first, then the remote.
+- `Sweep` calls the referrers once. It sweeps the remote with what they named, then the local `Dir` with the same names and grace. A local copy can outlive its remote blob by one sweep, when it was fetched after the remote wrote it. `WithMaxAge(d)` also drops any local copy fetched or put more than `d` ago, since the remote still holds it.
+- A pod that restarts with an empty disk refills the local folder on demand.
+
+```go
+remote, _ := s3blobs.New(ctx, "s3://acme-agni/uploads", creds)
+local, _ := blobs.NewDir("/var/cache/agni/blobs")
+store := blobs.NewCached(remote, local, blobs.WithMaxAge(7*24*time.Hour))
+```
+
+`blobstest.RunCached` runs `RunStore` and `RunLinker` on a `Cached` over any remote, and then the checks above: a lost local folder, a corrupt remote blob, the sweep and the max age. A `Dir`, `s3blobs` and `gcsblobs` all run it as the remote. `RunLinker` checks `Link` alone, and `Dir` runs it too.
 
 ## Blobs and wasmhost's caches
 

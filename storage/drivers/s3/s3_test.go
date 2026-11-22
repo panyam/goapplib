@@ -87,13 +87,13 @@ func put(t *testing.T, c *awss3.Client, key, data string) {
 	}
 }
 
-func newDriver(t *testing.T, url string) *bucket.Driver {
+func newDriver(t *testing.T, url string, opts ...s3.Option) *bucket.Driver {
 	t.Helper()
 	store, err := blobs.NewDir(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	return s3.New(store, s3.WithEndpoint(url))
+	return s3.New(store, append([]s3.Option{s3.WithEndpoint(url)}, opts...)...)
 }
 
 func TestDriverContract(t *testing.T) {

@@ -10,16 +10,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/panyam/goapplib/storage/blobs"
 	"github.com/panyam/goapplib/storage/mounts"
 )
 
 // snapshotFS serves the objects of one listing at their pinned versions. Its folders come from the
-// listing, so a listing never changes under it.
+// listing, so a listing never changes under it. With store set, it reads each file from the blob
+// Prepare fetched, named in hashes, and never asks the bucket.
 type snapshotFS struct {
-	ctx   context.Context
-	b     Bucket
-	files map[string]Object
-	dirs  map[string][]fs.DirEntry
+	ctx    context.Context
+	b      Bucket
+	files  map[string]Object
+	dirs   map[string][]fs.DirEntry
+	store  blobs.Store
+	hashes map[string]blobs.Hash
 }
 
 func newSnapshotFS(ctx context.Context, b Bucket, src Source, objs []Object) snapshotFS {
@@ -52,6 +56,13 @@ func (s snapshotFS) Open(name string) (fs.File, error) {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
 	}
 	if o, ok := s.files[name]; ok {
+		if s.store != nil {
+			rc, err := s.store.Open(s.ctx, s.hashes[name])
+			if err != nil {
+				return nil, &fs.PathError{Op: "open", Path: name, Err: err}
+			}
+			return &file{info: info{name: path.Base(name), size: o.Size}, rc: rc}, nil
+		}
 		rc, _, err := s.b.Get(s.ctx, o.Key, &o)
 		if err != nil {
 			return nil, &fs.PathError{Op: "open", Path: name, Err: err}

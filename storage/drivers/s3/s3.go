@@ -44,6 +44,7 @@ type options struct {
 	region   string
 	client   *http.Client
 	limits   mounts.Limits
+	views    string
 }
 
 // Option configures the driver.
@@ -62,6 +63,10 @@ func WithHTTPClient(c *http.Client) Option { return func(o *options) { o.client 
 // WithLimits caps a source's objects and bytes, as bucket.WithLimits does.
 func WithLimits(l mounts.Limits) Option { return func(o *options) { o.limits = l } }
 
+// WithViews sets the folder where HostPath builds snapshot views, as bucket.WithViews does. With a
+// store that can link, creating a snapshot mount then downloads all of its files.
+func WithViews(dir string) Option { return func(o *options) { o.views = dir } }
+
 // New returns a driver for mounts.KindS3. store keeps each Resolve's listing, as bucket.New
 // describes. Clients are kept per set of credentials, so an assumed role's session is reused
 // until it expires.
@@ -71,7 +76,7 @@ func New(store blobs.Store, opts ...Option) *bucket.Driver {
 		f(&o)
 	}
 	c := &connector{o: o, clients: map[mounts.AWSCredentials]*s3.Client{}}
-	return bucket.New(mounts.KindS3, "s3", c.connect, store, bucket.WithLimits(o.limits))
+	return bucket.New(mounts.KindS3, "s3", c.connect, store, bucket.WithLimits(o.limits), bucket.WithViews(o.views))
 }
 
 type connector struct {

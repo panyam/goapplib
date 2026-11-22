@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/panyam/goapplib/storage/mounts"
 	"github.com/panyam/goapplib/storage/mounts/folder"
 	"github.com/panyam/goapplib/storage/mounts/mountstest"
 )
@@ -25,10 +26,11 @@ func TestDriverContract(t *testing.T) {
 			write(t, p, data)
 		}
 		return mountstest.DriverFixture{
-			Driver:  folder.New(),
-			Source:  dir,
-			Missing: filepath.Join(dir, "nope"),
-			Change:  write,
+			Driver:    folder.New(),
+			Source:    dir,
+			Missing:   filepath.Join(dir, "nope"),
+			Change:    write,
+			HostPaths: []mounts.Mode{mounts.ModeLive},
 		}
 	})
 }

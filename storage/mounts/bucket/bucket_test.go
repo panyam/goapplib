@@ -14,7 +14,7 @@ import (
 	"github.com/panyam/goapplib/storage/mounts/mountstest"
 )
 
-func newDriver(t *testing.T, versions bool, files map[string]string) (*bucket.Driver, *buckettest.Bucket, *blobs.Dir) {
+func newDriver(t *testing.T, versions bool, files map[string]string, opts ...bucket.Option) (*bucket.Driver, *buckettest.Bucket, *blobs.Dir) {
 	t.Helper()
 	b := buckettest.New(versions)
 	for p, data := range files {
@@ -24,7 +24,7 @@ func newDriver(t *testing.T, versions bool, files map[string]string) (*bucket.Dr
 	if err != nil {
 		t.Fatal(err)
 	}
-	return bucket.New(mounts.KindS3, "s3", b.Connector("designs"), store), b, store
+	return bucket.New(mounts.KindS3, "s3", b.Connector("designs"), store, opts...), b, store
 }
 
 func TestDriverContract(t *testing.T) {
@@ -42,6 +42,21 @@ func TestDriverContract(t *testing.T) {
 					Missing:               "s3://nope/boards",
 					Change:                func(t *testing.T, p, data string) { b.Put("boards/jetson/"+p, []byte(data)) },
 					SnapshotFailsOnChange: !versions,
+				}
+			})
+		})
+		t.Run(name+"/views", func(t *testing.T) {
+			mountstest.RunDriver(t, func(t *testing.T, files map[string]string) mountstest.DriverFixture {
+				views := t.TempDir()
+				d, b, _ := newDriver(t, versions, files, bucket.WithViews(views))
+				return mountstest.DriverFixture{
+					Driver:    d,
+					Source:    "s3://designs/boards/jetson",
+					Missing:   "s3://nope/boards",
+					Change:    func(t *testing.T, p, data string) { b.Put("boards/jetson/"+p, []byte(data)) },
+					HostPaths: []mounts.Mode{mounts.ModeSnapshot},
+					Views:     views,
+					Offline:   func(*testing.T) { b.Offline() },
 				}
 			})
 		})
