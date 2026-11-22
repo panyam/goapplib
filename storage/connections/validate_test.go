@@ -73,3 +73,35 @@ func TestViewer(t *testing.T) {
 		t.Errorf("Viewer = %q, want alice", v)
 	}
 }
+
+func TestValidateSealed(t *testing.T) {
+	for _, c := range []Connection{
+		{ID: "pat", Kind: KindGitHubToken, Scope: ScopeServer, Sealed: true},
+		{ID: "app", Kind: KindGitHubApp, Scope: ScopeServer, AppID: "1", InstallationID: 1, Sealed: true},
+		{ID: "s3", Kind: KindAWS, Scope: ScopeServer, AccessKeyID: "AKIAEXAMPLE", Sealed: true},
+		{ID: "gcs", Kind: KindGCP, Scope: ScopeServer, Sealed: true},
+		{ID: "graph", Kind: KindEntra, Scope: ScopeServer, TenantID: "t", ClientID: "c", EntraAuth: EntraSecret, Sealed: true},
+		{ID: "graph-cert", Kind: KindEntra, Scope: ScopeServer, TenantID: "t", ClientID: "c", EntraAuth: EntraCertificate,
+			CertRef: "file:/run/secrets/cert.pem", Sealed: true},
+	} {
+		if err := c.Validate(); err != nil {
+			t.Errorf("%s: %v", c.ID, err)
+		}
+	}
+	for name, c := range map[string]Connection{
+		"person token":         {ID: "x", Kind: KindGitHubToken, Scope: ScopePerson, Owner: "alice", Sealed: true},
+		"user connection":      {ID: "x", Kind: KindGitHubUser, Scope: ScopePerson, Owner: "alice", Sealed: true},
+		"token with token_ref": {ID: "x", Kind: KindGitHubToken, Scope: ScopeServer, TokenRef: "env:T", Sealed: true},
+		"app with key_ref":     {ID: "x", Kind: KindGitHubApp, Scope: ScopeServer, AppID: "1", InstallationID: 1, KeyRef: "env:K", Sealed: true},
+		"aws without key id":   {ID: "x", Kind: KindAWS, Scope: ScopeServer, Sealed: true},
+		"gcs with key_ref":     {ID: "x", Kind: KindGCP, Scope: ScopeServer, KeyRef: "env:K", Sealed: true},
+		"managed identity":     {ID: "x", Kind: KindEntra, Scope: ScopeServer, EntraAuth: EntraManagedIdentity, Sealed: true},
+		"workload identity": {ID: "x", Kind: KindEntra, Scope: ScopeServer, TenantID: "t", ClientID: "c", EntraAuth: EntraWorkloadIdentity,
+			KeyRef: "file:/var/run/token", Sealed: true},
+		"cert without cert_ref": {ID: "x", Kind: KindEntra, Scope: ScopeServer, TenantID: "t", ClientID: "c", EntraAuth: EntraCertificate, Sealed: true},
+	} {
+		if err := c.Validate(); !errors.Is(err, ErrInvalid) {
+			t.Errorf("%s: Validate = %v, want ErrInvalid", name, err)
+		}
+	}
+}

@@ -34,6 +34,7 @@ func RunAll(t *testing.T, factory Factory) {
 		{"GetMissing", testGetMissing},
 		{"PutThenGet", testPutThenGet},
 		{"PastedRoundTrips", testPastedRoundTrips},
+		{"SealedRoundTrips", testSealedRoundTrips},
 		{"AWSFieldsRoundTrip", testAWSFieldsRoundTrip},
 		{"EntraFieldsRoundTrip", testEntraFieldsRoundTrip},
 		{"PutReplaces", testPutReplaces},
@@ -161,6 +162,29 @@ func testPastedRoundTrips(t *testing.T, s connections.Store) {
 	}
 	if got, err = s.GetConnection(ctx, "bob", "bob-gh"); err != nil || got.Pasted {
 		t.Errorf("after clearing, Pasted = %v (err %v), want false", got.Pasted, err)
+	}
+}
+
+func testSealedRoundTrips(t *testing.T, s connections.Store) {
+	ctx := context.Background()
+	c := Server("sealed")
+	c.TokenRef, c.Sealed = "", true
+	if err := s.PutConnection(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetConnection(ctx, "", "sealed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Sealed || got.TokenRef != "" {
+		t.Errorf("after a round trip, Sealed = %v and TokenRef = %q, want true and empty", got.Sealed, got.TokenRef)
+	}
+	plain := Server("plain")
+	if err := s.PutConnection(ctx, plain); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.GetConnection(ctx, "", "plain"); err != nil || got.Sealed {
+		t.Errorf("a connection put without Sealed reads back Sealed = %v (err %v), want false", got.Sealed, err)
 	}
 }
 

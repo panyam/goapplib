@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/panyam/goapplib/storage/mounts"
-	"github.com/panyam/oneauth/outbound"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -15,43 +14,35 @@ import (
 const GCSReadScope = "https://www.googleapis.com/auth/devstorage.read_only"
 
 // awsCredentials builds a KindAWS connection's credentials, resolving the secret key on each call
-// so a rotated file is picked up.
-func awsCredentials(c Connection) (mounts.Credentials, error) {
+// so a rotated file or a newly sealed secret is picked up.
+func awsCredentials(c Connection, secret func(field, ref string) (string, error)) (mounts.Credentials, error) {
 	out := mounts.AWSCredentials{RoleARN: c.RoleARN, Region: c.Region}
-	if c.KeyRef == "" {
+	if c.KeyRef == "" && !c.Sealed {
 		out.DefaultChain = true
 		return out, nil
 	}
-	ref, err := outbound.ParseSecretRef(c.KeyRef)
+	key, err := secret("key_ref", c.KeyRef)
 	if err != nil {
-		return nil, fmt.Errorf("%w: key_ref", ErrInvalid)
+		return nil, err
 	}
-	secret, err := ref.Resolve()
-	if err != nil {
-		return nil, fmt.Errorf("connections: %s: secret access key: %w", c.ID, err)
-	}
-	out.AccessKeyID, out.SecretAccessKey = c.AccessKeyID, secret
+	out.AccessKeyID, out.SecretAccessKey = c.AccessKeyID, key
 	return out, nil
 }
 
 // gcpTokenSource builds a KindGCP connection's token source, from the service account key at
-// KeyRef or from Application Default Credentials.
-func gcpTokenSource(c Connection) (oauth2.TokenSource, error) {
+// KeyRef or sealed, or from Application Default Credentials.
+func gcpTokenSource(c Connection, secret func(field, ref string) (string, error)) (oauth2.TokenSource, error) {
 	ctx := context.Background()
-	if c.KeyRef == "" {
+	if c.KeyRef == "" && !c.Sealed {
 		creds, err := google.FindDefaultCredentials(ctx, GCSReadScope)
 		if err != nil {
 			return nil, fmt.Errorf("connections: %s: application default credentials: %w", c.ID, err)
 		}
 		return creds.TokenSource, nil
 	}
-	ref, err := outbound.ParseSecretRef(c.KeyRef)
+	key, err := secret("key_ref", c.KeyRef)
 	if err != nil {
-		return nil, fmt.Errorf("%w: key_ref", ErrInvalid)
-	}
-	key, err := ref.Resolve()
-	if err != nil {
-		return nil, fmt.Errorf("connections: %s: service account key: %w", c.ID, err)
+		return nil, err
 	}
 	creds, err := google.CredentialsFromJSONWithType(ctx, []byte(key), google.ServiceAccount, GCSReadScope)
 	if err != nil {

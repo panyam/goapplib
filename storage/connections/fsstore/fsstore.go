@@ -69,12 +69,13 @@ type record struct {
 	ClientID       string    `yaml:"client_id,omitempty"`
 	EntraAuth      string    `yaml:"entra_auth,omitempty"`
 	CertRef        string    `yaml:"cert_ref,omitempty"`
+	Sealed         bool      `yaml:"sealed,omitempty"`
 }
 
 func toRecord(c connections.Connection) record {
 	return record{c.ID, string(c.Kind), string(c.Scope), c.Owner, c.Name, c.BaseURL, c.AppID,
 		c.InstallationID, c.KeyRef, c.TokenRef, c.Pasted, string(c.Status), c.LastError, c.Created.UTC(), c.LastUsed.UTC(), c.AccessKeyID, c.RoleARN, c.Region,
-		c.TenantID, c.ClientID, string(c.EntraAuth), c.CertRef}
+		c.TenantID, c.ClientID, string(c.EntraAuth), c.CertRef, c.Sealed}
 }
 
 func (r record) connection() connections.Connection {
@@ -82,7 +83,7 @@ func (r record) connection() connections.Connection {
 		Owner: r.Owner, Name: r.Name, BaseURL: r.BaseURL, AppID: r.AppID, InstallationID: r.InstallationID,
 		KeyRef: r.KeyRef, TokenRef: r.TokenRef, Pasted: r.Pasted, Status: connections.Status(r.Status), LastError: r.LastError,
 		Created: r.Created, LastUsed: r.LastUsed, AccessKeyID: r.AccessKeyID, RoleARN: r.RoleARN, Region: r.Region,
-		TenantID: r.TenantID, ClientID: r.ClientID, EntraAuth: connections.EntraAuth(r.EntraAuth), CertRef: r.CertRef}
+		TenantID: r.TenantID, ClientID: r.ClientID, EntraAuth: connections.EntraAuth(r.EntraAuth), CertRef: r.CertRef, Sealed: r.Sealed}
 }
 
 // peopleDir holds a folder per person, each with that person's connections.

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/panyam/goapplib/storage/mounts"
+	"github.com/panyam/oneauth/keys"
 	"github.com/panyam/oneauth/outbound"
 	"golang.org/x/oauth2"
 )
@@ -57,6 +58,7 @@ type Service struct {
 	// entries is keyed by connKey, since two owners can each have a connection with one ID.
 	entries map[string]*entry
 	key     string
+	sealer  *keys.Sealer
 	access  map[string]answer
 	// gen counts each viewer's forgets, so a CanRead that began before one doesn't keep its
 	// answer.
@@ -68,6 +70,10 @@ type entry struct {
 	conn  Connection
 	ts    oauth2.TokenSource
 	users *outbound.UserTokens
+
+	// sealedVer is the version of the sealed secret the source was built from, for a Sealed
+	// connection. A save after it rebuilds the source.
+	sealedVer int64
 
 	// failed is set when this process recorded a failure on the record, so the next success
 	// clears it without a store read on every token.
@@ -135,7 +141,20 @@ func (s *Service) Credentials(ctx context.Context, owner, id string) (mounts.Cre
 	if err != nil {
 		return nil, err
 	}
-	e, err := s.entry(c)
+	if c.Sealed && c.Kind != KindAWS {
+		// A save in another process bumps the version, so a source built from an older secret
+		// is dropped here.
+		ver, err := s.sealedVersion(ctx, c)
+		if err != nil {
+			return nil, err
+		}
+		s.mu.Lock()
+		if e, ok := s.entries[connKey(owner, id)]; ok && e.sealedVer != ver {
+			delete(s.entries, connKey(owner, id))
+		}
+		s.mu.Unlock()
+	}
+	e, err := s.entry(ctx, c)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +165,16 @@ func (s *Service) Credentials(ctx context.Context, owner, id string) (mounts.Cre
 		}
 	}
 	if c.Kind == KindAWS {
-		return awsCredentials(c)
+		sealed := ""
+		if c.Sealed {
+			s.mu.Lock()
+			sealed, _, err = s.openSealedLocked(ctx, c)
+			s.mu.Unlock()
+			if err != nil {
+				return nil, err
+			}
+		}
+		return awsCredentials(c, secretFunc(c, sealed))
 	}
 	if c.Status != StatusOK {
 		e.failed.Store(true)
@@ -187,7 +215,7 @@ func (s *Service) saveToken(ctx context.Context, owner, id string, tok *oauth2.T
 	if !c.Kind.holdsUserToken() {
 		return fmt.Errorf("%w: %q is a %s connection, which has no stored user token", ErrInvalid, id, c.Kind)
 	}
-	e, err := s.entry(c)
+	e, err := s.entry(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -214,7 +242,9 @@ func (s *Service) saveToken(ctx context.Context, owner, id string, tok *oauth2.T
 // revoke fails it returns the error and keeps both the token and the record, so the app can
 // retry. When the record's Pasted is set, it deletes the token with no call to GitHub, since the
 // app didn't issue it and can't revoke it. Other kinds have nothing to revoke here: an App
-// installation is removed on GitHub, and a fixed token by whoever issued it. A KindEntraUser token
+// installation is removed on GitHub, and a fixed token by whoever issued it. A Sealed
+// connection's secret is deleted first, and when that fails Disconnect returns the error and keeps
+// the record. Without WithUserTokens that is ErrNotConfigured. A KindEntraUser token
 // is deleted with no call to Entra, since Entra has no endpoint that revokes one token; the person
 // removes the app's consent in their account to end it there. A missing connection
 // is not an error. Once the record is gone, CanRead forgets the owner's kept answers.
@@ -226,8 +256,13 @@ func (s *Service) Disconnect(ctx context.Context, owner, id string) error {
 	if err != nil {
 		return err
 	}
+	if c.Sealed {
+		if err := s.deleteSealed(ctx, c); err != nil {
+			return err
+		}
+	}
 	if c.Kind.holdsUserToken() {
-		e, err := s.entry(c)
+		e, err := s.entry(ctx, c)
 		if err != nil {
 			return err
 		}
@@ -251,22 +286,26 @@ func (s *Service) Disconnect(ctx context.Context, owner, id string) error {
 
 // entry returns c's built token source, building it when there is none or c's sign-in fields
 // changed since it was built.
-func (s *Service) entry(c Connection) (*entry, error) {
+func (s *Service) entry(ctx context.Context, c Connection) (*entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if e, ok := s.entries[connKey(c.Owner, c.ID)]; ok && sameSignIn(e.conn, c) {
 		return e, nil
 	}
 	e := &entry{conn: c}
+	sealed := ""
+	if c.Sealed && c.Kind != KindAWS {
+		var err error
+		if sealed, e.sealedVer, err = s.openSealedLocked(ctx, c); err != nil {
+			return nil, err
+		}
+	}
+	secret := secretFunc(c, sealed)
 	switch c.Kind {
 	case KindGitHubApp:
-		ref, err := outbound.ParseSecretRef(c.KeyRef)
+		pem, err := secret("key_ref", c.KeyRef)
 		if err != nil {
-			return nil, fmt.Errorf("%w: key_ref", ErrInvalid)
-		}
-		pem, err := ref.Resolve()
-		if err != nil {
-			return nil, fmt.Errorf("connections: %s: app key: %w", c.ID, err)
+			return nil, err
 		}
 		app, err := outbound.NewGitHubAppInstallation(c.AppID, c.InstallationID, []byte(pem))
 		if err != nil {
@@ -275,6 +314,10 @@ func (s *Service) entry(c Connection) (*entry, error) {
 		app.BaseURL, app.HTTPClient = c.BaseURL, s.client
 		e.ts = app
 	case KindGitHubToken:
+		if c.Sealed {
+			e.ts = oauth2.StaticTokenSource(&oauth2.Token{AccessToken: sealed, TokenType: "Bearer"})
+			break
+		}
 		st, err := outbound.NewStatic(c.TokenRef)
 		if err != nil {
 			return nil, fmt.Errorf("connections: %s: %w", c.ID, err)
@@ -297,7 +340,7 @@ func (s *Service) entry(c Connection) (*entry, error) {
 			BaseURL: c.BaseURL, HTTPClient: s.client}
 		e.users, e.ts = u, u.TokenSource(c.Owner)
 	case KindGCP:
-		ts, err := gcpTokenSource(c)
+		ts, err := gcpTokenSource(c, secret)
 		if err != nil {
 			return nil, err
 		}
@@ -305,7 +348,7 @@ func (s *Service) entry(c Connection) (*entry, error) {
 	case KindAWS:
 		// Credentials builds an AWS connection's value on each call, from the record.
 	case KindEntra:
-		ts, err := s.entraTokenSource(c)
+		ts, err := s.entraTokenSource(c, secret)
 		if err != nil {
 			return nil, err
 		}
@@ -358,9 +401,10 @@ func (s *Service) masterKey() (string, error) {
 }
 
 // sameSignIn reports whether a and b sign in the same way, ignoring the fields that change with
-// use: Name, Status, LastError and the times.
+// use: Name, Status, LastError and the times. A Sealed connection's secret is checked by version
+// in Credentials.
 func sameSignIn(a, b Connection) bool {
-	return a.Kind == b.Kind && a.Scope == b.Scope && a.Owner == b.Owner && a.BaseURL == b.BaseURL &&
+	return a.Kind == b.Kind && a.Scope == b.Scope && a.Sealed == b.Sealed && a.Owner == b.Owner && a.BaseURL == b.BaseURL &&
 		a.AppID == b.AppID && a.InstallationID == b.InstallationID && a.KeyRef == b.KeyRef && a.TokenRef == b.TokenRef &&
 		a.AccessKeyID == b.AccessKeyID && a.RoleARN == b.RoleARN && a.Region == b.Region &&
 		a.TenantID == b.TenantID && a.ClientID == b.ClientID && a.EntraAuth == b.EntraAuth && a.CertRef == b.CertRef

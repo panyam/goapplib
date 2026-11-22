@@ -31,6 +31,9 @@ func (c Connection) Validate() error {
 	if c.Pasted && c.Kind != KindGitHubUser {
 		return fmt.Errorf("%w: only a GitHub user connection has a pasted token", ErrInvalid)
 	}
+	if c.Sealed && (c.Scope != ScopeServer || c.Kind.holdsUserToken()) {
+		return fmt.Errorf("%w: only a server connection has a sealed secret", ErrInvalid)
+	}
 	switch c.Kind {
 	case KindGitHubApp:
 		if c.Scope != ScopeServer {
@@ -39,14 +42,14 @@ func (c Connection) Validate() error {
 		if c.AppID == "" || c.InstallationID <= 0 {
 			return fmt.Errorf("%w: a GitHub App connection needs an app ID and an installation ID", ErrInvalid)
 		}
-		if err := secretRef("key_ref", c.KeyRef); err != nil {
+		if err := c.secretField("key_ref", c.KeyRef); err != nil {
 			return err
 		}
 		if c.TokenRef != "" {
 			return fmt.Errorf("%w: a GitHub App connection has no token_ref", ErrInvalid)
 		}
 	case KindGitHubToken:
-		if err := secretRef("token_ref", c.TokenRef); err != nil {
+		if err := c.secretField("token_ref", c.TokenRef); err != nil {
 			return err
 		}
 		if c.KeyRef != "" || c.AppID != "" || c.InstallationID != 0 {
@@ -114,7 +117,7 @@ func (c Connection) validateEntra() error {
 		if c.TenantID == "" || c.ClientID == "" {
 			return fmt.Errorf("%w: an Entra %s connection needs a tenant and a client ID", ErrInvalid, c.EntraAuth)
 		}
-		if err := secretRef("key_ref", c.KeyRef); err != nil {
+		if err := c.secretField("key_ref", c.KeyRef); err != nil {
 			return err
 		}
 		if c.EntraAuth == EntraCertificate {
@@ -124,10 +127,16 @@ func (c Connection) validateEntra() error {
 			return fmt.Errorf("%w: an Entra secret connection has no cert_ref", ErrInvalid)
 		}
 	case EntraManagedIdentity:
+		if c.Sealed {
+			return fmt.Errorf("%w: a managed identity has no secret to seal", ErrInvalid)
+		}
 		if c.KeyRef != "" || c.CertRef != "" {
 			return fmt.Errorf("%w: a managed identity holds no key_ref or cert_ref", ErrInvalid)
 		}
 	case EntraWorkloadIdentity:
+		if c.Sealed {
+			return fmt.Errorf("%w: a workload identity reads a file the cluster rotates, so it can't be sealed", ErrInvalid)
+		}
 		if c.TenantID == "" || c.ClientID == "" {
 			return fmt.Errorf("%w: an Entra workload identity connection needs a tenant and a client ID", ErrInvalid)
 		}
@@ -155,8 +164,8 @@ func (c Connection) validateCloud() error {
 	if c.BaseURL != "" || c.AppID != "" || c.InstallationID != 0 || c.TokenRef != "" {
 		return fmt.Errorf("%w: an %s connection has no base URL, app fields or token_ref", ErrInvalid, c.Kind)
 	}
-	if c.KeyRef != "" {
-		if err := secretRef("key_ref", c.KeyRef); err != nil {
+	if c.KeyRef != "" || c.Sealed {
+		if err := c.secretField("key_ref", c.KeyRef); err != nil {
 			return err
 		}
 	}
@@ -166,13 +175,24 @@ func (c Connection) validateCloud() error {
 		}
 		return nil
 	}
-	if (c.AccessKeyID == "") != (c.KeyRef == "") {
+	if (c.AccessKeyID == "") != (c.KeyRef == "" && !c.Sealed) {
 		return fmt.Errorf("%w: an AWS key pair needs both access_key_id and key_ref, or neither for the default chain", ErrInvalid)
 	}
 	if c.RoleARN != "" && !strings.HasPrefix(c.RoleARN, "arn:") {
 		return fmt.Errorf("%w: role_arn must be an ARN", ErrInvalid)
 	}
 	return nil
+}
+
+// secretField checks a field that holds a secret reference, or that stays empty when c is Sealed.
+func (c Connection) secretField(field, ref string) error {
+	if c.Sealed {
+		if ref != "" {
+			return fmt.Errorf("%w: a sealed connection has no %s", ErrInvalid, field)
+		}
+		return nil
+	}
+	return secretRef(field, ref)
 }
 
 func secretRef(field, ref string) error {

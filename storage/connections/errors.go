@@ -20,6 +20,9 @@ var (
 	// KindGitHubUser connection on a service built without WithUserTokens.
 	ErrNotConfigured = errors.New("connections: service not configured for this connection")
 
+	// ErrNoSecret means a Sealed connection has no secret saved yet. SaveServerSecret saves one.
+	ErrNoSecret = errors.New("connections: no sealed secret saved")
+
 	// ErrReconnect means a person's token can't be refreshed, so they have to connect again.
 	// It wraps oneauth's outbound.ErrReconnect.
 	ErrReconnect = errors.New("connections: connect again")

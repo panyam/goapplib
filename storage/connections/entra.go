@@ -96,21 +96,21 @@ func EntraEndpoint(c Connection) oauth2.Endpoint { return entraEndpoint(c) }
 
 // entraTokenSource builds a KindEntra connection's token source. Secrets are read once here, and
 // the service rebuilds the source when the record's sign-in fields change.
-func (s *Service) entraTokenSource(c Connection) (oauth2.TokenSource, error) {
+func (s *Service) entraTokenSource(c Connection, secret func(field, ref string) (string, error)) (oauth2.TokenSource, error) {
 	es := &entraSource{c: c, client: s.client}
 	switch c.EntraAuth {
 	case EntraSecret:
-		secret, err := resolve(c, "key_ref", c.KeyRef)
+		v, err := secret("key_ref", c.KeyRef)
 		if err != nil {
 			return nil, err
 		}
-		es.secret = secret
+		es.secret = v
 	case EntraCertificate:
-		keyPEM, err := resolve(c, "key_ref", c.KeyRef)
+		keyPEM, err := secret("key_ref", c.KeyRef)
 		if err != nil {
 			return nil, err
 		}
-		certPEM, err := resolve(c, "cert_ref", c.CertRef)
+		certPEM, err := secret("cert_ref", c.CertRef)
 		if err != nil {
 			return nil, err
 		}
