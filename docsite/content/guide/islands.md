@@ -139,7 +139,7 @@ export default function history(el: HTMLElement, island: IslandSpec, ctx: { edit
 }
 ```
 
-In the demo, the history island loads `visible`, below a spacer. Its check makes two picks before it mounts, scrolls to it, and expects to see them:
+In the demo, the history island loads `visible`, below a spacer in a short scroll box. Its check makes two picks before it mounts, scrolls to it, and expects to see them:
 
 {{ demo "islands-presenter" 300 }}
 
