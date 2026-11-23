@@ -10,7 +10,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3
 	github.com/panyam/goutils v0.1.14
-	github.com/panyam/oneauth v0.3.20
+	github.com/panyam/oneauth v0.3.21
 	github.com/panyam/protoc-gen-dal v0.0.10
 	github.com/panyam/templar v0.1.0
 	golang.org/x/oauth2 v0.36.0
