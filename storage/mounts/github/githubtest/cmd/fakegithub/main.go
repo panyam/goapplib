@@ -14,6 +14,11 @@
 // githubtest.WithListener and WithBaseURL do. --hook-ca names a CA file the fake trusts when it
 // delivers a webhook over TLS.
 //
+// --tls-cert and --tls-key name a PEM certificate and its key. With both, the fake serves HTTPS on
+// --listen, and the base URL defaults to https. The certificate has to name the address the app
+// dials. An app outside loopback needs this, since oneauth's SetEnterpriseURL refuses a plain-HTTP
+// Enterprise host there. The control address on --addr stays plain HTTP.
+//
 // It is a test tool. Nothing in it is safe to expose beyond a test network.
 package main
 
@@ -62,6 +67,8 @@ func run(ctx context.Context, args []string, stderr io.Writer, ready func(contro
 	listen := fs.String("listen", "", "where the fake listens; empty means a fresh 127.0.0.1 port")
 	baseURL := fs.String("base-url", "", "the origin of every URL the fake hands out; empty means its listen address")
 	hookCA := fs.String("hook-ca", "", "a CA file the fake trusts when it delivers a webhook over TLS")
+	certFile := fs.String("tls-cert", "", "a PEM certificate the fake serves HTTPS with, naming the address the app dials")
+	keyFile := fs.String("tls-key", "", "the PEM key for --tls-cert")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -83,6 +90,16 @@ func run(ctx context.Context, args []string, stderr io.Writer, ready func(contro
 	}
 	if *baseURL != "" {
 		opts = append(opts, githubtest.WithBaseURL(*baseURL))
+	}
+	if (*certFile == "") != (*keyFile == "") {
+		return errors.New("fakegithub: HTTPS needs both --tls-cert and --tls-key")
+	}
+	if *certFile != "" {
+		cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+		if err != nil {
+			return fmt.Errorf("fakegithub: %w", err)
+		}
+		opts = append(opts, githubtest.WithTLS(&tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}))
 	}
 	if *hookCA != "" {
 		pem, err := os.ReadFile(*hookCA) // #nosec G304 -- the CA file the caller names

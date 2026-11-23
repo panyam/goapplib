@@ -38,6 +38,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -159,6 +160,8 @@ type options struct {
 	listener   net.Listener
 	baseURL    string
 	hookClient *http.Client
+	tls        *tls.Config
+	useTLS     bool
 }
 
 // WithListener serves the fake on l instead of a fresh 127.0.0.1 port. A test whose app runs in a
@@ -172,6 +175,12 @@ func WithListener(l net.Listener) Option { return func(o *options) { o.listener 
 // a host and an optional port. New fails the test if u has a path, query or fragment. The test
 // process itself may not resolve u, so it reaches the fake through ListenURL.
 func WithBaseURL(u string) Option { return func(o *options) { o.baseURL = u } }
+
+// WithTLS serves the fake over HTTPS, so URL and ListenURL start with "https://". cfg carries the
+// certificate, such as one naming the address an app in a container dials. A nil cfg, or one with
+// no certificates, gets httptest's own certificate, which Client trusts. An app that refuses a
+// plain-HTTP GitHub Enterprise host off loopback, as oneauth's SetEnterpriseURL does, needs this.
+func WithTLS(cfg *tls.Config) Option { return func(o *options) { o.tls, o.useTLS = cfg, true } }
 
 // WithHookClient sets the client that Repo.Push delivers webhooks with, such as one that trusts a
 // test CA for a hook served over TLS. The default is http.DefaultClient.
@@ -201,7 +210,12 @@ func New(t testing.TB, opts ...Option) *Server {
 		s.Server.Listener.Close()
 		s.Server.Listener = o.listener
 	}
-	s.Server.Start()
+	if o.useTLS {
+		s.Server.TLS = o.tls
+		s.Server.StartTLS()
+	} else {
+		s.Server.Start()
+	}
 	s.listenURL = s.Server.URL
 	if base != "" {
 		s.Server.URL = base
@@ -210,7 +224,8 @@ func New(t testing.TB, opts ...Option) *Server {
 	return s
 }
 
-// ListenURL is the address the fake listens on, as "http://host:port". It equals URL unless
+// ListenURL is the address the fake listens on, as "http://host:port", or "https://host:port"
+// with WithTLS. It equals URL unless
 // WithBaseURL set another origin.
 func (s *Server) ListenURL() string { return s.listenURL }
 
