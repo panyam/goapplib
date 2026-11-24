@@ -116,6 +116,27 @@ id, err := svc.CanRead(connections.WithViewer(ctx, subject), "github://acme/boar
 
 The read check is a function rather than code in this package. That keeps every GitHub API call in the GitHub driver, and this package doesn't import mounts.
 
+### Granting a source to everyone the server signs in
+
+Imagine a team's server that reads its boards from a private repo through a server connection. People sign in with local accounts or through Entra, so none of them has a GitHub connection, and `CanRead` tells each of them no. The operator already chose who may sign in, so the server's own access can stand for theirs (agni#1889). A grant says so:
+
+```go
+svc := connections.NewService(store,
+	connections.WithReadCheckFor("github", githubDriver.CanRead, connections.KindGitHubUser),
+	connections.WithSourceGrants(
+		connections.SourceGrant{Source: "github://acme/boards", Viewers: []string{"local:*", "oidc:alice"}}))
+id, err := svc.CanRead(connections.WithViewer(ctx, "local:carol"), "github://acme/boards")
+// id == connections.GrantedBySource, err == nil
+```
+
+- `CanRead` checks the grants after it checks for a viewer, and before it looks for a read check or lists connections. A matching grant returns `GrantedBySource` with no error and no call to GitHub. It works on a service with no read check for the scheme.
+- `GrantedBySource` is `"grant:"`. No connection can have that ID, since `Validate` refuses the `:` and every store calls `Validate`. A caller compares the ID with it to tell a grant from a connection.
+- A grant's `Source` matches the source byte for byte. `CanRead` doesn't fold case, trim a trailing `/` or drop a `.git`. A source spelled another way goes on to the viewer's connections, so a mismatch hides a board and never shows one.
+- Each `Viewers` entry is `*`, a prefix with one final `*`, or one exact viewer. `*` matches any viewer. `local:*` matches `local:carol` and any other viewer that starts with `local:` and has at least one more character. Any other entry matches only itself.
+- A request with no viewer still gets `ErrNotOwner`, whatever the grants say.
+- `SourceGrant.Validate` refuses a source that isn't `scheme://rest` or holds a `*`, a grant with no viewers, and a pattern that is empty or has a `*` before its end, such as `lo*cal:*` or `**`. Each failure wraps `ErrInvalidGrant`. `WithSourceGrants` can't return an error, so an app calls `Validate` on each grant as it loads its config. A pattern that fails it matches nobody.
+- The service copies the grants when it is built, and they don't change after that. So `CanRead` doesn't keep grant answers, and the access TTL and `ForgetAccess` apply only to answers from connections.
+
 ## Connecting a person
 
 oneauth's GitHub provider asks for `read:user` and `user:email` at login. To read and write a person's private repos, the app lists `repo` in the provider's `AllowedExtraScopes`, and sends the person to the login path with `?scope=repo`. The provider's `HandleUserFunc` gets the token. The app puts a `github-user` record, then saves the token with `Service.SaveUserToken`, which also sets a `reconnect` status back to `ok`.

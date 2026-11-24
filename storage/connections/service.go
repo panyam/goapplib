@@ -54,6 +54,9 @@ type Service struct {
 	check     ReadCheck
 	checks    map[string]readCheck // by source scheme
 	accessTTL time.Duration
+	// grants holds each source's viewer patterns from WithSourceGrants. It never changes after
+	// NewService, so CanRead reads it without the lock.
+	grants map[string][]string
 
 	mu sync.Mutex
 	// entries is keyed by connKey, since two owners can each have a connection with one ID.
