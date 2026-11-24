@@ -149,7 +149,12 @@ func (d *Driver) listingFile(m mounts.Mount) (string, bool) {
 	if !d.viewable() || mounts.ValidName(m.Name) != nil || !commitSHA.MatchString(m.Version) {
 		return "", false
 	}
-	return filepath.Join(d.views, m.Name, m.Version+".tree.json"), true
+	root := filepath.Clean(d.views)
+	file := filepath.Clean(filepath.Join(root, m.Name, m.Version+".tree.json"))
+	if !strings.HasPrefix(file, root+string(filepath.Separator)) {
+		return "", false
+	}
+	return file, true
 }
 
 // viewable reports whether the driver builds views: a views folder and a blob store that can link.
