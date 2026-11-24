@@ -137,6 +137,21 @@ id, err := svc.CanRead(connections.WithViewer(ctx, "local:carol"), "github://acm
 - `SourceGrant.Validate` refuses a source that isn't `scheme://rest` or holds a `*`, a grant with no viewers, and a pattern that is empty or has a `*` before its end, such as `lo*cal:*` or `**`. Each failure wraps `ErrInvalidGrant`. `WithSourceGrants` can't return an error, so an app calls `Validate` on each grant as it loads its config. A pattern that fails it matches nobody.
 - The service copies the grants when it is built, and they don't change after that. So `CanRead` doesn't keep grant answers, and the access TTL and `ForgetAccess` apply only to answers from connections.
 
+### Granting a source to a group
+
+Say only one Entra group should see the boards. Listing each `oidc:<sub>` by hand doesn't follow the group, and `oidc:*` admits everyone the sign-in lets in. The app knows the groups from the ID token at sign-in, so it hands them to `CanRead` as claims beside the viewer (agni#1896):
+
+```go
+ctx = connections.WithViewer(ctx, "oidc:ada")
+ctx = connections.WithViewerClaims(ctx, "oidc:group:hw", "oidc:group:sales")
+id, err := svc.CanRead(ctx, "github://acme/boards") // a grant of "oidc:group:hw" admits ada
+```
+
+- A pattern matches the viewer's subject or any one claim, by the same rules. A prefix such as `oidc:group:*` matches a claim too.
+- Claims count only beside a viewer. A request with claims and no viewer still gets `ErrNotOwner`.
+- The app spells each claim so that no subject can equal it. A claim never picks a connection or a token, and `CanRead` keeps no answer for one, since a grant answer is never kept.
+- `WithViewerClaims` copies the slice, and `ViewerClaims` reads it back.
+
 ## Connecting a person
 
 oneauth's GitHub provider asks for `read:user` and `user:email` at login. To read and write a person's private repos, the app lists `repo` in the provider's `AllowedExtraScopes`, and sends the person to the login path with `?scope=repo`. The provider's `HandleUserFunc` gets the token. The app puts a `github-user` record, then saves the token with `Service.SaveUserToken`, which also sets a `reconnect` status back to `ok`.

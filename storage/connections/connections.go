@@ -10,6 +10,7 @@ package connections
 
 import (
 	"context"
+	"slices"
 	"time"
 )
 
@@ -240,4 +241,21 @@ func WithViewer(ctx context.Context, subject string) context.Context {
 func Viewer(ctx context.Context) string {
 	s, _ := ctx.Value(viewerKey{}).(string)
 	return s
+}
+
+type viewerClaimsKey struct{}
+
+// WithViewerClaims returns ctx carrying claims about the viewer that the app vouches for, such as
+// "oidc:group:hw" for a group the identity provider named at sign-in (agni#1896). A SourceGrant
+// pattern matches the viewer's subject or any one of these, so a grant can follow a group rather
+// than a list of people. The app spells each claim so that no subject can equal it. Claims count
+// only beside a viewer, and they never pick a connection or a token.
+func WithViewerClaims(ctx context.Context, claims ...string) context.Context {
+	return context.WithValue(ctx, viewerClaimsKey{}, slices.Clone(claims))
+}
+
+// ViewerClaims returns the claims WithViewerClaims set, or nil.
+func ViewerClaims(ctx context.Context) []string {
+	c, _ := ctx.Value(viewerClaimsKey{}).([]string)
+	return c
 }

@@ -90,7 +90,8 @@ func (a answer) result() (string, error) {
 // from a private repo, as agni#1728 does.
 //
 // A request with no viewer returns ErrNotOwner. Next, a SourceGrant on source that matches the
-// viewer returns GrantedBySource with a nil error (WithSourceGrants). A grant answer asks no service
+// viewer or one of its claims (WithViewerClaims) returns GrantedBySource with a nil error
+// (WithSourceGrants). A grant answer asks no service
 // and isn't kept, since the grants never change.
 //
 // Otherwise it picks the read check by the source's scheme (WithReadCheckFor), or the WithReadCheck one. It
@@ -108,7 +109,7 @@ func (s *Service) CanRead(ctx context.Context, source string) (string, error) {
 	if viewer == "" {
 		return "", fmt.Errorf("%w: CanRead needs a viewer", ErrNotOwner)
 	}
-	if s.granted(viewer, source) {
+	if s.granted(viewer, ViewerClaims(ctx), source) {
 		return GrantedBySource, nil
 	}
 	rc, ok := s.readCheckFor(source)
