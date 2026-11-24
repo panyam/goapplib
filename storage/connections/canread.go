@@ -89,9 +89,13 @@ func (a answer) result() (string, error) {
 // "github://acme/board". An app calls it to decide whether to show a person something it linked
 // from a private repo, as agni#1728 does.
 //
-// It picks the read check by the source's scheme (WithReadCheckFor), or the WithReadCheck one. It
+// A request with no viewer returns ErrNotOwner. Next, a SourceGrant on source that matches the
+// viewer returns GrantedBySource with a nil error (WithSourceGrants). A grant answer asks no service
+// and isn't kept, since the grants never change.
+//
+// Otherwise it picks the read check by the source's scheme (WithReadCheckFor), or the WithReadCheck one. It
 // tries the viewer's own connections of that check's kinds in ID order, each with its credentials,
-// and returns the first one the read check says can read. A request with no viewer returns ErrNotOwner. When none
+// and returns the first one the read check says can read. When none
 // can, or the viewer has no connection, it returns ErrNoAccess. When a check failed and none
 // succeeded, it returns that failure instead of ErrNoAccess, since the answer isn't known.
 //
@@ -103,6 +107,9 @@ func (s *Service) CanRead(ctx context.Context, source string) (string, error) {
 	viewer := Viewer(ctx)
 	if viewer == "" {
 		return "", fmt.Errorf("%w: CanRead needs a viewer", ErrNotOwner)
+	}
+	if s.granted(viewer, source) {
+		return GrantedBySource, nil
 	}
 	rc, ok := s.readCheckFor(source)
 	if !ok {
