@@ -91,12 +91,17 @@ type Localizer interface {
 }
 
 // FetchingLocalizer is a Localizer whose HostPath may download a mount's files first, such as a
-// lazy GitHub snapshot (agni issue 1877), so it takes the mount's credentials. The
-// registry calls HostPathWith instead of HostPath on a driver that has it. A call for a folder
-// downloads every file under it, within the driver's Limits, and a call for a path that names
-// nothing returns where it would be, as HostPath does.
+// lazy GitHub snapshot (agni issue 1877), so it takes the mount's credentials. The registry calls
+// HostPathWith instead of HostPath for a mount Fetches reports, and looks up credentials only
+// then. A mount served from what it already holds, such as an eager snapshot, goes to HostPath
+// with no credentials, so a registry that has none, such as a read-only reader's, still serves
+// it. A call for a folder downloads every file under it, within the driver's Limits, and a call
+// for a path that names nothing returns where it would be, as HostPath does.
 type FetchingLocalizer interface {
 	Localizer
+
+	// Fetches reports whether HostPath on m may download, and so needs m's credentials.
+	Fetches(m Mount) bool
 
 	HostPathWith(ctx context.Context, m Mount, creds Credentials, p string) (string, error)
 }

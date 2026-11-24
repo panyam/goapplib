@@ -44,6 +44,10 @@ func WithLazyPastLimits() Option { return func(d *Driver) { d.lazyPast = true } 
 // lazy reports whether m is a snapshot whose files are fetched on first use.
 func lazy(m mounts.Mount) bool { return m.Mode == mounts.ModeSnapshot && m.Manifest == "" }
 
+// Fetches reports whether HostPath on m may download: a lazy snapshot. An eager snapshot is served
+// from its manifest and the blob store, and a live mount has no host path.
+func (d *Driver) Fetches(m mounts.Mount) bool { return lazy(m) }
+
 // prepareLazy lists the tree at m.Version from GitHub with the mount's credentials, even when a
 // listing is kept on disk, so a new mount is always checked against the repo. With
 // WithLazySnapshots it keeps the listing and reports the mount lazy. With WithLazyPastLimits it does
