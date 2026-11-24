@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/panyam/goapplib/storage/blobs"
@@ -18,10 +20,15 @@ import (
 
 // WithLazySnapshots makes Prepare pin a snapshot's commit and list its tree without downloading
 // any file (agni issue 1877). The mount gets no Manifest. Open and HostPath then fetch a file the
-// first time something reads it, through FetchAt, so a server keeps only the files it serves. The
-// Limits apply to each read rather than to the whole commit: one file for Open, and the files
-// under a folder for HostPath. A repo whose boards together pass the cap can then be mounted, as
-// long as no one folder that is read passes it.
+// first time something reads it, so a server keeps only the files it serves. The Limits apply to
+// each read rather than to the whole commit: one file for Open, and the files under a folder for
+// HostPath. A repo whose boards together pass the cap can then be mounted, as long as no one folder
+// that is read passes it.
+//
+// With WithViews and a linking blob store, the view is the cache. The listing is kept at
+// <views>/<mount>/<commit>.tree.json, and each fetched file is linked into the view, so a restart
+// lists the mount and serves what it fetched without asking GitHub, and a blob sweep, which names no
+// file of a lazy mount, leaves the view's links whole.
 //
 // A snapshot an eager driver made keeps its Manifest and is served from it as before, so a server
 // can turn this on over mounts it already has.
@@ -30,44 +37,57 @@ func WithLazySnapshots() Option { return func(d *Driver) { d.lazy = true } }
 // lazy reports whether m is a snapshot whose files are fetched on first use.
 func lazy(m mounts.Mount) bool { return m.Mode == mounts.ModeSnapshot && m.Manifest == "" }
 
-// prepareLazy checks that the tree at m.Version can be listed whole, which also fills ListAt's
-// cache for the first reads.
+// prepareLazy lists the tree at m.Version from GitHub with the mount's credentials, even when a
+// listing is kept on disk, so a new mount is always checked against the repo, and keeps it.
 func (d *Driver) prepareLazy(ctx context.Context, m mounts.Mount, creds mounts.Credentials) error {
 	if !commitSHA.MatchString(m.Version) {
 		return fmt.Errorf("%w: snapshot version %q isn't a commit sha", mounts.ErrInvalidArgument, m.Version)
 	}
-	_, err := d.treeAt(ctx, m, creds, m.Version)
-	return err
+	all, err := d.treeAt(ctx, m, creds, m.Version)
+	if err != nil {
+		return err
+	}
+	if file, ok := d.listingFile(m); ok {
+		return writeListing(file, all)
+	}
+	return nil
 }
 
 // lazyTree is a lazy snapshot's files and folders, from the tree listing alone.
 type lazyTree struct {
+	all   []mounts.File // sorted by path, as treeAt returns them
 	files map[string]mounts.File
 	dirs  map[string][]fs.DirEntry
 }
 
-// lazyTree builds the tree once per listing and keeps it beside treeAt's, since the registry's FS
-// opens the mount again for every file it reads.
+// lazyTree returns m's tree, built once per mount and commit and kept, since the registry's FS opens
+// the mount again for every file it reads. It reads the kept listing before asking GitHub.
 func (d *Driver) lazyTree(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (*lazyTree, error) {
-	rp, err := repo(m.Source)
-	if err != nil {
-		return nil, err
+	if !commitSHA.MatchString(m.Version) {
+		return nil, fmt.Errorf("%w: snapshot version %q isn't a commit sha", mounts.ErrInvalidArgument, m.Version)
 	}
-	all, err := d.treeAt(ctx, m, creds, m.Version)
-	if err != nil {
-		return nil, err
-	}
-	key, err := treeKey(rp, m.Version, creds)
-	if err != nil {
-		return nil, err
-	}
+	key := m.Name + "@" + m.Version
 	d.mu.Lock()
 	t := d.lazyTrees[key]
 	d.mu.Unlock()
 	if t != nil {
 		return t, nil
 	}
-	t = buildLazyTree(all)
+	file, keep := d.listingFile(m)
+	var all []mounts.File
+	if b, err := os.ReadFile(file); keep && err == nil && json.Unmarshal(b, &all) == nil {
+		t = buildLazyTree(all)
+	} else {
+		if all, err = d.treeAt(ctx, m, creds, m.Version); err != nil {
+			return nil, err
+		}
+		if keep {
+			if err := writeListing(file, all); err != nil {
+				return nil, err
+			}
+		}
+		t = buildLazyTree(all)
+	}
 	d.mu.Lock()
 	if d.lazyTrees == nil || len(d.lazyTrees) >= treeCacheSize {
 		d.lazyTrees = map[string]*lazyTree{}
@@ -78,7 +98,7 @@ func (d *Driver) lazyTree(ctx context.Context, m mounts.Mount, creds mounts.Cred
 }
 
 func buildLazyTree(all []mounts.File) *lazyTree {
-	t := &lazyTree{files: make(map[string]mounts.File, len(all)), dirs: map[string][]fs.DirEntry{".": nil}}
+	t := &lazyTree{all: all, files: make(map[string]mounts.File, len(all)), dirs: map[string][]fs.DirEntry{".": nil}}
 	for _, f := range all {
 		t.files[f.Path] = f
 		child := f.Path
@@ -96,8 +116,61 @@ func buildLazyTree(all []mounts.File) *lazyTree {
 	return t
 }
 
+// under returns the files at or under p, an empty p being the whole tree.
+func (t *lazyTree) under(p string) []mounts.File {
+	if p == "" {
+		return t.all
+	}
+	var out []mounts.File
+	for _, f := range t.all {
+		if f.Path == p || strings.HasPrefix(f.Path, p+"/") {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// listingFile is where m's listing is kept, beside its view. ok is false when the driver keeps no
+// views, or m's name can't name a folder.
+func (d *Driver) listingFile(m mounts.Mount) (string, bool) {
+	if !d.viewable() || mounts.ValidName(m.Name) != nil || !commitSHA.MatchString(m.Version) {
+		return "", false
+	}
+	return filepath.Join(d.views, m.Name, m.Version+".tree.json"), true
+}
+
+// viewable reports whether the driver builds views: a views folder and a blob store that can link.
+func (d *Driver) viewable() bool {
+	_, ok := d.blobs.(blobs.Linker)
+	return d.views != "" && ok
+}
+
+// writeListing writes all to file through a temp file and a rename.
+func writeListing(file string, all []mounts.File) error {
+	b, err := json.Marshal(all)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(file), 0o750); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(file), ".tree-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(b); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), file)
+}
+
 // lazyFS serves a lazy snapshot. Listing a folder reads only the tree. Opening a file fetches it
-// into the blob store first, unless the store already holds it.
+// first: into the view when the driver keeps views, or into the blob store when it doesn't.
 type lazyFS struct {
 	ctx   context.Context
 	d     *Driver
@@ -111,6 +184,17 @@ func (l lazyFS) Open(name string) (fs.File, error) {
 		return nil, pathErr("open", name, fs.ErrInvalid)
 	}
 	if f, ok := l.t.files[name]; ok {
+		if l.d.viewable() {
+			p, err := l.d.HostPathWith(l.ctx, l.m, l.creds, name)
+			if err != nil {
+				return nil, pathErr("open", name, err)
+			}
+			fh, err := os.Open(p)
+			if err != nil {
+				return nil, err
+			}
+			return &file{info: info{name: path.Base(name), size: f.Size}, rc: fh}, nil
+		}
 		h, _, err := l.d.FetchAt(l.ctx, l.m, l.creds, l.m.Version, f)
 		if err != nil {
 			return nil, pathErr("open", name, err)
@@ -128,11 +212,11 @@ func (l lazyFS) Open(name string) (fs.File, error) {
 }
 
 // HostPathWith returns where p of m is on disk, as HostPath does. For a lazy snapshot it first
-// fetches the file p names, or every file under the folder p names, into the view and the blob
-// store. The files under p must fit the driver's Limits, or it returns ErrTooLarge and fetches
-// nothing, so a call for the root of a big repo fails while a call for one board in it works. A
-// file already in the view is not fetched again. A snapshot with a Manifest, and a live mount, are
-// handled as HostPath handles them.
+// fetches the file p names, or every file under the folder p names, into the view. The files under
+// p must fit the driver's Limits, or it returns ErrTooLarge and fetches nothing, so a call for the
+// root of a big repo fails while a call for one board in it works. A file already in the view is
+// not fetched again. A snapshot with a Manifest, and a live mount, are handled as HostPath handles
+// them.
 func (d *Driver) HostPathWith(ctx context.Context, m mounts.Mount, creds mounts.Credentials, p string) (string, error) {
 	if !lazy(m) {
 		return d.HostPath(m, p)
@@ -141,18 +225,18 @@ func (d *Driver) HostPathWith(ctx context.Context, m mounts.Mount, creds mounts.
 	if err != nil {
 		return "", err
 	}
-	linker, ok := d.blobs.(blobs.Linker)
-	if d.views == "" || !ok {
+	if !d.viewable() {
 		return "", fmt.Errorf("%w: GitHub mount %q", mounts.ErrNotLocal, m.Name)
 	}
 	if err := mounts.ValidName(m.Name); err != nil {
 		return "", err
 	}
-	if !commitSHA.MatchString(m.Version) {
-		return "", fmt.Errorf("%w: snapshot version %q isn't a commit sha", mounts.ErrInvalidArgument, m.Version)
-	}
-	files, err := d.ListAt(ctx, m, creds, m.Version, clean)
+	t, err := d.lazyTree(ctx, m, creds)
 	if err != nil {
+		return "", err
+	}
+	files := t.under(clean)
+	if err := d.within(files, clean, m.Version); err != nil {
 		return "", err
 	}
 	view := filepath.Join(d.views, m.Name, m.Version)
@@ -161,6 +245,7 @@ func (d *Driver) HostPathWith(ctx context.Context, m mounts.Mount, creds mounts.
 	if err := os.MkdirAll(view, 0o750); err != nil {
 		return "", err
 	}
+	linker := d.blobs.(blobs.Linker)
 	for _, f := range files {
 		to := filepath.Join(view, filepath.FromSlash(f.Path))
 		if _, err := os.Lstat(to); err == nil {
@@ -177,6 +262,18 @@ func (d *Driver) HostPathWith(ctx context.Context, m mounts.Mount, creds mounts.
 		}
 	}
 	return filepath.Join(view, filepath.FromSlash(clean)), nil
+}
+
+// within checks files, the files under one path at commit, against the driver's Limits.
+func (d *Driver) within(files []mounts.File, under, commit string) error {
+	var total int64
+	for _, f := range files {
+		total += f.Size
+	}
+	if len(files) > d.limits.MaxFiles || total > d.limits.MaxBytes {
+		return fmt.Errorf("%w: %s holds %d files and %d bytes at %s, over the cap of %d files and %d bytes", mounts.ErrTooLarge, shown(under), len(files), total, commit, d.limits.MaxFiles, d.limits.MaxBytes)
+	}
+	return nil
 }
 
 // lockView serializes the fetches into one view, so two reads of one board download it once,

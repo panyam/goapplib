@@ -56,7 +56,7 @@ type Driver struct {
 	// lazy is WithLazySnapshots. viewLocks holds one lock per lazy view (lockView).
 	lazy      bool
 	viewLocks map[string]*sync.Mutex
-	lazyTrees map[string]*lazyTree // by treeKey
+	lazyTrees map[string]*lazyTree // by mount name and commit
 }
 
 // Option configures a Driver.

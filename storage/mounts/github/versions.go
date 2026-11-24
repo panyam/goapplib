@@ -64,17 +64,9 @@ func (d *Driver) ListAt(ctx context.Context, m mounts.Mount, creds mounts.Creden
 	if err != nil {
 		return nil, err
 	}
-	var out []mounts.File
-	var total int64
-	for _, f := range all {
-		if under != "" && f.Path != under && !strings.HasPrefix(f.Path, under+"/") {
-			continue
-		}
-		out = append(out, f)
-		total += f.Size
-	}
-	if len(out) > d.limits.MaxFiles || total > d.limits.MaxBytes {
-		return nil, fmt.Errorf("%w: %s holds %d files and %d bytes at %s", mounts.ErrTooLarge, shown(under), len(out), total, commit)
+	out := (&lazyTree{all: all}).under(under)
+	if err := d.within(out, under, commit); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

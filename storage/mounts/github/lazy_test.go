@@ -168,7 +168,8 @@ func TestLazySnapshotServesAnLFSObject(t *testing.T) {
 }
 
 // TestLazySnapshotReadsAfterASweep sweeps every blob with only the registry's referrer, which
-// names no file of a lazy snapshot, and checks the files are fetched again rather than lost.
+// names no file of a lazy snapshot. The view's link keeps the file, so it reads with no download.
+// With the view gone too, the file is fetched again rather than lost.
 func TestLazySnapshotReadsAfterASweep(t *testing.T) {
 	e := newEnv(t, false, github.WithLazySnapshots(), github.WithRawURL(""))
 	store, err := fsstore.New(t.TempDir())
@@ -199,8 +200,15 @@ func TestLazySnapshotReadsAfterASweep(t *testing.T) {
 	}
 	seen := len(e.gh.Requests())
 	read()
+	if got := e.downloads(&seen); len(got) != 0 {
+		t.Errorf("after the sweep the read downloaded %v, want nothing, since the view keeps the file", got)
+	}
+	if err := os.RemoveAll(filepath.Join(e.views, "jetson")); err != nil {
+		t.Fatal(err)
+	}
+	read()
 	if got := e.downloads(&seen); !slices.Equal(got, []string{e.blobID(t, "board/main.kicad_sch")}) {
-		t.Errorf("after the sweep the read downloaded %v, want the file again", got)
+		t.Errorf("with the view gone too, the read downloaded %v, want the file again", got)
 	}
 }
 
@@ -211,4 +219,28 @@ func (e *env) blobID(t *testing.T, p string) string {
 		t.Fatalf("ListAt(%s) = %v, %v", p, files, err)
 	}
 	return files[0].ID
+}
+
+// TestALazySnapshotServesWhatItFetchedAfterARestart restarts the driver with GitHub unreachable.
+// The kept listing lists the mount, and the view serves the files read before the restart.
+func TestALazySnapshotServesWhatItFetchedAfterARestart(t *testing.T) {
+	e := newEnv(t, false, github.WithLazySnapshots(), github.WithRawURL(""))
+	m := e.create(t, mounts.Mount{Name: "jetson", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeSnapshot}, nil)
+	if _, err := e.drv.HostPath(m, "board"); err != nil {
+		t.Fatal(err)
+	}
+	again := github.New(e.blobs, github.WithBaseURL("http://127.0.0.1:1"), github.WithViews(e.views), github.WithLazySnapshots())
+	fsys, err := again.Open(e.ctx, m, nil)
+	if err != nil {
+		t.Fatalf("Open after a restart with GitHub down = %v", err)
+	}
+	if ents, err := fs.ReadDir(fsys, "."); err != nil || len(ents) != 3 {
+		t.Errorf("the root after a restart lists %v, %v; want README.md, board and docs", ents, err)
+	}
+	if b, err := fs.ReadFile(fsys, "board/power.kicad_sch"); err != nil || string(b) != boardFiles["board/power.kicad_sch"] {
+		t.Errorf("a file read before the restart = %q, %v", b, err)
+	}
+	if _, err := fs.ReadFile(fsys, "README.md"); !errors.Is(err, mounts.ErrUnavailable) {
+		t.Errorf("a file never read, with GitHub down = %v; want ErrUnavailable", err)
+	}
 }
