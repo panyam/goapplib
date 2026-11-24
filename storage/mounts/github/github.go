@@ -33,7 +33,7 @@ import (
 const DefaultBaseURL = "https://api.github.com"
 
 // Driver serves mounts.KindGitHub mounts. It implements mounts.Preparer, mounts.Writer,
-// mounts.Localizer and mounts.VersionReader. Share one Driver per process, since it caches manifests and builds each
+// mounts.Localizer, mounts.FetchingLocalizer and mounts.VersionReader. Share one Driver per process, since it caches manifests and builds each
 // snapshot's folder view once.
 type Driver struct {
 	blobs  blobs.Store
@@ -52,6 +52,11 @@ type Driver struct {
 	// pointer, so ListAt reads each small blob in an LFS repo once.
 	lfsSizes map[string]int64
 	viewMu   sync.Mutex
+
+	// lazy is WithLazySnapshots. viewLocks holds one lock per lazy view (lockView).
+	lazy      bool
+	viewLocks map[string]*sync.Mutex
+	lazyTrees map[string]*lazyTree // by treeKey
 }
 
 // Option configures a Driver.
@@ -149,7 +154,8 @@ func (d *Driver) defaultBranch(ctx context.Context, rp string, creds mounts.Cred
 }
 
 // Prepare finishes a new mount after Resolve. For a snapshot it downloads m.Version's tarball
-// into the blob store and sets m.Manifest. For a live mount it sets m.Ref to the default branch
+// into the blob store and sets m.Manifest, or with WithLazySnapshots lists the tree at m.Version
+// and leaves m.Manifest empty. For a live mount it sets m.Ref to the default branch
 // when it is empty, so later writes name the branch. A live mount's Ref must be a branch, since
 // GitHub commits a write onto a branch.
 func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (mounts.Mount, error) {
@@ -161,6 +167,13 @@ func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Crede
 	case mounts.ModeSnapshot:
 		if d.blobs == nil {
 			return m, fmt.Errorf("%w: this GitHub driver has no blob store for snapshots", mounts.ErrInvalidArgument)
+		}
+		if d.lazy {
+			if err := d.prepareLazy(ctx, m, creds); err != nil {
+				return m, err
+			}
+			m.Manifest = ""
+			break
 		}
 		h, err := d.snapshot(ctx, rp, m.Version, creds)
 		if err != nil {
@@ -179,12 +192,23 @@ func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Crede
 	return m, nil
 }
 
-// Open returns the mount's files: a snapshot's from its manifest and the blob store, or a live
+// Open returns the mount's files: a snapshot's from its manifest and the blob store, a lazy
+// snapshot's from its tree, fetching each file on first open, or a live
 // mount's from the Contents API at its branch. A live mount's fs.FS keeps ctx and creds for the
 // requests it makes later.
 func (d *Driver) Open(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (fs.FS, error) {
 	switch m.Mode {
 	case mounts.ModeSnapshot:
+		if lazy(m) {
+			if d.blobs == nil {
+				return nil, fmt.Errorf("%w: this GitHub driver has no blob store for snapshots", mounts.ErrInvalidArgument)
+			}
+			t, err := d.lazyTree(ctx, m, creds)
+			if err != nil {
+				return nil, err
+			}
+			return lazyFS{ctx: ctx, d: d, m: m, creds: creds, t: t}, nil
+		}
 		t, err := d.tree(ctx, m)
 		if err != nil {
 			return nil, err

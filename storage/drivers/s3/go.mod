@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.53.0
 	github.com/aws/smithy-go v1.28.9
 	github.com/johannesboyne/gofakes3 v1.2.0
-	github.com/panyam/goapplib/storage v0.7.34
+	github.com/panyam/goapplib/storage v0.7.35
 	golang.org/x/oauth2 v0.38.0
 )
 

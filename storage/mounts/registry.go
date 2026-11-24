@@ -254,7 +254,8 @@ func (r *Registry) FS(ctx context.Context) fs.FS {
 }
 
 // HostPath returns the host path of the file u names, for code that needs a real file. A mount
-// whose driver isn't a Localizer returns ErrNotLocal.
+// whose driver isn't a Localizer returns ErrNotLocal. A FetchingLocalizer gets the mount's
+// credentials, since it may download the files first.
 func (r *Registry) HostPath(ctx context.Context, u URI) (string, error) {
 	m, err := r.Get(ctx, u.Mount)
 	if err != nil {
@@ -263,6 +264,13 @@ func (r *Registry) HostPath(ctx context.Context, u URI) (string, error) {
 	d, err := r.driver(m)
 	if err != nil {
 		return "", err
+	}
+	if fl, ok := d.(FetchingLocalizer); ok {
+		creds, err := r.credentials(ctx, m)
+		if err != nil {
+			return "", err
+		}
+		return fl.HostPathWith(ctx, m, creds, u.Path)
 	}
 	l, ok := d.(Localizer)
 	if !ok {

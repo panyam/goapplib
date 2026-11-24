@@ -86,6 +86,22 @@ func shown(p string) string {
 	return p
 }
 
+// treeKey names one listing of rp at commit. It carries a hash of the token, so a list read with
+// one connection's token is never served to a caller with another token or none, which would show
+// a private repo's files.
+func treeKey(rp, commit string, creds mounts.Credentials) (string, error) {
+	key := rp + "@" + commit
+	tok, err := mounts.BearerToken(creds)
+	if err != nil {
+		return "", err
+	}
+	if tok != "" {
+		sum := sha256.Sum256([]byte(tok))
+		key += "#" + hex.EncodeToString(sum[:8])
+	}
+	return key, nil
+}
+
 // treeAt is every regular file in the repo at commit, sorted by path. Links (mode 120000),
 // submodules and paths that are unclean or climb out are left out.
 func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, creds mounts.Credentials, commit string) ([]mounts.File, error) {
@@ -96,14 +112,9 @@ func (d *Driver) treeAt(ctx context.Context, m mounts.Mount, creds mounts.Creden
 	if !commitSHA.MatchString(commit) {
 		return nil, fmt.Errorf("%w: version %q isn't a commit sha", mounts.ErrInvalidArgument, commit)
 	}
-	// The key carries a hash of the token, so a list read with one connection's token is never
-	// served to a caller with another token or none, which would show a private repo's files.
-	key := rp + "@" + commit
-	if tok, err := mounts.BearerToken(creds); err != nil {
+	key, err := treeKey(rp, commit, creds)
+	if err != nil {
 		return nil, err
-	} else if tok != "" {
-		sum := sha256.Sum256([]byte(tok))
-		key += "#" + hex.EncodeToString(sum[:8])
 	}
 	d.mu.Lock()
 	cached, ok := d.trees[key]

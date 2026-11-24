@@ -5,7 +5,7 @@ go 1.26.9
 toolchain go1.27.4
 
 require (
-	github.com/panyam/goapplib/storage v0.7.34
+	github.com/panyam/goapplib/storage v0.7.35
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 )
