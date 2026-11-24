@@ -187,8 +187,12 @@ func (s snapshotFS) Open(name string) (fs.File, error) {
 // call for a mount builds its view there, as hard links to the blob store (copies where the
 // filesystem refuses links), so a restart that lost the folder rebuilds it from the manifest
 // without asking GitHub. A live mount, or a driver without WithViews or a linking blob store,
-// returns ErrNotLocal.
+// returns ErrNotLocal. A lazy snapshot is fetched as HostPathWith fetches it, with no credentials,
+// so only a public repo's files can be fetched this way.
 func (d *Driver) HostPath(m mounts.Mount, p string) (string, error) {
+	if lazy(m) {
+		return d.HostPathWith(context.Background(), m, nil, p)
+	}
 	clean, err := mounts.CleanPath(p)
 	if err != nil {
 		return "", err

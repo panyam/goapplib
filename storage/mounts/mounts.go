@@ -81,7 +81,9 @@ type Mount struct {
 	ConnectionOwner string
 
 	// Manifest is the hash of the blob listing a snapshot's files and their hashes, which is
-	// what rebuilds a snapshot's view after a restart. It is empty for a live mount.
+	// what rebuilds a snapshot's view after a restart. It is empty for a live mount, and for a
+	// snapshot a driver fetches file by file on first use, such as a GitHub driver made with
+	// github.WithLazySnapshots (agni issue 1877).
 	Manifest string
 
 	Created time.Time

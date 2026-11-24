@@ -90,6 +90,17 @@ type Localizer interface {
 	HostPath(m Mount, p string) (string, error)
 }
 
+// FetchingLocalizer is a Localizer whose HostPath may download a mount's files first, such as a
+// lazy GitHub snapshot (agni issue 1877), so it takes the mount's credentials. The
+// registry calls HostPathWith instead of HostPath on a driver that has it. A call for a folder
+// downloads every file under it, within the driver's Limits, and a call for a path that names
+// nothing returns where it would be, as HostPath does.
+type FetchingLocalizer interface {
+	Localizer
+
+	HostPathWith(ctx context.Context, m Mount, creds Credentials, p string) (string, error)
+}
+
 // Limits caps what a snapshot or a write may hold. A driver returns ErrTooLarge past either.
 // Zero means the default.
 type Limits struct {
