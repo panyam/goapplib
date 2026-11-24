@@ -16,7 +16,10 @@ export class TemplateLoader {
           console.error(`Template registry '#${this.registryName}' not found!`);
           return null;
       }
-      const templateWrapper = templateRegistry.querySelector<HTMLElement>(`[data-template-id="${templateId}"]`);
+      // Compared rather than written into a selector, so an id holding a quote or a bracket matches
+      // as itself instead of breaking the query.
+      const templateWrapper = Array.from(templateRegistry.querySelectorAll<HTMLElement>('[data-template-id]'))
+          .find((el) => el.dataset.templateId === templateId) ?? null;
       if (!templateWrapper) {
           console.error(`Template with ID "${templateId}" not found in registry '#${this.registryName}'.`);
           return null;
@@ -78,7 +81,11 @@ export class TemplateLoader {
     const templateWrapper = this._findTemplateWrapper(templateId);
     if (!templateWrapper) {
        // Error logged in _findTemplateWrapper
-       targetElement.innerHTML = `<div class="p-4 text-red-500">Error loading template '${templateId}' (Not Found)</div>`; // Provide feedback in target
+       // Feedback in the target. The id goes in as text, so an id built from input can't add markup.
+       const note = document.createElement('div');
+       note.className = 'p-4 text-red-500';
+       note.textContent = `Error loading template '${templateId}' (Not Found)`;
+       targetElement.replaceChildren(note);
        return false;
     }
 

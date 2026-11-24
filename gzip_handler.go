@@ -2,7 +2,6 @@ package goapplib
 
 import (
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -29,19 +28,18 @@ func GzipFileServer(root http.FileSystem) http.Handler {
 			return
 		}
 
-		// Check if .gz version exists
+		// Check if .gz version exists. root opens it, so a path that climbs out of root finds
+		// nothing, and the check works for any http.FileSystem rather than http.Dir alone.
 		gzPath := r.URL.Path + ".gz"
-		if fsDir, ok := root.(http.Dir); ok {
-			fullPath := filepath.Join(string(fsDir), gzPath)
-			if _, err := os.Stat(fullPath); err == nil {
-				// Serve the gzipped file with proper headers
-				w.Header().Set("Content-Encoding", "gzip")
-				w.Header().Set("Content-Type", getContentType(ext))
-				w.Header().Set("Vary", "Accept-Encoding")
+		if f, err := root.Open(gzPath); err == nil {
+			f.Close()
+			// Serve the gzipped file with proper headers
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Header().Set("Content-Type", getContentType(ext))
+			w.Header().Set("Vary", "Accept-Encoding")
 
-				// Modify request to point to .gz file
-				r.URL.Path = gzPath
-			}
+			// Modify request to point to .gz file
+			r.URL.Path = gzPath
 		}
 
 		fileServer.ServeHTTP(w, r)
