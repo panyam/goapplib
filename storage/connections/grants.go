@@ -31,7 +31,9 @@ const GrantedBySource = "grant:"
 //     and has at least one more character, so "local:*" matches "local:carol" but not "local:".
 //   - Anything else without a '*' matches that one viewer exactly.
 //
-// A grant never admits a request with no viewer.
+// A pattern matches the viewer's subject, or any claim WithViewerClaims set, so "oidc:group:hw"
+// admits a viewer whose claims include it. A grant never admits a request with no viewer, whatever
+// its claims.
 type SourceGrant struct {
 	Source  string
 	Viewers []string
@@ -91,7 +93,10 @@ func WithSourceGrants(grants ...SourceGrant) Option {
 	return func(s *Service) { s.grants = bySource }
 }
 
-// granted reports whether a grant on source admits viewer.
-func (s *Service) granted(viewer, source string) bool {
-	return slices.ContainsFunc(s.grants[source], func(p string) bool { return matchViewer(p, viewer) })
+// granted reports whether a grant on source admits viewer, by the subject or one of its claims.
+// viewer is never "" here, since CanRead refuses a request with no viewer first.
+func (s *Service) granted(viewer string, claims []string, source string) bool {
+	return slices.ContainsFunc(s.grants[source], func(p string) bool {
+		return matchViewer(p, viewer) || slices.ContainsFunc(claims, func(c string) bool { return matchViewer(p, c) })
+	})
 }

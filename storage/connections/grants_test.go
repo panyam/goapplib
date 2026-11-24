@@ -154,3 +154,49 @@ func TestAnInvalidGrantAdmitsNobody(t *testing.T) {
 		a.wantNoAccess(t, viewer, a.src)
 	}
 }
+
+// A pattern matches a claim the app set beside the viewer, so a grant on a group admits a viewer
+// the identity provider put in it, and nobody else (agni#1896).
+func TestGrantMatchesAViewersClaim(t *testing.T) {
+	a := newAccess(t)
+	a.granted(connections.SourceGrant{Source: a.src, Viewers: []string{"oidc:group:hw"}})
+	n := len(a.gh.Requests())
+	in := connections.WithViewerClaims(a.as("oidc:ada"), "oidc:group:sales", "oidc:group:hw")
+	if id, err := a.svc.CanRead(in, a.src); err != nil || id != connections.GrantedBySource {
+		t.Errorf("CanRead for a viewer claiming oidc:group:hw = %q, %v; want GrantedBySource", id, err)
+	}
+	if got := len(a.gh.Requests()); got != n {
+		t.Errorf("a granted CanRead made %d requests to GitHub, want 0", got-n)
+	}
+	out := connections.WithViewerClaims(a.as("oidc:bob"), "oidc:group:sales")
+	if id, err := a.svc.CanRead(out, a.src); !errors.Is(err, connections.ErrNoAccess) || id != "" {
+		t.Errorf("CanRead for a viewer outside the group = %q, %v; want ErrNoAccess", id, err)
+	}
+	a.wantNoAccess(t, "oidc:ada", a.src)
+}
+
+// A claim with no viewer admits nothing, so a request the app couldn't name a person for stays
+// refused whatever claims it carries.
+func TestAClaimWithNoViewerAdmitsNobody(t *testing.T) {
+	a := newAccess(t)
+	a.granted(connections.SourceGrant{Source: a.src, Viewers: []string{"oidc:group:hw", "*"}})
+	if id, err := a.svc.CanRead(connections.WithViewerClaims(a.ctx, "oidc:group:hw"), a.src); !errors.Is(err, connections.ErrNotOwner) || id != "" {
+		t.Errorf("CanRead with claims and no viewer = %q, %v; want ErrNotOwner", id, err)
+	}
+}
+
+// A prefix pattern matches a claim too, and the claims are copied, so a caller changing its slice
+// later changes nothing.
+func TestGrantPrefixMatchesClaimsAndClaimsAreCopied(t *testing.T) {
+	a := newAccess(t)
+	a.granted(connections.SourceGrant{Source: a.src, Viewers: []string{"github:org:*"}})
+	claims := []string{"github:org:acme"}
+	ctx := connections.WithViewerClaims(a.as("github:erin"), claims...)
+	claims[0] = "github:user:erin"
+	if id, err := a.svc.CanRead(ctx, a.src); err != nil || id != connections.GrantedBySource {
+		t.Errorf("CanRead for a viewer claiming github:org:acme under github:org:* = %q, %v; want GrantedBySource", id, err)
+	}
+	if got := connections.ViewerClaims(ctx); len(got) != 1 || got[0] != "github:org:acme" {
+		t.Errorf("ViewerClaims = %v; want the claims as set", got)
+	}
+}
