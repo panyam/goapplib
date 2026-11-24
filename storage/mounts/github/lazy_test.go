@@ -268,3 +268,31 @@ func TestLazyPastLimitsSnapshotsWhatFitsWhole(t *testing.T) {
 		t.Errorf("board/main.kicad_sch on disk = %q, %v", b, err)
 	}
 }
+
+// TestARegistryWithNoCredentialsServesAnEagerPrivateSnapshot is a read-only reader, such as agni's
+// agnids, over the records a server made. It has no credentials, and an eager snapshot needs none,
+// since its view comes from the blobs.
+func TestARegistryWithNoCredentialsServesAnEagerPrivateSnapshot(t *testing.T) {
+	e := newEnv(t, true)
+	e.gh.AddToken("ghs_installation")
+	e.repo.Grant("ghs_installation")
+	store, err := fsstore.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	drv := github.New(e.blobs, github.WithBaseURL(e.gh.URL), github.WithViews(e.views), github.WithLazyPastLimits())
+	maker := mounts.NewRegistry(store, []mounts.Driver{drv}, mounts.WithCredentials(func(_ context.Context, _, conn string) (mounts.Credentials, error) {
+		return static("ghs_installation"), nil
+	}))
+	if _, err := maker.Create(e.ctx, mounts.Mount{Name: "board", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeSnapshot, Connection: "acme-app"}); err != nil {
+		t.Fatal(err)
+	}
+	reader := mounts.NewRegistry(store, []mounts.Driver{drv})
+	p, err := reader.HostPath(e.ctx, mounts.URI{Mount: "board", Path: "board/main.kicad_sch"})
+	if err != nil {
+		t.Fatalf("HostPath with no credentials on an eager snapshot = %v; want its view", err)
+	}
+	if b, err := os.ReadFile(p); err != nil || string(b) != boardFiles["board/main.kicad_sch"] {
+		t.Errorf("host file = %q, %v", b, err)
+	}
+}
