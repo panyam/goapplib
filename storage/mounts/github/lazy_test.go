@@ -244,3 +244,27 @@ func TestALazySnapshotServesWhatItFetchedAfterARestart(t *testing.T) {
 		t.Errorf("a file never read, with GitHub down = %v; want ErrUnavailable", err)
 	}
 }
+
+// TestLazyPastLimitsSnapshotsWhatFitsWhole checks both sides of the cap. A repo under it gets an
+// eager snapshot, with a manifest. A repo past it is made lazy with no tarball and no download.
+func TestLazyPastLimitsSnapshotsWhatFitsWhole(t *testing.T) {
+	e := newEnv(t, false, github.WithLazyPastLimits(), github.WithRawURL(""))
+	m := e.create(t, mounts.Mount{Name: "fits", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeSnapshot}, nil)
+	if m.Manifest == "" || e.tarballs() != 1 {
+		t.Errorf("a repo under the cap: Manifest %q after %d tarballs; want an eager snapshot", m.Manifest, e.tarballs())
+	}
+
+	e = newEnv(t, false, github.WithLimits(boardCap), github.WithLazyPastLimits(), github.WithRawURL(""))
+	m = e.create(t, mounts.Mount{Name: "past", Kind: mounts.KindGitHub, Source: e.repo.Source(), Mode: mounts.ModeSnapshot}, nil)
+	seen := 0
+	if m.Manifest != "" || e.tarballs() != 0 || len(e.downloads(&seen)) != 0 {
+		t.Errorf("a repo past the cap: Manifest %q, %d tarballs; want a lazy mount with nothing downloaded", m.Manifest, e.tarballs())
+	}
+	p, err := e.drv.HostPath(m, "board")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(filepath.Join(p, "main.kicad_sch")); err != nil || string(b) != boardFiles["board/main.kicad_sch"] {
+		t.Errorf("board/main.kicad_sch on disk = %q, %v", b, err)
+	}
+}

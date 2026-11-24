@@ -53,10 +53,11 @@ type Driver struct {
 	lfsSizes map[string]int64
 	viewMu   sync.Mutex
 
-	// lazy is WithLazySnapshots. viewLocks holds one lock per lazy view (lockView).
-	lazy      bool
-	viewLocks map[string]*sync.Mutex
-	lazyTrees map[string]*lazyTree // by mount name and commit
+	// lazy is WithLazySnapshots and lazyPast WithLazyPastLimits. viewLocks holds one lock per lazy
+	// view (lockView).
+	lazy, lazyPast bool
+	viewLocks      map[string]*sync.Mutex
+	lazyTrees      map[string]*lazyTree // by mount name and commit
 }
 
 // Option configures a Driver.
@@ -154,8 +155,8 @@ func (d *Driver) defaultBranch(ctx context.Context, rp string, creds mounts.Cred
 }
 
 // Prepare finishes a new mount after Resolve. For a snapshot it downloads m.Version's tarball
-// into the blob store and sets m.Manifest, or with WithLazySnapshots lists the tree at m.Version
-// and leaves m.Manifest empty. For a live mount it sets m.Ref to the default branch
+// into the blob store and sets m.Manifest, or with WithLazySnapshots, and with WithLazyPastLimits
+// for a commit past the limits, lists the tree at m.Version and leaves m.Manifest empty. For a live mount it sets m.Ref to the default branch
 // when it is empty, so later writes name the branch. A live mount's Ref must be a branch, since
 // GitHub commits a write onto a branch.
 func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (mounts.Mount, error) {
@@ -168,12 +169,15 @@ func (d *Driver) Prepare(ctx context.Context, m mounts.Mount, creds mounts.Crede
 		if d.blobs == nil {
 			return m, fmt.Errorf("%w: this GitHub driver has no blob store for snapshots", mounts.ErrInvalidArgument)
 		}
-		if d.lazy {
-			if err := d.prepareLazy(ctx, m, creds); err != nil {
+		if d.lazy || d.lazyPast {
+			lazy, err := d.prepareLazy(ctx, m, creds)
+			if err != nil {
 				return m, err
 			}
-			m.Manifest = ""
-			break
+			if lazy {
+				m.Manifest = ""
+				break
+			}
 		}
 		h, err := d.snapshot(ctx, rp, m.Version, creds)
 		if err != nil {

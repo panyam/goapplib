@@ -34,23 +34,36 @@ import (
 // can turn this on over mounts it already has.
 func WithLazySnapshots() Option { return func(d *Driver) { d.lazy = true } }
 
+// WithLazyPastLimits makes Prepare snapshot a commit that fits the Limits whole, as a driver
+// without this option does, and make one past them lazy, as WithLazySnapshots does (agni issue
+// 1877). It lists the tree first, with each LFS object counted at its own size, so a commit past
+// the limits downloads nothing before it is made lazy. A mount under the limits keeps an eager
+// snapshot's guarantees: its view is rebuilt from the blobs alone, with no request to GitHub.
+func WithLazyPastLimits() Option { return func(d *Driver) { d.lazyPast = true } }
+
 // lazy reports whether m is a snapshot whose files are fetched on first use.
 func lazy(m mounts.Mount) bool { return m.Mode == mounts.ModeSnapshot && m.Manifest == "" }
 
 // prepareLazy lists the tree at m.Version from GitHub with the mount's credentials, even when a
-// listing is kept on disk, so a new mount is always checked against the repo, and keeps it.
-func (d *Driver) prepareLazy(ctx context.Context, m mounts.Mount, creds mounts.Credentials) error {
+// listing is kept on disk, so a new mount is always checked against the repo. With
+// WithLazySnapshots it keeps the listing and reports the mount lazy. With WithLazyPastLimits it does
+// so only when the commit is past the limits, and otherwise reports it eager, for Prepare to
+// snapshot whole.
+func (d *Driver) prepareLazy(ctx context.Context, m mounts.Mount, creds mounts.Credentials) (bool, error) {
 	if !commitSHA.MatchString(m.Version) {
-		return fmt.Errorf("%w: snapshot version %q isn't a commit sha", mounts.ErrInvalidArgument, m.Version)
+		return false, fmt.Errorf("%w: snapshot version %q isn't a commit sha", mounts.ErrInvalidArgument, m.Version)
 	}
 	all, err := d.treeAt(ctx, m, creds, m.Version)
 	if err != nil {
-		return err
+		return false, err
+	}
+	if !d.lazy && d.within(all, "", m.Version) == nil {
+		return false, nil
 	}
 	if file, ok := d.listingFile(m); ok {
-		return writeListing(file, all)
+		return true, writeListing(file, all)
 	}
-	return nil
+	return true, nil
 }
 
 // lazyTree is a lazy snapshot's files and folders, from the tree listing alone.
