@@ -155,7 +155,7 @@ func TestRegistry_SaveStampsTheCurrentVersion(t *testing.T) {
 func TestRegistry_LoadUpgradesAndHidesTheVersion(t *testing.T) {
 	reg, _ := dsmigrate.NewRegistry(identitySchema())
 	var got identity
-	_, changed, err := reg.Load("Identity", legacy("alice"), &got)
+	_, changed, err := reg.Load(datastore.NameKey("Identity", "alice", nil), legacy("alice"), &got)
 	if err != nil || !changed {
 		t.Fatalf("Load: changed=%v err=%v", changed, err)
 	}
@@ -168,13 +168,13 @@ func TestRegistry_FieldMismatch(t *testing.T) {
 	extra := append(legacy("alice"), datastore.Property{Name: "isActive", Value: true})
 	strict, _ := dsmigrate.NewRegistry(identitySchema())
 	var mismatch *datastore.ErrFieldMismatch
-	if _, _, err := strict.Load("Identity", extra, &identity{}); !errors.As(err, &mismatch) {
+	if _, _, err := strict.Load(datastore.NameKey("Identity", "alice", nil), extra, &identity{}); !errors.As(err, &mismatch) {
 		t.Errorf("strict registry: err = %v, want ErrFieldMismatch", err)
 	}
 	lenient, _ := dsmigrate.NewRegistry(identitySchema())
 	lenient.IgnoreFieldMismatch = true
 	var got identity
-	if _, _, err := lenient.Load("Identity", extra, &got); err != nil || got.UserID != "alice" {
+	if _, _, err := lenient.Load(datastore.NameKey("Identity", "alice", nil), extra, &got); err != nil || got.UserID != "alice" {
 		t.Errorf("lenient registry: got %+v err %v", got, err)
 	}
 }
@@ -185,4 +185,62 @@ func propNames(props datastore.PropertyList) string {
 		b.WriteString(p.Name + " ")
 	}
 	return b.String()
+}
+
+type keyedIdentity struct {
+	Key      *datastore.Key `datastore:"__key__"`
+	UserID   string         `datastore:"user_id"`
+	Value    string         `datastore:"value"`
+	Type     string         `datastore:"type"`
+	Verified bool           `datastore:"verified"`
+}
+
+// keyLoaderIdentity takes its key through datastore.KeyLoader rather than a tagged field.
+type keyLoaderIdentity struct {
+	identity
+	key *datastore.Key
+}
+
+func (k *keyLoaderIdentity) Load(props []datastore.Property) error {
+	return datastore.LoadStruct(&k.identity, props)
+}
+
+func (k *keyLoaderIdentity) Save() ([]datastore.Property, error) {
+	return datastore.SaveStruct(&k.identity)
+}
+
+func (k *keyLoaderIdentity) LoadKey(key *datastore.Key) error {
+	k.key = key
+	return nil
+}
+
+func TestRegistry_LoadFillsTheKeyField(t *testing.T) {
+	reg, _ := dsmigrate.NewRegistry(identitySchema())
+	k := datastore.NameKey("Identity", "email:alice", nil)
+	var got keyedIdentity
+	if _, _, err := reg.Load(k, legacy("alice"), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !got.Key.Equal(k) || got.UserID != "alice" {
+		t.Errorf("loaded %+v, want key %v", got, k)
+	}
+}
+
+func TestRegistry_LoadCallsKeyLoader(t *testing.T) {
+	reg, _ := dsmigrate.NewRegistry(identitySchema())
+	k := datastore.NameKey("Identity", "email:alice", nil)
+	var got keyLoaderIdentity
+	if _, _, err := reg.Load(k, legacy("alice"), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !got.key.Equal(k) || got.UserID != "alice" {
+		t.Errorf("loaded %+v, want key %v", got, k)
+	}
+}
+
+func TestRegistry_LoadNeedsAKey(t *testing.T) {
+	reg, _ := dsmigrate.NewRegistry(identitySchema())
+	if _, _, err := reg.Load(nil, legacy("alice"), &identity{}); err == nil {
+		t.Error("Load with a nil key succeeded")
+	}
 }

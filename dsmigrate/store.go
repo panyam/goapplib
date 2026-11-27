@@ -22,7 +22,7 @@ func Get(ctx context.Context, client *datastore.Client, key *datastore.Key, dst 
 	if err := client.Get(ctx, key, &props); err != nil {
 		return err
 	}
-	upgraded, changed, err := reg.Load(key.Kind, props, dst)
+	upgraded, changed, err := reg.Load(key, props, dst)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func GetAll(ctx context.Context, client *datastore.Client, q *datastore.Query, d
 	}
 	for i, props := range all {
 		elem := reflect.New(elemType)
-		upgraded, changed, err := reg.Load(keys[i].Kind, props, elem.Interface())
+		upgraded, changed, err := reg.Load(keys[i], props, elem.Interface())
 		if err != nil {
 			return nil, err
 		}

@@ -189,6 +189,49 @@ func TestGetAll_UpgradesEachResult(t *testing.T) {
 	}
 }
 
+func TestGet_FillsTheKeyField(t *testing.T) {
+	ctx, c, ns := setup(t)
+	reg, _ := dsmigrate.NewRegistry(identitySchema())
+	k := key(ns, "email:hana")
+	putRaw(t, ctx, c, k, legacy("hana"))
+	var got keyedIdentity
+	if err := dsmigrate.Get(ctx, c, k, &got, reg); err != nil {
+		t.Fatal(err)
+	}
+	if !got.Key.Equal(k) || got.UserID != "hana" {
+		t.Errorf("loaded %+v, want key %v", got, k)
+	}
+}
+
+func TestGetAll_FillsTheKeyField(t *testing.T) {
+	ctx, c, ns := setup(t)
+	reg, _ := dsmigrate.NewRegistry(identitySchema())
+	for _, u := range []string{"ivan", "jill"} {
+		putRaw(t, ctx, c, key(ns, "email:"+u), legacy(u))
+	}
+	q := datastore.NewQuery("Identity").Namespace(ns)
+	var ptrs []*keyedIdentity
+	keys, err := dsmigrate.GetAll(ctx, c, q, &ptrs, reg)
+	if err != nil || len(ptrs) != 2 {
+		t.Fatalf("pointers: %d results, err %v", len(ptrs), err)
+	}
+	for i, g := range ptrs {
+		if !g.Key.Equal(keys[i]) {
+			t.Errorf("pointer result %d: key %v, want %v", i, g.Key, keys[i])
+		}
+	}
+	var values []keyedIdentity
+	keys, err = dsmigrate.GetAll(ctx, c, q, &values, reg)
+	if err != nil || len(values) != 2 {
+		t.Fatalf("values: %d results, err %v", len(values), err)
+	}
+	for i, g := range values {
+		if !g.Key.Equal(keys[i]) {
+			t.Errorf("value result %d: key %v, want %v", i, g.Key, keys[i])
+		}
+	}
+}
+
 func TestBackfill_ResumesAndFinishes(t *testing.T) {
 	ctx, c, ns := setup(t)
 	reg, _ := dsmigrate.NewRegistry(identitySchema())
