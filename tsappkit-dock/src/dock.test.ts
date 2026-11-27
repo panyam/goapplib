@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DockviewComponent } from "dockview-core";
 import { createDock, type Dock, type DockOptions } from "./dock.js";
 import type { DockStorage, PanelDef, PanelSpec } from "./layout.js";
 import { sized } from "./testenv.js";
@@ -187,6 +188,18 @@ describe("createDock", () => {
     await settle();
     expect(themed()).toBe(false);
     dock.dispose();
+  });
+
+  it("leaves dockview alone when an <html class> change keeps the theme", async () => {
+    const root = document.documentElement;
+    make({ theme: () => (root.classList.contains("dark") ? "dark" : "light") });
+    const update = vi.spyOn(DockviewComponent.prototype, "updateOptions");
+    root.classList.add("htmx-request");
+    await settle();
+    root.classList.remove("htmx-request");
+    await settle();
+    expect(update).not.toHaveBeenCalled();
+    update.mockRestore();
   });
 
   it("requires a key with storage", () => {
