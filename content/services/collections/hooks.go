@@ -41,8 +41,18 @@ type HookContext struct {
 	Operation string
 	// UserID of the user performing the operation (may be empty, hook can set it)
 	UserID string
+	// CallerID is the user in the context, set by an interceptor or middleware.
+	// It is empty for an anonymous caller and for in-process calls that set no
+	// user. Unlike UserID, it never comes from the request.
+	CallerID string
 	// CollectionID being operated on
 	CollectionID string
+	// Collection is the stored collection that CollectionID names, loaded
+	// before the hook runs. It is nil when there is none, or no such collection.
+	Collection *v1.Collection
+	// Parent is the stored parent collection for CreateCollection (parent_id)
+	// and MoveCollection (new_parent_id), or nil.
+	Parent *v1.Collection
 	// EntityID being operated on (for item operations)
 	EntityID string
 	// Request is the original request object (type assert to access specific fields).
@@ -50,7 +60,10 @@ type HookContext struct {
 	Request any
 }
 
-// AuthorizeHook is called before any operation to check authorization.
+// AuthorizeHook is called at the start of every RPC, before any validation or
+// write. Operation is the RPC's name. Batch RPCs call it once for the batch,
+// and again for each item through the single-item RPC. OwnerOnly is a ready
+// policy for user-owned collections.
 // The hook can:
 // - Return an error to deny the operation
 // - Modify the request via hookCtx.Request (e.g., set OwnerId from auth context)

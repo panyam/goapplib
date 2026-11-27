@@ -184,7 +184,7 @@ service := backends.NewGORMCollectionsService(db,
 
 | Hook                                              | Likes | Tags | Collections | Description                                      |
 |---------------------------------------------------|-------|------|-------------|--------------------------------------------------|
-| OnAuthorize                                       | ✅    | ✅   | ✅          | Auth check before operations; can modify request |
+| OnAuthorize                                       | ✅    | ✅   | ✅          | Runs first on every RPC; can deny or modify the request |
 | ValidateEntity                                    | ✅    | ✅   | ✅          | Validate entity exists before attaching data     |
 | BeforeSave / AfterSave                            | ✅    | ✅   | -           | Lifecycle around like/tag save                   |
 | BeforeCollectionSave / AfterCollectionSave        | -     | -    | ✅          | Collection lifecycle                             |
@@ -199,7 +199,7 @@ service := backends.NewGORMCollectionsService(db,
 - CollectionsService: `collection.created`, `collection.updated`, `collection.deleted`, `collection.moved`, `item.added`, `item.removed`
 
 **Context-based User ID:**
-Services auto-resolve user ID from context if not in request. This allows interceptors/middleware to set auth context:
+An interceptor or middleware puts the logged-in user in the context, and the services act as that user:
 ```go
 // In interceptor
 ctx = likes.WithUserID(ctx, myCtxKey, "user:123")
@@ -207,6 +207,27 @@ ctx = likes.WithUserID(ctx, myCtxKey, "user:123")
 // Service uses it automatically
 service.AddReaction(ctx, &AddReactionRequest{EntityId: "post:1"})  // UserId auto-filled
 ```
+
+The user fields of a write (`owner_id`, `user_id`, `added_by`, `tagged_by`) follow `common.ResolveActingUser`:
+- With a user in the context, a request naming a different user gets `PermissionDenied`.
+- A client call with no user in the context gets `Unauthenticated`.
+- An in-process call with no user in the context acts as the user the request names, since server code set it.
+
+`common.WithClientCall` marks a client call. `CombinedMetadataInterceptor`, `UserIDFromMetadataInterceptor`, and each service's `RESTHandler` and `ConnectHandler` mark their requests. An app with its own entry point uses `common.ClientCallInterceptor` or `common.ClientCallMiddleware`.
+
+### Authorization
+
+Every RPC calls `OnAuthorize` first, before validation, with `Operation` set to the RPC's name. `HookContext` carries `CallerID` (the context user, never the request's) and, where the RPC names one, the stored `Collection`/`Parent` or `Tag`/`TargetTag`.
+
+Each service ships `OwnerOnly()`, a policy for user-owned data:
+```go
+collections.WithOnAuthorize(collections.OwnerOnly())
+tags.WithOnAuthorize(tags.OwnerOnly())
+likes.WithOnAuthorize(likes.OwnerOnly())
+```
+It checks client calls and lets in-process calls through. Owners write. Anyone reads a PUBLIC collection or tag, and other private reads get `NotFound`. Lists default to the caller's own data. Like counts and reactors are public. Admin operations (`PromoteTag`, `CreateReactionType`) and unknown operations get `PermissionDenied`. Each function's doc comment has the full rules.
+
+The gRPC port trusts the `x-user-id` metadata it receives, so clients must not reach it. `NewGatewayMux` drops `Grpc-Metadata-X-User-Id` and `Grpc-Metadata-X-Entity-Id` from client headers (`common.TrustedHeaderMatcher`).
 
 ### Mountable Services
 
@@ -225,9 +246,10 @@ router.Handle("/songs/{songId}/likes/", handler)
 
 For full control over the gRPC-gateway mux (custom marshalers, interceptors):
 ```go
-mux := runtime.NewServeMux(/* your options */)
+mux := runtime.NewServeMux(common.TrustedHeaderMatcherOption() /*, your options */)
 likesService.RegisterRESTHandlers(ctx, mux)
-router.Handle("/songs/{songId}/likes/", common.WrapWithEntityExtraction("songId", mux))
+router.Handle("/songs/{songId}/likes/",
+    common.ClientCallMiddleware(common.WrapWithEntityExtraction("songId", mux)))
 ```
 
 See [PATTERNS.md](PATTERNS.md#mountable-services-pattern) for detailed implementation guide.

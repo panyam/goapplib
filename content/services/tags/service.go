@@ -198,19 +198,16 @@ func (s *BaseTagsService) InitializeCache() {
 
 // CreateTag creates a new tag or returns existing if duplicate.
 func (s *BaseTagsService) CreateTag(ctx context.Context, req *v1.CreateTagRequest) (*v1.CreateTagResponse, error) {
-	// Resolve owner ID from request or context
-	req.OwnerId = s.resolveUserID(ctx, req.OwnerId)
+	if err := s.resolveActingUsers(ctx, &req.OwnerId); err != nil {
+		return nil, err
+	}
 
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation: "CreateTag",
-			UserID:    req.OwnerId,
-			Request:   req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "CreateTag",
+		UserID:    req.OwnerId,
+		Request:   req,
+	}); err != nil {
+		return nil, err
 	}
 
 	// Validate required fields
@@ -294,6 +291,15 @@ func (s *BaseTagsService) CreateTag(ctx context.Context, req *v1.CreateTagReques
 
 // GetTag retrieves a tag by ID.
 func (s *BaseTagsService) GetTag(ctx context.Context, req *v1.GetTagRequest) (*v1.GetTagResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "GetTag",
+		TagID:     req.Id,
+		Tag:       s.loadForAuth(ctx, req.Id),
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.Id == "" {
 		return nil, ErrTagIDRequired
 	}
@@ -326,6 +332,15 @@ func (s *BaseTagsService) GetTag(ctx context.Context, req *v1.GetTagRequest) (*v
 
 // UpdateTag updates a tag's properties.
 func (s *BaseTagsService) UpdateTag(ctx context.Context, req *v1.UpdateTagRequest) (*v1.UpdateTagResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "UpdateTag",
+		TagID:     req.Tag.GetId(),
+		Tag:       s.loadForAuth(ctx, req.Tag.GetId()),
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.Tag == nil || req.Tag.Id == "" {
 		return nil, ErrTagIDRequired
 	}
@@ -377,17 +392,13 @@ func (s *BaseTagsService) UpdateTag(ctx context.Context, req *v1.UpdateTagReques
 
 // DeleteTag removes a tag and optionally untags all entities.
 func (s *BaseTagsService) DeleteTag(ctx context.Context, req *v1.DeleteTagRequest) (*v1.DeleteTagResponse, error) {
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation: "DeleteTag",
-			UserID:    GetUserIDFromContext(ctx, s.UserIDContextKey),
-			TagID:     req.Id,
-			Request:   req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "DeleteTag",
+		TagID:     req.Id,
+		Request:   req,
+		Tag:       s.loadForAuth(ctx, req.Id),
+	}); err != nil {
+		return nil, err
 	}
 
 	if req.Id == "" {
@@ -449,6 +460,13 @@ func (s *BaseTagsService) DeleteTag(ctx context.Context, req *v1.DeleteTagReques
 
 // ListTags lists tags for an owner with filtering.
 func (s *BaseTagsService) ListTags(ctx context.Context, req *v1.ListTagsRequest) (*v1.ListTagsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "ListTags",
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	pageSize := int(req.Pagination.GetPageSize())
 	if pageSize <= 0 {
 		pageSize = 50
@@ -489,25 +507,20 @@ func (s *BaseTagsService) ListTags(ctx context.Context, req *v1.ListTagsRequest)
 
 // TagEntity applies a tag to an entity.
 func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityRequest) (*v1.TagEntityResponse, error) {
-	// Resolve owner, tagger, and entity ID from request or context
-	req.OwnerId = s.resolveUserID(ctx, req.OwnerId)
-	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
-	if req.TaggedBy == "" {
-		req.TaggedBy = s.resolveUserID(ctx, req.TaggedBy)
+	if err := s.resolveActingUsers(ctx, &req.OwnerId, &req.TaggedBy); err != nil {
+		return nil, err
 	}
+	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
 
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation: "TagEntity",
-			UserID:    req.TaggedBy,
-			EntityID:  req.EntityId,
-			TagID:     req.TagId,
-			Request:   req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "TagEntity",
+		UserID:    req.TaggedBy,
+		EntityID:  req.EntityId,
+		TagID:     req.TagId,
+		Request:   req,
+		Tag:       s.loadForAuth(ctx, req.TagId),
+	}); err != nil {
+		return nil, err
 	}
 
 	// Validate required fields
@@ -656,22 +669,21 @@ func (s *BaseTagsService) TagEntity(ctx context.Context, req *v1.TagEntityReques
 
 // UntagEntity removes a tag from an entity.
 func (s *BaseTagsService) UntagEntity(ctx context.Context, req *v1.UntagEntityRequest) (*v1.UntagEntityResponse, error) {
-	// Resolve tagged_by and entity ID from request or context
-	req.TaggedBy = s.resolveUserID(ctx, req.TaggedBy)
+	if err := s.resolveActingUsers(ctx, &req.TaggedBy); err != nil {
+		return nil, err
+	}
+	req.OwnerId = s.resolveUserID(ctx, req.OwnerId)
 	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
 
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation: "UntagEntity",
-			UserID:    req.TaggedBy,
-			EntityID:  req.EntityId,
-			TagID:     req.TagId,
-			Request:   req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "UntagEntity",
+		UserID:    req.TaggedBy,
+		EntityID:  req.EntityId,
+		TagID:     req.TagId,
+		Request:   req,
+		Tag:       s.loadForAuth(ctx, req.TagId),
+	}); err != nil {
+		return nil, err
 	}
 
 	// Validate required fields
@@ -757,17 +769,12 @@ func (s *BaseTagsService) GetEntityTags(ctx context.Context, req *v1.GetEntityTa
 	// Resolve entity ID from request or context
 	req.EntityId = s.resolveEntityID(ctx, req.EntityId)
 
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation: "GetEntityTags",
-			UserID:    GetUserIDFromContext(ctx, s.UserIDContextKey),
-			EntityID:  req.EntityId,
-			Request:   req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "GetEntityTags",
+		EntityID:  req.EntityId,
+		Request:   req,
+	}); err != nil {
+		return nil, err
 	}
 
 	if req.EntityId == "" {
@@ -803,6 +810,15 @@ func (s *BaseTagsService) GetEntityTags(ctx context.Context, req *v1.GetEntityTa
 
 // GetEntitiesWithTag returns all entities that have a specific tag.
 func (s *BaseTagsService) GetEntitiesWithTag(ctx context.Context, req *v1.GetEntitiesWithTagRequest) (*v1.GetEntitiesWithTagResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "GetEntitiesWithTag",
+		TagID:     req.TagId,
+		Tag:       s.loadForAuth(ctx, req.TagId),
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	var tagID string
 
 	if req.TagId != "" {
@@ -863,6 +879,19 @@ func (s *BaseTagsService) GetEntitiesWithTag(ctx context.Context, req *v1.GetEnt
 
 // BatchTagEntities applies a tag to multiple entities at once.
 func (s *BaseTagsService) BatchTagEntities(ctx context.Context, req *v1.BatchTagEntitiesRequest) (*v1.BatchTagEntitiesResponse, error) {
+	if err := s.resolveActingUsers(ctx, &req.OwnerId, &req.TaggedBy); err != nil {
+		return nil, err
+	}
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "BatchTagEntities",
+		UserID:    req.TaggedBy,
+		TagID:     req.TagId,
+		Tag:       s.loadForAuth(ctx, req.TagId),
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	var tag *v1.Tag
 	var err error
 
@@ -928,6 +957,13 @@ func (s *BaseTagsService) BatchTagEntities(ctx context.Context, req *v1.BatchTag
 
 // BatchGetEntityTags returns tags for multiple entities at once.
 func (s *BaseTagsService) BatchGetEntityTags(ctx context.Context, req *v1.BatchGetEntityTagsRequest) (*v1.BatchGetEntityTagsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "BatchGetEntityTags",
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	result := make(map[string]*v1.EntityTagList)
 
 	for _, entityId := range req.EntityIds {
@@ -948,6 +984,13 @@ func (s *BaseTagsService) BatchGetEntityTags(ctx context.Context, req *v1.BatchG
 
 // SearchTags searches for tags by query (prefix match on value).
 func (s *BaseTagsService) SearchTags(ctx context.Context, req *v1.SearchTagsRequest) (*v1.SearchTagsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "SearchTags",
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	limit := int(req.Limit)
 	if limit <= 0 {
 		limit = 20
@@ -971,6 +1014,13 @@ func (s *BaseTagsService) SearchTags(ctx context.Context, req *v1.SearchTagsRequ
 
 // GetPopularTags returns the most used tags.
 func (s *BaseTagsService) GetPopularTags(ctx context.Context, req *v1.GetPopularTagsRequest) (*v1.GetPopularTagsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "GetPopularTags",
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	limit := int(req.Limit)
 	if limit <= 0 {
 		limit = 20
@@ -993,6 +1043,16 @@ func (s *BaseTagsService) GetPopularTags(ctx context.Context, req *v1.GetPopular
 
 // MergeTags merges two tags into one (admin operation).
 func (s *BaseTagsService) MergeTags(ctx context.Context, req *v1.MergeTagsRequest) (*v1.MergeTagsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "MergeTags",
+		TagID:     req.SourceTagId,
+		Tag:       s.loadForAuth(ctx, req.SourceTagId),
+		TargetTag: s.loadForAuth(ctx, req.TargetTagId),
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.SourceTagId == "" || req.TargetTagId == "" {
 		return nil, ErrTagIDRequired
 	}
@@ -1062,6 +1122,15 @@ func (s *BaseTagsService) MergeTags(ctx context.Context, req *v1.MergeTagsReques
 
 // PromoteTag promotes a private tag to public scope.
 func (s *BaseTagsService) PromoteTag(ctx context.Context, req *v1.PromoteTagRequest) (*v1.PromoteTagResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "PromoteTag",
+		TagID:     req.SourceTagId,
+		Tag:       s.loadForAuth(ctx, req.SourceTagId),
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.SourceTagId == "" {
 		return nil, ErrTagIDRequired
 	}
