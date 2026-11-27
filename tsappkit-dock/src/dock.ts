@@ -87,8 +87,10 @@ export interface DockOptions {
   /** The storage key. Required with `storage`. */
   key?: string;
   /**
-   * Returns the dock's theme. It is read at creation, when `<html data-theme>` changes, when the
-   * OS colour scheme changes, and on `applyTheme()`. Default: `documentTheme()`.
+   * Returns the dock's theme. It is read at creation, when `<html data-theme>` or `<html class>`
+   * changes, when the OS colour scheme changes, and on `applyTheme()`. Default: `documentTheme()`.
+   * A page that marks dark mode with `<html class="dark">` passes a callback that reads the class,
+   * and the dock follows it with no observer of its own.
    */
   theme?: () => "light" | "dark";
   /** Each edge's drawer size and bounds. An edge left out gets the defaults from drawer.ts. */
@@ -174,6 +176,7 @@ export function createDock(opts: DockOptions): Dock {
   const key = opts.key ?? "";
   if (storage && !key) throw new Error("createDock: storage needs a key");
   const theme = opts.theme ?? (() => documentTheme(container.ownerDocument));
+  let shownTheme: "light" | "dark";
   const doc = container.ownerDocument;
   const byId = new Map(panels.map((p) => [p.id, p]));
   const specs = Array.isArray(opts.defaultLayout) ? (opts.defaultLayout as readonly PanelSpec[]) : null;
@@ -204,7 +207,7 @@ export function createDock(opts: DockOptions): Dock {
     // at startup would miss the panels behind a tab. The layer also means dragging a tab between
     // groups doesn't re-parent the content, so an iframe in it doesn't reload.
     defaultRenderer: "always",
-    theme: theme() === "dark" ? themeDark : themeLight,
+    theme: (shownTheme = theme()) === "dark" ? themeDark : themeLight,
     ...(opts.moveMenu === false ? {} : { createRightHeaderActionComponent: () => headerMenu() }),
   });
   const api = component.api;
@@ -523,17 +526,25 @@ export function createDock(opts: DockOptions): Dock {
 
   // ---- theme ----
 
-  const applyTheme = (): void => component.updateOptions({ theme: theme() === "dark" ? themeDark : themeLight });
+  const applyTheme = (): void => {
+    shownTheme = theme();
+    component.updateOptions({ theme: shownTheme === "dark" ? themeDark : themeLight });
+  };
+  // dockview re-applies class names and gap margins on every theme update, and other code on the
+  // page may touch <html class> often, so the watchers apply only a change.
+  const themeChanged = (): void => {
+    if (theme() !== shownTheme) applyTheme();
+  };
   const view = doc.defaultView;
   if (view?.MutationObserver) {
-    const mo = new view.MutationObserver(applyTheme);
-    mo.observe(doc.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    const mo = new view.MutationObserver(themeChanged);
+    mo.observe(doc.documentElement, { attributes: true, attributeFilter: ["data-theme", "class"] });
     cleanups.push(() => mo.disconnect());
   }
   const mq = view?.matchMedia?.("(prefers-color-scheme: dark)");
   if (mq?.addEventListener) {
-    mq.addEventListener("change", applyTheme);
-    cleanups.push(() => mq.removeEventListener("change", applyTheme));
+    mq.addEventListener("change", themeChanged);
+    cleanups.push(() => mq.removeEventListener("change", themeChanged));
   }
 
   const escape = (e: KeyboardEvent): void => {

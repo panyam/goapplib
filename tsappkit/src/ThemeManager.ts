@@ -18,12 +18,19 @@ export class ThemeManager {
     static initialize(): void {
         const savedTheme = localStorage.getItem('theme');
 
-        if (savedTheme === ThemeManager.DARK ||
-            (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
+        ThemeManager.apply(savedTheme === ThemeManager.DARK ||
+            (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches));
+    }
+
+    /**
+     * Marks the page dark or light in both conventions: the `dark` class on `<html>`, which
+     * Tailwind's class mode reads, and `data-theme="dark"` or `"light"`, which tsappkit-dock's
+     * default theme reads. The attribute is always the resolved theme, never "system".
+     */
+    static apply(dark: boolean): void {
+        const root = document.documentElement;
+        root.classList.toggle('dark', dark);
+        root.setAttribute('data-theme', dark ? ThemeManager.DARK : ThemeManager.LIGHT);
     }
 
     /**
@@ -32,17 +39,13 @@ export class ThemeManager {
     static setTheme(theme: string): void {
         if (theme === ThemeManager.SYSTEM) {
             localStorage.removeItem('theme');
-            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
+            ThemeManager.apply(window.matchMedia('(prefers-color-scheme: dark)').matches);
         } else if (theme === ThemeManager.DARK) {
             localStorage.setItem('theme', ThemeManager.DARK);
-            document.documentElement.classList.add('dark');
+            ThemeManager.apply(true);
         } else { // LIGHT
             localStorage.setItem('theme', ThemeManager.LIGHT);
-            document.documentElement.classList.remove('dark');
+            ThemeManager.apply(false);
         }
     }
 
