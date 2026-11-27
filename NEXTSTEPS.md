@@ -6,10 +6,10 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 ## At a glance
 
 - No active mission. goapplib's storage work for agni's `mission_linked_sources` (panyam/agni#1722) shipped in v0.7.26.
-- v0.7.40 is the latest tag (2026-11-26). main has unreleased 0.7.41 work: #249 added `dsmigrate`, a nested module for upgrading Datastore entities online (upgrade on read with a guarded write-back, plus a resumable backfill). Next: release 0.7.41 (`scripts/release.sh 0.7.41`). Then oneauth's `stores/gae` adopts it as an opt-in registry, so notation can upgrade its pre-oneauth auth records without a maintenance window.
+- v0.7.42 is the latest tag (2026-11-27). v0.7.41 added `dsmigrate`, and notation uses it through oneauth v0.3.25 to upgrade pre-oneauth auth records on read. v0.7.42 (#255) authorizes every content-services RPC, adds `OwnerOnly()` to collections, tags and likes, and stops clients acting as other users. Notation runs it (panyam/notation#324). No other consumer uses the content services.
 - Waiting on consumers to port onto tsappkit-dock 0.7.11: panyam/diffpp#172 and turnforge/lilbattle#203. lilbattle#203 also moves the mobile viewer off the deprecated `MobileBottomDrawer`, and needs lilbattle's dockview 1.17 upgraded to 4.13+ first. lilbattle#201 (the v0.7.3 upgrade) is still open. #146 waits on lilbattle's mobile port.
 - Waiting: content services (#6–#9, #13–#15, #17), #18, #19, #28, #29, #43, #44, #49, #56, #64, #82, #83, #118, #146, #223 (parallel fetches and live tests for bucket views), #225 (lazy bucket views, which #242 did for GitHub through `FetchingLocalizer`).
-- This run: #249 merged (dsmigrate, bumped to 0.7.41). Dropped the v0.7.35 line, since v0.7.40 is out and panyam/agni#1877 is closed. No branch threads are open.
+- This run: released v0.7.41 and v0.7.42 (#255 merged). No branch threads are open.
 
 ## Across threads
 
