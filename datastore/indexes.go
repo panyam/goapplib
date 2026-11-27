@@ -245,47 +245,46 @@ func ValidateAndWriteIndexes(ctx context.Context, client *datastore.Client, name
 }
 
 // ValidateWithMode validates indexes with the specified mode.
-// - ValidationNone: skips validation entirely
-// - ValidationWarn: prints warning to stderr but returns nil
-// - ValidationError: returns error if indexes are missing
+//   - ValidationNone: skips validation entirely.
+//   - ValidationWarn: prints a warning with the missing indexes' YAML to
+//     stderr, and returns nil. It writes no file, since it usually runs inside
+//     a server whose working directory is no place for one.
+//   - ValidationError: writes <service>_index.yaml into the working directory,
+//     and returns an error that says how to deploy it.
 func ValidateWithMode(ctx context.Context, client *datastore.Client, namespace string, provider IndexProvider, mode ValidationMode) error {
 	if mode == ValidationNone {
 		return nil
 	}
-
 	err := ValidateIndexes(ctx, client, namespace, provider)
 	if err == nil {
 		return nil
 	}
+	return reportMissingIndexes(err, provider, mode)
+}
+
+// reportMissingIndexes turns a validation error into the warning or error
+// that ValidateWithMode documents for mode.
+func reportMissingIndexes(err error, provider IndexProvider, mode ValidationMode) error {
+	const rule = "======================================================================"
+	const footer = `Note: Indexes are project-wide (not namespace-specific).
+Wait for indexes to build (check status in GCP Console > Datastore > Indexes),
+then restart your application.`
+
+	if mode == ValidationWarn {
+		fmt.Fprintf(os.Stderr, "\n⚠️  WARNING: %s\n%s\nAdd these indexes to your index.yaml and deploy it with\n`gcloud datastore indexes create index.yaml`:\n\n%s\n%s\n%s\n",
+			err.Error(), rule, IndexesToYAML(provider.ServiceName(), provider.RequiredIndexes()), footer, rule)
+		return nil
+	}
 
 	indexFile := IndexFileName(provider.ServiceName())
-
-	// Try to write the index file
 	var writeMsg string
 	if writeErr := WriteIndexFile(indexFile, provider.ServiceName(), provider.RequiredIndexes()); writeErr == nil {
 		writeMsg = fmt.Sprintf("Index file written: %s\n\n", indexFile)
 	} else {
 		writeMsg = fmt.Sprintf("(Failed to write index file: %v)\n\n", writeErr)
 	}
-
-	message := fmt.Sprintf(`%s
-======================================================================
-%sTo deploy the required indexes, run:
-
-  %s
-
-Note: Indexes are project-wide (not namespace-specific).
-Wait for indexes to build (check status in GCP Console > Datastore > Indexes),
-then restart your application.
-======================================================================
-`, err.Error(), writeMsg, PrintIndexCommand(provider.ServiceName()))
-
-	if mode == ValidationWarn {
-		fmt.Fprintf(os.Stderr, "\n⚠️  WARNING: %s\n", message)
-		return nil
-	}
-
-	return fmt.Errorf("%s", message)
+	return fmt.Errorf("%s\n%s\n%sTo deploy the required indexes, run:\n\n  %s\n\n%s\n%s\n",
+		err.Error(), rule, writeMsg, PrintIndexCommand(provider.ServiceName()), footer, rule)
 }
 
 // ValidationMode controls how missing indexes are handled.

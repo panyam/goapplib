@@ -24,6 +24,11 @@ import (
 //	mux := runtime.NewServeMux(/* your options */)
 //	likesService.RegisterRESTHandlers(ctx, mux)
 //	router.Handle("/songs/{songId}/likes/", common.WrapWithEntityExtraction("songId", mux))
+//
+// Requests through a mux you build reach the service as in-process calls,
+// which trust the request's user fields. Wrap the mux in
+// common.ClientCallMiddleware, and build it with
+// common.TrustedHeaderMatcherOption, as RESTHandler does.
 func (s *BaseLikesService) RegisterRESTHandlers(ctx context.Context, mux *runtime.ServeMux) error {
 	return v1.RegisterLikesServiceHandlerServer(ctx, mux, s)
 }
@@ -43,7 +48,7 @@ func (s *BaseLikesService) RESTHandler(ctx context.Context, opts ...common.Handl
 	}
 
 	// Create default gRPC-gateway mux
-	mux := runtime.NewServeMux()
+	mux := runtime.NewServeMux(common.TrustedHeaderMatcherOption())
 	if err := s.RegisterRESTHandlers(ctx, mux); err != nil {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failed to register service handler", http.StatusInternalServerError)
@@ -56,7 +61,7 @@ func (s *BaseLikesService) RESTHandler(ctx context.Context, opts ...common.Handl
 		handler = common.EntityParamMiddleware(cfg.EntityParamName)(handler)
 	}
 
-	return handler
+	return common.ClientCallMiddleware(handler)
 }
 
 // ConnectHandler returns an http.Handler for Connect RPC.
@@ -89,7 +94,7 @@ func (s *BaseLikesService) ConnectHandler(ctx context.Context, opts ...common.Ha
 		handler = common.EntityParamMiddleware(cfg.EntityParamName)(handler)
 	}
 
-	return path, handler
+	return path, common.ClientCallMiddleware(handler)
 }
 
 // ConnectHandlerWithOptions returns an http.Handler for Connect RPC with additional connect options.
@@ -111,5 +116,5 @@ func (s *BaseLikesService) ConnectHandlerWithOptions(ctx context.Context, connec
 		handler = common.EntityParamMiddleware(cfg.EntityParamName)(handler)
 	}
 
-	return path, handler
+	return path, common.ClientCallMiddleware(handler)
 }

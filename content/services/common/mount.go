@@ -250,6 +250,7 @@ func NewGatewayMux(opts ...GatewayMuxOption) *runtime.ServeMux {
 	}
 
 	return runtime.NewServeMux(
+		TrustedHeaderMatcherOption(),
 		runtime.WithMetadata(func(ctx context.Context, r *http.Request) metadata.MD {
 			md := metadata.MD{}
 
@@ -285,6 +286,7 @@ func NewGatewayMux(opts ...GatewayMuxOption) *runtime.ServeMux {
 func NewGatewayMuxWithOptions(gatewayOpts []GatewayMuxOption, runtimeOpts ...runtime.ServeMuxOption) *runtime.ServeMux {
 	// Prepend our metadata handler to the runtime options
 	allOpts := append([]runtime.ServeMuxOption{
+		TrustedHeaderMatcherOption(),
 		EntityMetadataOption(gatewayOpts...),
 	}, runtimeOpts...)
 
@@ -361,6 +363,8 @@ func EntityIDFromMetadataInterceptor() grpc.UnaryServerInterceptor {
 
 // UserIDFromMetadataInterceptor returns a gRPC unary interceptor that reads
 // user ID from incoming metadata and stores it in context with the given key.
+// It marks every request as a client call (see WithClientCall), and like
+// CombinedMetadataInterceptor it trusts x-user-id as sent.
 //
 // Example:
 //
@@ -372,6 +376,7 @@ func EntityIDFromMetadataInterceptor() grpc.UnaryServerInterceptor {
 //	)
 func UserIDFromMetadataInterceptor(contextKey any) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		ctx = WithClientCall(ctx)
 		if md, ok := metadata.FromIncomingContext(ctx); ok {
 			if vals := md.Get(MetadataKeyUserID); len(vals) > 0 && vals[0] != "" {
 				ctx = context.WithValue(ctx, contextKey, vals[0])
@@ -382,9 +387,15 @@ func UserIDFromMetadataInterceptor(contextKey any) grpc.UnaryServerInterceptor {
 }
 
 // CombinedMetadataInterceptor returns a gRPC unary interceptor that reads both
-// entity ID and user ID from incoming metadata.
+// entity ID and user ID from incoming metadata. It marks every request as a
+// client call (see WithClientCall).
+//
+// It trusts x-user-id as sent. Only a gateway built with NewGatewayMux strips
+// that key from client headers, so the gRPC port itself must not be reachable
+// by clients.
 func CombinedMetadataInterceptor(userIDContextKey any) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		ctx = WithClientCall(ctx)
 		if md, ok := metadata.FromIncomingContext(ctx); ok {
 			if vals := md.Get(MetadataKeyEntityID); len(vals) > 0 && vals[0] != "" {
 				ctx = WithMountedEntityID(ctx, vals[0])

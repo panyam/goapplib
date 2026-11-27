@@ -378,6 +378,7 @@ router.Handle("/songs/{songId}/likes/", mux)
 
 // Option 2: Create your own mux with custom options
 mux := runtime.NewServeMux(
+    common.TrustedHeaderMatcherOption(), // drop client-sent x-user-id / x-entity-id
     common.EntityMetadataOption(common.WithEntityParamToMetadata("songId")),
     runtime.WithErrorHandler(myErrorHandler),
     runtime.WithMarshalerOption("application/json", &runtime.JSONPb{}),
@@ -428,8 +429,9 @@ grpcServer := grpc.NewServer(
 - `ExtractPathParam(r, name)` - Router-agnostic param extraction (Go 1.22+, chi, gorilla)
 
 **Gateway helpers (Pattern B):**
-- `NewGatewayMux(opts...)` - Create mux with entity extraction
+- `NewGatewayMux(opts...)` - Create mux with entity extraction. It drops client-sent identity headers.
 - `NewGatewayMuxWithOptions(gatewayOpts, runtimeOpts...)` - Create mux with both option types
+- `TrustedHeaderMatcherOption()` - Drop client-sent `Grpc-Metadata-X-User-Id` / `-X-Entity-Id` on a mux you build
 - `EntityMetadataOption(opts...)` - Returns `runtime.ServeMuxOption` for custom mux
 - `WithEntityParamToMetadata(paramName)` - Extract param, send as metadata
 - `WithUserParamToMetadata(paramName)` - Extract user ID param
@@ -438,6 +440,8 @@ grpcServer := grpc.NewServer(
 **gRPC interceptors (Pattern B server-side):**
 - `EntityIDFromMetadataInterceptor()` - Read entity ID from metadata
 - `UserIDFromMetadataInterceptor(contextKey)` - Read user ID from metadata
+- `CombinedMetadataInterceptor(contextKey)` - Read both
+- `ClientCallInterceptor()` / `ClientCallMiddleware(h)` - Mark requests as client calls when you wire your own entry point (see SUMMARY.md, Authorization)
 - `CombinedMetadataInterceptor(userIDKey)` - Read both
 
 **Metadata keys:**

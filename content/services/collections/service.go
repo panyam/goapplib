@@ -156,21 +156,11 @@ func NewBaseCollectionsService(provider CollectionsStorageProvider, opts ...Serv
 	return s
 }
 
-// resolveUserID returns the user ID from the request, falling back to context if empty.
-// This allows interceptors/middleware to set user ID in context.
-func (s *BaseCollectionsService) resolveUserID(ctx context.Context, requestUserID string) string {
-	if requestUserID != "" {
-		return requestUserID
-	}
-	return GetUserIDFromContext(ctx, s.UserIDContextKey)
-}
-
 // DefaultNormalizer is the default normalization function.
 // It lowercases and trims whitespace.
 func DefaultNormalizer(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
 }
-
 
 // InitializeCache sets up the in-memory cache.
 func (s *BaseCollectionsService) InitializeCache() {
@@ -180,19 +170,17 @@ func (s *BaseCollectionsService) InitializeCache() {
 
 // CreateCollection creates a new collection or returns existing if duplicate.
 func (s *BaseCollectionsService) CreateCollection(ctx context.Context, req *v1.CreateCollectionRequest) (*v1.CreateCollectionResponse, error) {
-	// Resolve owner ID from request or context
-	req.OwnerId = s.resolveUserID(ctx, req.OwnerId)
+	if err := s.resolveActingUsers(ctx, &req.OwnerId); err != nil {
+		return nil, err
+	}
 
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation: "CreateCollection",
-			UserID:    req.OwnerId,
-			Request:   req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "CreateCollection",
+		UserID:    req.OwnerId,
+		Request:   req,
+		Parent:    s.loadForAuth(ctx, req.ParentId),
+	}); err != nil {
+		return nil, err
 	}
 
 	if req.Name == "" {
@@ -306,6 +294,15 @@ func (s *BaseCollectionsService) CreateCollection(ctx context.Context, req *v1.C
 
 // GetCollection retrieves a collection by ID.
 func (s *BaseCollectionsService) GetCollection(ctx context.Context, req *v1.GetCollectionRequest) (*v1.GetCollectionResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "GetCollection",
+		CollectionID: req.Id,
+		Collection:   s.loadForAuth(ctx, req.Id),
+		Request:      req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.Id == "" {
 		return nil, ErrCollectionIDRequired
 	}
@@ -330,17 +327,13 @@ func (s *BaseCollectionsService) GetCollection(ctx context.Context, req *v1.GetC
 
 // UpdateCollection updates a collection's properties.
 func (s *BaseCollectionsService) UpdateCollection(ctx context.Context, req *v1.UpdateCollectionRequest) (*v1.UpdateCollectionResponse, error) {
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation:    "UpdateCollection",
-			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
-			CollectionID: req.Collection.GetId(),
-			Request:      req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "UpdateCollection",
+		CollectionID: req.Collection.GetId(),
+		Request:      req,
+		Collection:   s.loadForAuth(ctx, req.Collection.GetId()),
+	}); err != nil {
+		return nil, err
 	}
 
 	if req.Collection == nil || req.Collection.Id == "" {
@@ -424,17 +417,13 @@ func (s *BaseCollectionsService) UpdateCollection(ctx context.Context, req *v1.U
 
 // DeleteCollection removes a collection.
 func (s *BaseCollectionsService) DeleteCollection(ctx context.Context, req *v1.DeleteCollectionRequest) (*v1.DeleteCollectionResponse, error) {
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation:    "DeleteCollection",
-			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
-			CollectionID: req.Id,
-			Request:      req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "DeleteCollection",
+		CollectionID: req.Id,
+		Request:      req,
+		Collection:   s.loadForAuth(ctx, req.Id),
+	}); err != nil {
+		return nil, err
 	}
 
 	if req.Id == "" {
@@ -521,6 +510,13 @@ func (s *BaseCollectionsService) DeleteCollection(ctx context.Context, req *v1.D
 
 // ListCollections lists collections for an owner with filtering.
 func (s *BaseCollectionsService) ListCollections(ctx context.Context, req *v1.ListCollectionsRequest) (*v1.ListCollectionsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "ListCollections",
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	pageSize := int(req.Pagination.GetPageSize())
 	if pageSize <= 0 {
 		pageSize = 50
@@ -567,6 +563,15 @@ func (s *BaseCollectionsService) ListCollections(ctx context.Context, req *v1.Li
 
 // GetCollectionTree returns a collection and its children as a tree structure.
 func (s *BaseCollectionsService) GetCollectionTree(ctx context.Context, req *v1.GetCollectionTreeRequest) (*v1.GetCollectionTreeResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "GetCollectionTree",
+		CollectionID: req.Id,
+		Collection:   s.loadForAuth(ctx, req.Id),
+		Request:      req,
+	}); err != nil {
+		return nil, err
+	}
+
 	// Get root collections or specific collection's children
 	opts := ListCollectionsOptions{
 		ParentID: req.Id,
@@ -581,6 +586,14 @@ func (s *BaseCollectionsService) GetCollectionTree(ctx context.Context, req *v1.
 	// Build tree nodes
 	nodes := make([]*v1.CollectionTreeNode, 0, len(collections))
 	for _, coll := range collections {
+		if err := s.authorize(ctx, &HookContext{
+			Operation:    "GetCollection",
+			CollectionID: coll.Id,
+			Collection:   coll,
+			Request:      &v1.GetCollectionRequest{Id: coll.Id},
+		}); err != nil {
+			continue
+		}
 		node := &v1.CollectionTreeNode{
 			Collection: coll,
 		}
@@ -605,17 +618,14 @@ func (s *BaseCollectionsService) GetCollectionTree(ctx context.Context, req *v1.
 
 // MoveCollection moves a collection to a new parent.
 func (s *BaseCollectionsService) MoveCollection(ctx context.Context, req *v1.MoveCollectionRequest) (*v1.MoveCollectionResponse, error) {
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation:    "MoveCollection",
-			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
-			CollectionID: req.Id,
-			Request:      req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "MoveCollection",
+		CollectionID: req.Id,
+		Request:      req,
+		Collection:   s.loadForAuth(ctx, req.Id),
+		Parent:       s.loadForAuth(ctx, req.NewParentId),
+	}); err != nil {
+		return nil, err
 	}
 
 	if req.Id == "" {
@@ -713,6 +723,15 @@ func (s *BaseCollectionsService) MoveCollection(ctx context.Context, req *v1.Mov
 
 // GetCollectionPath returns the ancestors of a collection (breadcrumb).
 func (s *BaseCollectionsService) GetCollectionPath(ctx context.Context, req *v1.GetCollectionPathRequest) (*v1.GetCollectionPathResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "GetCollectionPath",
+		CollectionID: req.Id,
+		Collection:   s.loadForAuth(ctx, req.Id),
+		Request:      req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.Id == "" {
 		return nil, ErrCollectionIDRequired
 	}
@@ -742,21 +761,19 @@ func (s *BaseCollectionsService) GetCollectionPath(ctx context.Context, req *v1.
 
 // AddToCollection adds an entity to a collection.
 func (s *BaseCollectionsService) AddToCollection(ctx context.Context, req *v1.AddToCollectionRequest) (*v1.AddToCollectionResponse, error) {
-	// Resolve AddedBy from request or context
-	req.AddedBy = s.resolveUserID(ctx, req.AddedBy)
+	if err := s.resolveActingUsers(ctx, &req.AddedBy); err != nil {
+		return nil, err
+	}
 
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation:    "AddToCollection",
-			UserID:       req.AddedBy,
-			CollectionID: req.CollectionId,
-			EntityID:     req.EntityId,
-			Request:      req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "AddToCollection",
+		UserID:       req.AddedBy,
+		CollectionID: req.CollectionId,
+		EntityID:     req.EntityId,
+		Request:      req,
+		Collection:   s.loadForAuth(ctx, req.CollectionId),
+	}); err != nil {
+		return nil, err
 	}
 
 	if req.CollectionId == "" {
@@ -849,18 +866,14 @@ func (s *BaseCollectionsService) AddToCollection(ctx context.Context, req *v1.Ad
 
 // RemoveFromCollection removes an entity from a collection.
 func (s *BaseCollectionsService) RemoveFromCollection(ctx context.Context, req *v1.RemoveFromCollectionRequest) (*v1.RemoveFromCollectionResponse, error) {
-	// Authorization hook
-	if s.Hooks.OnAuthorize != nil {
-		hookCtx := &HookContext{
-			Operation:    "RemoveFromCollection",
-			UserID:       GetUserIDFromContext(ctx, s.UserIDContextKey),
-			CollectionID: req.CollectionId,
-			EntityID:     req.EntityId,
-			Request:      req,
-		}
-		if err := s.Hooks.OnAuthorize(ctx, hookCtx); err != nil {
-			return nil, err
-		}
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "RemoveFromCollection",
+		CollectionID: req.CollectionId,
+		EntityID:     req.EntityId,
+		Request:      req,
+		Collection:   s.loadForAuth(ctx, req.CollectionId),
+	}); err != nil {
+		return nil, err
 	}
 
 	if req.CollectionId == "" {
@@ -912,6 +925,15 @@ func (s *BaseCollectionsService) RemoveFromCollection(ctx context.Context, req *
 
 // GetCollectionItems returns all items in a collection.
 func (s *BaseCollectionsService) GetCollectionItems(ctx context.Context, req *v1.GetCollectionItemsRequest) (*v1.GetCollectionItemsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "GetCollectionItems",
+		CollectionID: req.CollectionId,
+		Collection:   s.loadForAuth(ctx, req.CollectionId),
+		Request:      req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.CollectionId == "" {
 		return nil, ErrCollectionIDRequired
 	}
@@ -959,6 +981,14 @@ func (s *BaseCollectionsService) GetCollectionItems(ctx context.Context, req *v1
 
 // GetEntityCollections returns all collections that contain an entity.
 func (s *BaseCollectionsService) GetEntityCollections(ctx context.Context, req *v1.GetEntityCollectionsRequest) (*v1.GetEntityCollectionsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "GetEntityCollections",
+		EntityID:  req.EntityId,
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.EntityId == "" {
 		return nil, ErrEntityRequired
 	}
@@ -982,6 +1012,15 @@ func (s *BaseCollectionsService) GetEntityCollections(ctx context.Context, req *
 
 // ReorderItems updates the display order of items in a collection.
 func (s *BaseCollectionsService) ReorderItems(ctx context.Context, req *v1.ReorderItemsRequest) (*v1.ReorderItemsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "ReorderItems",
+		CollectionID: req.CollectionId,
+		Collection:   s.loadForAuth(ctx, req.CollectionId),
+		Request:      req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.CollectionId == "" {
 		return nil, ErrCollectionIDRequired
 	}
@@ -996,6 +1035,19 @@ func (s *BaseCollectionsService) ReorderItems(ctx context.Context, req *v1.Reord
 
 // BatchAddToCollection adds multiple entities to a collection at once.
 func (s *BaseCollectionsService) BatchAddToCollection(ctx context.Context, req *v1.BatchAddToCollectionRequest) (*v1.BatchAddToCollectionResponse, error) {
+	if err := s.resolveActingUsers(ctx, &req.AddedBy); err != nil {
+		return nil, err
+	}
+	if err := s.authorize(ctx, &HookContext{
+		Operation:    "BatchAddToCollection",
+		UserID:       req.AddedBy,
+		CollectionID: req.CollectionId,
+		Collection:   s.loadForAuth(ctx, req.CollectionId),
+		Request:      req,
+	}); err != nil {
+		return nil, err
+	}
+
 	if req.CollectionId == "" {
 		return nil, ErrCollectionIDRequired
 	}
@@ -1026,6 +1078,13 @@ func (s *BaseCollectionsService) BatchAddToCollection(ctx context.Context, req *
 
 // BatchGetEntityCollections returns collections for multiple entities at once.
 func (s *BaseCollectionsService) BatchGetEntityCollections(ctx context.Context, req *v1.BatchGetEntityCollectionsRequest) (*v1.BatchGetEntityCollectionsResponse, error) {
+	if err := s.authorize(ctx, &HookContext{
+		Operation: "BatchGetEntityCollections",
+		Request:   req,
+	}); err != nil {
+		return nil, err
+	}
+
 	result := make(map[string]*v1.CollectionList)
 
 	for _, entityId := range req.EntityIds {
@@ -1103,15 +1162,15 @@ func generateID() string {
 
 // Error types
 var (
-	ErrCollectionIDRequired = &CollectionsError{Message: "collection id is required"}
-	ErrNameRequired         = &CollectionsError{Message: "name is required"}
-	ErrEntityRequired       = &CollectionsError{Message: "entity_id is required"}
-	ErrCollectionNotFound   = &CollectionsError{Message: "collection not found"}
-	ErrParentNotFound       = &CollectionsError{Message: "parent collection not found"}
+	ErrCollectionIDRequired  = &CollectionsError{Message: "collection id is required"}
+	ErrNameRequired          = &CollectionsError{Message: "name is required"}
+	ErrEntityRequired        = &CollectionsError{Message: "entity_id is required"}
+	ErrCollectionNotFound    = &CollectionsError{Message: "collection not found"}
+	ErrParentNotFound        = &CollectionsError{Message: "parent collection not found"}
 	ErrCollectionHasChildren = &CollectionsError{Message: "collection has children, use recursive=true to delete"}
-	ErrCollectionHasItems   = &CollectionsError{Message: "collection has items, use force_delete=true to delete"}
-	ErrCircularReference    = &CollectionsError{Message: "cannot move collection into its own subtree"}
-	ErrMaxDepthExceeded     = &CollectionsError{Message: "maximum nesting depth exceeded"}
+	ErrCollectionHasItems    = &CollectionsError{Message: "collection has items, use force_delete=true to delete"}
+	ErrCircularReference     = &CollectionsError{Message: "cannot move collection into its own subtree"}
+	ErrMaxDepthExceeded      = &CollectionsError{Message: "maximum nesting depth exceeded"}
 )
 
 // CollectionsError represents an error in the collections service.

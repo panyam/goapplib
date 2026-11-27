@@ -53,16 +53,29 @@ type HookContext struct {
 	Operation string
 	// UserID of the user performing the operation (may be empty, hook can set it)
 	UserID string
+	// CallerID is the user in the context, set by an interceptor or middleware.
+	// It is empty for an anonymous caller and for in-process calls that set no
+	// user. Unlike UserID, it never comes from the request.
+	CallerID string
 	// EntityID being operated on (for entity tagging operations)
 	EntityID string
 	// TagID being operated on
 	TagID string
+	// Tag is the stored tag that TagID names, loaded before the hook runs. For
+	// MergeTags and PromoteTag it is the source tag. It is nil when there is
+	// none, or no such tag.
+	Tag *v1.Tag
+	// TargetTag is MergeTags' stored target tag, or nil.
+	TargetTag *v1.Tag
 	// Request is the original request object (type assert to access specific fields).
 	// The hook can modify request fields (e.g., set OwnerId from auth context).
 	Request any
 }
 
-// AuthorizeHook is called before any operation to check authorization.
+// AuthorizeHook is called at the start of every RPC, before any validation or
+// write. Operation is the RPC's name. Batch RPCs call it once for the batch,
+// and again for each item through the single-item RPC. OwnerOnly is a ready
+// policy for user-owned tags.
 // The hook can:
 // - Return an error to deny the operation
 // - Modify the request via hookCtx.Request (e.g., set OwnerId from auth context)
@@ -114,13 +127,13 @@ type AfterTagsReadHook func(ctx context.Context, tags []*v1.Tag) error
 type EventType string
 
 const (
-	EventTagCreated       EventType = "tag.created"
-	EventTagUpdated       EventType = "tag.updated"
-	EventTagDeleted       EventType = "tag.deleted"
-	EventEntityTagged     EventType = "entity.tagged"
-	EventEntityUntagged   EventType = "entity.untagged"
-	EventTagsMerged       EventType = "tags.merged"
-	EventTagPromoted      EventType = "tag.promoted"
+	EventTagCreated     EventType = "tag.created"
+	EventTagUpdated     EventType = "tag.updated"
+	EventTagDeleted     EventType = "tag.deleted"
+	EventEntityTagged   EventType = "entity.tagged"
+	EventEntityUntagged EventType = "entity.untagged"
+	EventTagsMerged     EventType = "tags.merged"
+	EventTagPromoted    EventType = "tag.promoted"
 )
 
 // Event represents a tags service event for notifications.
