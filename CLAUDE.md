@@ -24,10 +24,11 @@ Each of these directories has a CLAUDE.md with its own gotchas, loaded when a se
 
 ## Versions and releases
 
-- goapplib, its nested Go modules (`storage` and its backends) and the three TS packages share the version in `VERSION`. A PR that bumps one bumps all of them, and the first PR after a release that changes any package bumps them. CI checks it (`scripts/check-versions.sh`). A release tags each nested module as `<dir>/vX.Y.Z` beside `vX.Y.Z`.
+- goapplib, its nested Go modules (`storage` and its backends, and `dsmigrate`) and the three TS packages share the version in `VERSION`. A PR that bumps one bumps all of them, and the first PR after a release that changes any package bumps them. CI checks it (`scripts/check-versions.sh`). A release tags each nested module as `<dir>/vX.Y.Z` beside `vX.Y.Z`.
 - A dependency two modules share moves in all of them at once, since an app importing both gets the higher version (oneauth, for one).
 - Run `go get dep@vX` only in modules whose go.mod already lists dep, then `go mod tidy` in each. In a module without it, `go get` raises unrelated indirects (s3 got x/tools and testify in #229).
 - Bumps are patches by default, even for new API. Ask before a minor.
+- `dsmigrate` upgrades Datastore entities on read and by backfill; `make test-datastore` runs its emulator tests (docsite page `reference/dsmigrate`).
 - When a capability lands, tag a release. A `v*` tag publishes the TS packages. `scripts/CLAUDE.md` has the steps and the publishing traps.
 - Consumers bump to the tag: `panyam/thambura`, `panyam/agni`, `panyam/diffpp`, `turnforge/lilbattle`. File an upgrade ticket in each one a release helps.
 

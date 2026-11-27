@@ -9,6 +9,7 @@ goapplib, its storage module, `@panyam/tsappkit`, `@panyam/tsappkit-solid` and `
 |---|---|---|
 | goapplib (Go) | `go get github.com/panyam/goapplib` | [pkg.go.dev](https://pkg.go.dev/github.com/panyam/goapplib) |
 | goapplib storage (Go) | `go get github.com/panyam/goapplib/storage` | [The storage module](storage-module/) |
+| goapplib dsmigrate (Go) | `go get github.com/panyam/goapplib/dsmigrate` | [Online schema migrations](dsmigrate/) |
 | `@panyam/tsappkit` | `pnpm add @panyam/tsappkit` | [npm](https://www.npmjs.com/package/@panyam/tsappkit) |
 | `@panyam/tsappkit-solid` | `pnpm add @panyam/tsappkit-solid` | [npm](https://www.npmjs.com/package/@panyam/tsappkit-solid) |
 | `@panyam/tsappkit-dock` | `pnpm add @panyam/tsappkit-dock dockview-core` | [npm](https://www.npmjs.com/package/@panyam/tsappkit-dock) |
