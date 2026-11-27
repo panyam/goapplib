@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the Datastore backend tests (storage/backends/gae) against a local emulator. It starts the
+# Runs the Datastore tests (storage/backends/gae and dsmigrate) against a local emulator. It starts the
 # emulator binary from gcloud's cloud-datastore-emulator component directly, so it needs that
 # component and Java, but not gcloud's beta commands. CI skips these tests, since they need the
 # emulator; run this before changing the Datastore backend.
@@ -24,5 +24,6 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 
-cd "$root/storage/backends/gae"
-DATASTORE_EMULATOR_HOST="localhost:$port" DATASTORE_PROJECT_ID=goapplib-test go test -count=1 ./...
+for dir in storage/backends/gae dsmigrate; do
+  (cd "$root/$dir" && DATASTORE_EMULATOR_HOST="localhost:$port" DATASTORE_PROJECT_ID=goapplib-test go test -count=1 ./...)
+done
