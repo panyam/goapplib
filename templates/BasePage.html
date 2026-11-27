@@ -45,12 +45,12 @@ CUSTOMIZABLE BLOCKS:
 
     <!-- Theme initialization (before CSS to prevent flash) -->
     <script>
-    if (localStorage.getItem('theme') === 'dark' ||
-        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
+    (function () {
+        var dark = localStorage.getItem('theme') === 'dark' ||
+            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    })();
     </script>
 
     <!-- CSS -->

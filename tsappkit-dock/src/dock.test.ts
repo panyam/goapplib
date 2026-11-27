@@ -72,6 +72,7 @@ afterEach(() => {
   for (const d of docks.splice(0)) d.dispose();
   container.remove();
   document.documentElement.removeAttribute("data-theme");
+  document.documentElement.classList.remove("dark");
 });
 
 describe("createDock", () => {
@@ -171,6 +172,20 @@ describe("createDock", () => {
     document.documentElement.setAttribute("data-theme", "dark");
     await settle();
     expect(themed()).toBe(true);
+    dock.dispose();
+  });
+
+  it("reads its theme callback again when <html class> changes", async () => {
+    const root = document.documentElement;
+    const dock = make({ theme: () => (root.classList.contains("dark") ? "dark" : "light") });
+    const themed = () => container.querySelector(".dockview-theme-dark") !== null || container.classList.contains("dockview-theme-dark");
+    expect(themed()).toBe(false);
+    root.classList.add("dark");
+    await settle();
+    expect(themed()).toBe(true);
+    root.classList.remove("dark");
+    await settle();
+    expect(themed()).toBe(false);
     dock.dispose();
   });
 

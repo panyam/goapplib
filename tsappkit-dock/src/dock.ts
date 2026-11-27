@@ -87,8 +87,10 @@ export interface DockOptions {
   /** The storage key. Required with `storage`. */
   key?: string;
   /**
-   * Returns the dock's theme. It is read at creation, when `<html data-theme>` changes, when the
-   * OS colour scheme changes, and on `applyTheme()`. Default: `documentTheme()`.
+   * Returns the dock's theme. It is read at creation, when `<html data-theme>` or `<html class>`
+   * changes, when the OS colour scheme changes, and on `applyTheme()`. Default: `documentTheme()`.
+   * A page that marks dark mode with `<html class="dark">` passes a callback that reads the class,
+   * and the dock follows it with no observer of its own.
    */
   theme?: () => "light" | "dark";
   /** Each edge's drawer size and bounds. An edge left out gets the defaults from drawer.ts. */
@@ -527,7 +529,7 @@ export function createDock(opts: DockOptions): Dock {
   const view = doc.defaultView;
   if (view?.MutationObserver) {
     const mo = new view.MutationObserver(applyTheme);
-    mo.observe(doc.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    mo.observe(doc.documentElement, { attributes: true, attributeFilter: ["data-theme", "class"] });
     cleanups.push(() => mo.disconnect());
   }
   const mq = view?.matchMedia?.("(prefers-color-scheme: dark)");
