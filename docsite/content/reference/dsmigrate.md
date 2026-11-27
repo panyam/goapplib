@@ -27,7 +27,9 @@ Upgraders work on raw properties, so they can read fields the current struct no 
 
 `dsmigrate.Get` and `dsmigrate.GetAll` load the raw properties, run the upgraders from the entity's version up to `Current`, and load the result into the caller's struct. When an upgrade ran, they write it back in a transaction, but only if the stored entity still equals what they read. If another instance upgraded it first, or an old build still serving wrote it meanwhile, that write wins, and the next read upgrades it if it still needs it. A failed write-back never fails the read; `Registry.OnWriteBackError` hears about it.
 
-`dsmigrate.Put` stamps the current version on every write, so a new entity never looks old. Inside a transaction, use `reg.Load` to upgrade without writing, and `reg.Save` to get stamped properties for `tx.Put`.
+`dsmigrate.Put` stamps the current version on every write, so a new entity never looks old. Inside a transaction, use `reg.Load(key, props, &dst)` to upgrade without writing, and `reg.Save` to get stamped properties for `tx.Put`.
+
+All three reads fill the struct's key as `client.Get` does. A field tagged `datastore:"__key__"` gets the key, and a type that implements `datastore.KeyLoader` gets `LoadKey`.
 
 An entity written by a newer build, above `Current`, is left alone. An older build can't know that schema, so it doesn't rewrite it.
 

@@ -242,3 +242,45 @@ describe("panelsMenu", () => {
     host.remove();
   });
 });
+
+describe("tabs", () => {
+  const tabFor = (title: string): HTMLElement => {
+    const tab = [...container.querySelectorAll<HTMLElement>(".dv-tab")].find((t) => t.textContent?.trim() === title);
+    if (!tab) throw new Error(`no tab titled ${title}`);
+    return tab;
+  };
+
+  it("puts no interactive control inside a tab, so axe reports no nested-interactive", () => {
+    make();
+    const tabs = container.querySelectorAll(".dv-tab");
+    expect(tabs.length).toBe(3);
+    for (const tab of tabs) {
+      expect(tab.querySelectorAll("[role], [tabindex], [aria-label], button, a, input").length).toBe(0);
+    }
+  });
+
+  it("closes the panel when its tab's close icon is clicked", () => {
+    const dock = make();
+    tabFor("Ask").querySelector<HTMLElement>(".dv-default-tab-action")!.click();
+    expect(openIds(dock)).toEqual(["diff", "files"]);
+  });
+
+  it("follows a title change", () => {
+    const dock = make();
+    dock.api.getPanel("ask")!.api.setTitle("Ask AI");
+    expect(tabFor("Ask AI")).toBeTruthy();
+  });
+
+  it("uses the tab option's renderer, and the dock's tab where it returns undefined", () => {
+    make({
+      tab: (o) => {
+        if (o.id !== "ask") return undefined;
+        const element = document.createElement("div");
+        element.dataset.custom = "ask";
+        return { element, init: () => {} };
+      },
+    });
+    expect(container.querySelectorAll(".dv-tab [data-custom]").length).toBe(1);
+    expect(container.querySelectorAll(".dv-tab .dv-default-tab-content").length).toBe(2);
+  });
+});

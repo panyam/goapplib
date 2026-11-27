@@ -3,6 +3,8 @@ package dsmigrate
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
 	"sync"
 
 	"cloud.google.com/go/datastore"
@@ -167,15 +169,26 @@ func (r *Registry) Upgrade(kind string, props datastore.PropertyList) (datastore
 	return s.Upgrade(props)
 }
 
-// Load upgrades props and loads them into dst, a pointer to a struct. It reports whether an
-// upgrade ran, so the caller can write the result back. It doesn't write anything itself, which
-// makes it the call to use inside a transaction.
-func (r *Registry) Load(kind string, props datastore.PropertyList, dst any) (upgraded datastore.PropertyList, changed bool, err error) {
-	upgraded, changed, err = r.Upgrade(kind, props)
+// Load upgrades props, the properties stored at key, and loads them into dst, a pointer to a
+// struct or a datastore.PropertyLoadSaver. The kind's Schema comes from key.Kind. It reports
+// whether an upgrade ran, so the caller can write the result back. It doesn't write anything
+// itself, which makes it the call to use inside a transaction.
+//
+// Load fills dst's key the way client.Get does. A struct field tagged datastore:"__key__" gets
+// key, and a dst that implements datastore.KeyLoader gets LoadKey(key) instead. key must not be
+// nil.
+func (r *Registry) Load(key *datastore.Key, props datastore.PropertyList, dst any) (upgraded datastore.PropertyList, changed bool, err error) {
+	if key == nil {
+		return nil, false, errors.New("dsmigrate: Load needs the entity's key")
+	}
+	upgraded, changed, err = r.Upgrade(key.Kind, props)
 	if err != nil {
 		return nil, false, err
 	}
-	return upgraded, changed, r.loadStruct(dst, upgraded)
+	if err := r.loadStruct(dst, upgraded); err != nil {
+		return nil, false, err
+	}
+	return upgraded, changed, loadKey(dst, key)
 }
 
 // Save turns src, a pointer to a struct or a datastore.PropertyLoadSaver, into properties with the
@@ -204,6 +217,29 @@ func (r *Registry) loadStruct(dst any, props datastore.PropertyList) error {
 		return nil
 	}
 	return err
+}
+
+// loadKey gives dst its key the way client.Get does, since datastore.LoadStruct and a
+// PropertyLoadSaver's Load never see it (#253).
+func loadKey(dst any, key *datastore.Key) error {
+	if kl, ok := dst.(datastore.KeyLoader); ok {
+		return kl.LoadKey(key)
+	}
+	v := reflect.ValueOf(dst)
+	if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Struct {
+		return nil
+	}
+	v = v.Elem()
+	keyType := reflect.TypeOf(key)
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Type().Field(i)
+		name, _, _ := strings.Cut(f.Tag.Get("datastore"), ",")
+		if name == "__key__" && f.Type == keyType && f.IsExported() {
+			v.Field(i).Set(reflect.ValueOf(key))
+			return nil
+		}
+	}
+	return nil
 }
 
 func saveProps(src any) (datastore.PropertyList, error) {
