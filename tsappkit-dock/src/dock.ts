@@ -1,5 +1,13 @@
 import { DockviewComponent, themeDark, themeLight } from "dockview-core";
-import type { DockviewApi, DockviewGroupPanel, IContentRenderer, IHeaderActionsRenderer } from "dockview-core";
+import type {
+  CreateComponentOptions,
+  DockviewApi,
+  DockviewGroupPanel,
+  GroupPanelPartInitParameters,
+  IContentRenderer,
+  IHeaderActionsRenderer,
+  ITabRenderer,
+} from "dockview-core";
 import { DRAWER_DEFAULT, type DrawerEdge } from "./drawer.js";
 import { DrawerView, type DrawerConfig } from "./drawerView.js";
 import {
@@ -105,6 +113,15 @@ export interface DockOptions {
    * active panel. Default true. Drawer tabs always have one.
    */
   moveMenu?: boolean;
+  /**
+   * Builds the tab for a panel, as dockview's `createTabComponent` does. Return undefined to use
+   * the dock's tab. dockview puts the returned element inside its `role="tab"` element, so a
+   * control in it is nested in the tab, which axe reports as `nested-interactive`.
+   *
+   * The dock's tab shows the title and a close icon. The icon has no role and can't be focused,
+   * so it's for the mouse; dockview 8 closes the focused tab on Delete or Backspace (#254).
+   */
+  tab?: (options: CreateComponentOptions) => ITabRenderer | undefined;
 }
 
 /** A dock made by `createDock`. */
@@ -202,6 +219,9 @@ export function createDock(opts: DockOptions): Dock {
 
   const component = new DockviewComponent(container, {
     createComponent: (o) => renderer(o.id),
+    // dockview only asks createTabComponent for a tab with a component name, so every tab gets one.
+    defaultTabComponent: "tsappkit-dock",
+    createTabComponent: (o) => opts.tab?.(o) ?? plainTab(doc),
     // "always" keeps a background tab's content attached, only hidden, in a layer dockview
     // positions over the group. The default detaches it, and an app that finds its content by id
     // at startup would miss the panels behind a tab. The layer also means dragging a tab between
@@ -713,6 +733,57 @@ export function createDock(opts: DockOptions): Dock {
         d.dispose();
       }
       component.dispose();
+    },
+  };
+}
+
+const CLOSE_ICON =
+  "M2.1 27.3L0 25.2L11.55 13.65L0 2.1L2.1 0L13.65 11.55L25.2 0L27.3 2.1L15.75 13.65L27.3 25.2L25.2 27.3L13.65 15.75L2.1 27.3Z";
+
+/**
+ * dockview's default tab, with a close icon that isn't a control. dockview's own gives the icon
+ * `role="button"`, which nests a control in the tab (#254). The class names are dockview's, so its
+ * stylesheet styles this tab the same way.
+ */
+function plainTab(doc: Document): ITabRenderer {
+  const element = doc.createElement("div");
+  element.className = "dv-default-tab";
+  const content = doc.createElement("div");
+  content.className = "dv-default-tab-content";
+  const action = doc.createElement("div");
+  action.className = "dv-default-tab-action";
+  const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "11");
+  svg.setAttribute("height", "11");
+  svg.setAttribute("viewBox", "0 0 28 28");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.classList.add("dv-svg");
+  const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", CLOSE_ICON);
+  svg.appendChild(path);
+  action.appendChild(svg);
+  element.append(content, action);
+  const offs: (() => void)[] = [];
+  return {
+    element,
+    init(params: GroupPanelPartInitParameters) {
+      content.textContent = params.title ?? "";
+      const sub = params.api.onDidTitleChange((e) => (content.textContent = e.title ?? ""));
+      offs.push(() => sub.dispose());
+      // dockview starts a tab drag on pointerdown; this keeps a click on the icon a click.
+      const down = (e: Event) => e.preventDefault();
+      const click = (e: Event) => {
+        if (e.defaultPrevented) return;
+        e.preventDefault();
+        params.api.close();
+      };
+      action.addEventListener("pointerdown", down);
+      action.addEventListener("click", click);
+      offs.push(() => action.removeEventListener("pointerdown", down), () => action.removeEventListener("click", click));
+    },
+    dispose() {
+      for (const off of offs.splice(0)) off();
     },
   };
 }
