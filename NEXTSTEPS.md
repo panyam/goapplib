@@ -5,11 +5,11 @@ Maintained by /checkpoint: one thread per branch, pruned when the branch merges.
 
 ## At a glance
 
-- No active mission. goapplib's storage work for agni's `mission_linked_sources` (panyam/agni#1722) shipped in v0.7.26: Git LFS, S3 and GCS mounts and blob stores, bucket events, SharePoint and OneDrive, and `mounts.Credentials` in the driver API. agni is on it (panyam/agni#1816, closed).
-- v0.7.35 is the latest tag (2026-11-24). It adds #242 (`github.WithLazySnapshots`, which pins a commit and lists its tree at `Prepare` and fetches each file on first read, so `Limits` apply to one read; and `mounts.FetchingLocalizer`, which `Registry.HostPath` calls). It moves to oneauth v0.3.22. panyam/agni#1877 needs it, and the agni bump to v0.7.35 is in progress. v0.7.34 added #241 (`githubtest.WithTLS`, `cmd/fakegithub --tls-cert/--tls-key`). thambura, diffpp and lilbattle get an upgrade ticket when they next bump goapplib.
+- No active mission. goapplib's storage work for agni's `mission_linked_sources` (panyam/agni#1722) shipped in v0.7.26.
+- v0.7.40 is the latest tag (2026-11-26). main has unreleased 0.7.41 work: #249 added `dsmigrate`, a nested module for upgrading Datastore entities online (upgrade on read with a guarded write-back, plus a resumable backfill). Next: release 0.7.41 (`scripts/release.sh 0.7.41`). Then oneauth's `stores/gae` adopts it as an opt-in registry, so notation can upgrade its pre-oneauth auth records without a maintenance window.
 - Waiting on consumers to port onto tsappkit-dock 0.7.11: panyam/diffpp#172 and turnforge/lilbattle#203. lilbattle#203 also moves the mobile viewer off the deprecated `MobileBottomDrawer`, and needs lilbattle's dockview 1.17 upgraded to 4.13+ first. lilbattle#201 (the v0.7.3 upgrade) is still open. #146 waits on lilbattle's mobile port.
 - Waiting: content services (#6–#9, #13–#15, #17), #18, #19, #28, #29, #43, #44, #49, #56, #64, #82, #83, #118, #146, #223 (parallel fetches and live tests for bucket views), #225 (lazy bucket views, which #242 did for GitHub through `FetchingLocalizer`).
-- This run: #242 merged and v0.7.35 released. No branch threads are open.
+- This run: #249 merged (dsmigrate, bumped to 0.7.41). Dropped the v0.7.35 line, since v0.7.40 is out and panyam/agni#1877 is closed. No branch threads are open.
 
 ## Across threads
 
