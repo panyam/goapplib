@@ -6,7 +6,7 @@ toolchain go1.27.4
 
 require (
 	cloud.google.com/go/datastore v1.21.0
-	github.com/panyam/goapplib/storage v0.7.42
+	github.com/panyam/goapplib/storage v0.7.43
 )
 
 require (

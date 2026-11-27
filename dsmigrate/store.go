@@ -119,19 +119,43 @@ func (r *Registry) writeBack(ctx context.Context, client *datastore.Client, key 
 	}
 }
 
-// sameProperties compares two property lists regardless of the order of differently named
-// properties. Values of one multi-valued property keep their order, which is meaningful.
+// sameProperties compares two property lists regardless of property order, at the top level
+// and inside nested entities, at any depth. Datastore doesn't promise either order, and two
+// reads of one unchanged entity can differ in it. Values of one multi-valued property keep
+// their order, which is meaningful.
 func sameProperties(a, b datastore.PropertyList) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	return reflect.DeepEqual(sortedByName(a), sortedByName(b))
+	return reflect.DeepEqual(normalized(a), normalized(b))
 }
 
-func sortedByName(props datastore.PropertyList) datastore.PropertyList {
-	out := append(datastore.PropertyList(nil), props...)
+// normalized copies props sorted by name, with every nested entity's properties sorted too.
+func normalized(props []datastore.Property) []datastore.Property {
+	out := make([]datastore.Property, len(props))
+	for i, p := range props {
+		p.Value = normalizedValue(p.Value)
+		out[i] = p
+	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
+}
+
+func normalizedValue(v any) any {
+	switch n := v.(type) {
+	case *datastore.Entity:
+		if n == nil {
+			return n
+		}
+		return &datastore.Entity{Key: n.Key, Properties: normalized(n.Properties)}
+	case []any:
+		out := make([]any, len(n))
+		for i, e := range n {
+			out[i] = normalizedValue(e)
+		}
+		return out
+	}
+	return v
 }
 
 // BackfillOptions tunes a Backfill run.
